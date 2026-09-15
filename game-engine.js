@@ -103,6 +103,62 @@
     return { stars, profit, reasons };
   }
 
+  function copy(value) {
+    if (Array.isArray(value)) return value.map(copy);
+    if (value && typeof value === 'object') {
+      const result = {};
+      for (const [key, nested] of Object.entries(value)) result[key] = copy(nested);
+      return result;
+    }
+    return value;
+  }
+
+  function createShiftState(level) {
+    return {
+      levelId: level.id,
+      secondsRemaining: level.durationSeconds,
+      orders: copy(level.initialOrders),
+      pallets: [],
+      vehicles: copy(level.vehicles),
+      events: [],
+      metrics: {
+        deliveredOrders: 0,
+        cancelledOrders: 0,
+        spoiledPallets: 0,
+        routePenalty: 0,
+      },
+    };
+  }
+
+  function advanceScenario(state, event) {
+    const next = copy(state);
+    next.events.push(copy(event));
+
+    if (event.type === 'demand-increase') {
+      next.orders = next.orders.map((order) => order.id === event.orderId
+        ? { ...order, quantity: order.quantity + event.quantity }
+        : order);
+    } else if (event.type === 'vehicle-ready') {
+      next.vehicles = next.vehicles.map((vehicle) => vehicle.id === event.vehicleId
+        ? { ...vehicle, ready: true }
+        : vehicle);
+    } else if (event.type === 'store-reception-change') {
+      next.orders = next.orders.map((order) => order.storeId === event.storeId
+        ? { ...order, acceptsFromSecond: event.acceptsFromSecond }
+        : order);
+    } else if (event.type === 'order-cancelled') {
+      let cancelled = false;
+      next.orders = next.orders.map((order) => {
+        if (order.id !== event.orderId || order.cancelled) return order;
+        cancelled = true;
+        return { ...order, cancelled: true };
+      });
+      if (cancelled) next.metrics.cancelledOrders += 1;
+    }
+
+    return next;
+  }
+
   return {
     ZONES,
     ITEMS,
@@ -112,5 +168,7 @@
     loadPallet,
     buildRoute,
     scoreShift,
+    createShiftState,
+    advanceScenario,
   };
 });
