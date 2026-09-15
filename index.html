@@ -20,21 +20,24 @@
       <div class="metric"><div class="label">Загрузка</div><div class="value" id="utilization">0%</div><div class="hint warn">соберите паллету</div></div>
     </section>
 
+    <div class="event-banner" id="eventBanner" role="status" aria-live="polite"></div>
+
     <section class="screen active" data-screen="warehouse">
       <section class="card warehouse-card">
         <div class="card-head"><div><h2>Схема центра</h2><span class="sub">Выберите зону для сборки</span></div></div>
         <div class="warehouse-map" aria-label="Схема склада">
           <div class="zone receiving"><strong>📥 Приёмка</strong><span>2 машины</span></div>
-          <div class="zone chilled"><strong>❄️ Охлаждёнка</strong><span>молоко · бананы</span></div>
-          <div class="zone dry"><strong>🧱 Сухач</strong><span>вода · хлеб</span></div>
+          <div class="zone chilled" data-zone="chilled"><strong>❄️ Охлаждёнка</strong><span>молоко · бананы</span></div>
+          <div class="zone dry" data-zone="dry"><strong>🧱 Сухач</strong><span>вода · хлеб</span></div>
+          <div class="zone frozen" data-zone="frozen"><strong>🧊 Заморозка</strong><span>мороженое</span></div>
           <div class="zone dispatch"><strong>🛠️ Отгрузка</strong><span id="mapPallets">0 паллет</span></div>
           <span class="map-truck">🚚</span><span class="map-pallet">ПАЛЛЕТА</span>
         </div>
       </section>
 
       <section class="card mission-card">
-        <div class="mission-title"><span>🚨</span><div><strong>Северный почти без воды</strong><small>Критическая задача · осталось 18 минут</small></div></div>
-        <div class="mission-row"><span>Нужно собрать</span><b>💧 Вода · 2 шт.</b></div>
+        <div class="mission-title"><span>🚨</span><div><strong id="missionTitle">Северный почти без воды</strong><small id="missionHint">Критическая задача</small></div></div>
+        <div class="mission-row"><span>Нужно собрать</span><b id="missionOrder">💧 Вода · 2 шт.</b></div>
         <div class="mission-row"><span>Текущая машина</span><button class="link-button" data-action="OPEN_VEHICLES" id="vehicleName">🚚 Сухой фургон</button></div>
       </section>
 
@@ -62,7 +65,7 @@
     <div class="modal-head"><h2 id="builderTitle">Сборка паллеты</h2><button class="close" data-action="CLOSE_BUILDER" aria-label="Закрыть">×</button></div>
     <p class="builder-feedback" id="builderFeedback"></p>
     <div class="select-label">Даркстор</div>
-    <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Северный</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Центральный</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Западный</button></div>
+    <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Северный</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Центральный</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Западный</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Восточный</button></div>
     <div class="select-label">Зона</div>
     <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry">🧱 Сухач</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled">❄️ Охлаждёнка</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen">🧊 Заморозка</button></div>
     <div class="select-label">Добавить товар</div>
@@ -79,10 +82,19 @@
   </section></div>
 
   <div class="modal-backdrop" id="reportModal" aria-hidden="true"><section class="modal report" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
-    <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Загрузка машин</small><strong id="reportUtilization">0%</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><button class="btn" data-action="CLOSE_REPORT">Продолжить</button>
+    <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Доставлено</small><strong id="reportDelivered">0%</strong></div><div class="report-stat"><small>Вовремя</small><strong id="reportOnTime">0%</strong></div><div class="report-stat"><small>Загрузка машин</small><strong id="reportUtilization">0%</strong></div><div class="report-stat"><small>Испорчено паллет</small><strong id="reportSpoiled">0</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><ul class="report-reasons" id="reportReasons"></ul><button class="btn" id="nextShift" data-action="SHOW_STORY_AFTER">Следующая смена</button>
+  </section></div>
+
+  <div class="modal-backdrop" id="levelBriefing" aria-hidden="true"><section class="modal story-card" id="storyCard" role="dialog" aria-modal="true" aria-labelledby="briefingTitle">
+    <span class="story-kicker" id="briefingKicker">Новая смена</span><h2 id="briefingTitle">Уровень 1</h2><p id="briefingText">Инструкции смены.</p><p class="story-goal" id="briefingGoal"></p><button class="btn" data-action="CONTINUE_STORY">Начать смену</button>
+  </section></div>
+
+  <div class="modal-backdrop" id="endlessMode" aria-hidden="true"><section class="modal story-card" role="dialog" aria-modal="true" aria-labelledby="endlessTitle">
+    <span class="story-kicker">Кампания завершена</span><h2 id="endlessTitle">Бесконечный режим</h2><p>Скоро здесь появятся новые смены. Пока режим находится в разработке.</p>
   </section></div>
 
   <script src="game-engine.js"></script>
+  <script src="levels.js"></script>
   <script src="app-state.js"></script>
   <script src="app.js"></script>
 </body>

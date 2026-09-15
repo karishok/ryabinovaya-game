@@ -14,3 +14,19 @@ button { min-height:44px; font:inherit; color:inherit; border:0; cursor:pointer;
 .route-stop { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:7px 0; padding:8px 10px; border:1px solid #3a484d; border-radius:10px; background:#243137; }.route-stop button { width:44px; min-height:44px; margin-left:4px; border-radius:9px; background:#2a393e; }.route-stop button:disabled { opacity:.35; cursor:default; }.empty-route { margin:7px 0; color:var(--muted); font-size:12px; }
 .toast { position:fixed; z-index:30; bottom:76px; left:50%; max-width:calc(100% - 30px); padding:11px 14px; transform:translate(-50%,20px); border-radius:12px; background:#ecf9f6; color:#11241f; box-shadow:var(--shadow); font-weight:750; opacity:0; pointer-events:none; transition:.2s; }.toast.show { transform:translate(-50%,0); opacity:1; }
 @media (max-width:360px) { .brand small { max-width:132px; }.metric .value { font-size:15px; }.modal-foot { align-items:flex-start; flex-direction:column; }.modal-foot .btn { width:100%; } }
+
+.frozen { top:41%; left:29%; min-height:60px; border-color:#a7b8ff99; background:#303860e8; }
+.zone.locked { display:none; }
+button:disabled { opacity:.45; cursor:default; }
+.report-reasons { margin:0 0 16px; padding-left:19px; color:var(--muted); text-align:left; font-size:12px; }
+.report-reasons li + li { margin-top:5px; }
+.story-card { align-self:center; text-align:center; background:linear-gradient(145deg,#22334b,#182126); }
+.story-card h2 { margin:5px 0 9px; font-size:22px; }
+.story-card p { color:var(--muted); }
+.story-kicker { color:var(--mint); font-size:11px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.story-goal { padding:10px; border-radius:12px; background:#111b27; color:var(--text)!important; font-size:12px; }
+.event-banner { display:none; margin:-4px 0 12px; padding:10px 12px; border:1px solid #76efc866; border-radius:12px; background:#193b3a; color:#cbfff0; font-weight:700; font-size:12px; }
+.event-banner.show { display:block; animation:banner-in .2s ease-out; }
+.toast.error { background:#ffe1e6; color:#54222d; }
+.toast.info { background:#dcecff; color:#17375b; }
+@keyframes banner-in { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
