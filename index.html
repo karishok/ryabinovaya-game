@@ -3,84 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#10151a" />
+  <meta name="theme-color" content="#101827" />
   <title>Рябиновая — Паллета</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="app">
+  <main class="app" aria-live="polite">
     <header class="topbar">
-      <div class="brand"><div class="logo">📦</div><div><h1>Рябиновая</h1><small>Распределительный центр · Смена 04 · Всё под контролем</small></div></div>
-      <div class="shift"><div class="clock" id="clock">14:26 / 18:00</div><button class="pause" id="pause" title="Пауза">Ⅱ</button></div>
+      <div class="brand"><div class="logo">📦</div><div><h1>Рябиновая</h1><small id="levelTitle">Уровень 1 · Один заказ</small></div></div>
+      <div class="shift"><div class="clock" id="clock">03:30</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
     </header>
 
-    <section class="metrics">
-      <div class="metric"><div class="label">Заказы закрыты</div><div class="value" id="orders">76 / 100</div><div class="hint">+12 за последний час</div></div>
-      <div class="metric"><div class="label">Доставлено вовремя</div><div class="value" id="ontime">92%</div><div class="hint">выше цели 90%</div></div>
-      <div class="metric"><div class="label">Заполнение транспорта</div><div class="value" id="utilization">87%</div><div class="hint warn">можно улучшить</div></div>
-      <div class="metric"><div class="label">Прогноз прибыли</div><div class="value" id="profit">18 400 ₽</div><div class="hint">цель 16 000 ₽</div></div>
+    <section class="metrics" aria-label="Показатели смены">
+      <div class="metric"><div class="label">Заказы</div><div class="value" id="orders">0 / 1</div><div class="hint">главная задача</div></div>
+      <div class="metric"><div class="label">Вовремя</div><div class="value" id="ontime">92%</div><div class="hint">цель 90%</div></div>
+      <div class="metric"><div class="label">Загрузка</div><div class="value" id="utilization">0%</div><div class="hint warn">соберите паллету</div></div>
     </section>
 
-    <div class="layout">
-      <section class="card">
-        <div class="card-head"><div><h2>Схема центра</h2><span class="sub">Перемещение товара и сборка паллет</span></div><button class="btn secondary small" id="focusBtn">Фокус: срочное</button></div>
-        <div class="warehouse">
-          <div class="map">
-            <div class="zone receiving"><strong>📥 ПРИЁМКА</strong><span>2 машины ожидают</span><div class="shelf-grid"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-            <div class="zone cold"><strong>❄️ ХОЛОДИЛЬНАЯ ЗОНА</strong><span>Молоко · йогурт · овощи</span><div class="shelf-grid"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-            <div class="zone racks"><strong>🧱 СТЕЛЛАЖИ A–D</strong><span>Заполненность 74%</span><div class="shelf-grid"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-            <div class="zone build"><strong>🛠️ СБОРКА И ОТГРУЗКА</strong><span>3 паллеты готовы</span><div class="shelf-grid"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-            <div class="truck">🚚</div><div class="pallet">ПАЛЛЕТА<br>№104</div><div class="worker one">●</div><div class="worker two">●</div>
-          </div>
-          <div class="legend"><span><i class="dot red"></i>критический дефицит</span><span><i class="dot orange"></i>нужно собрать</span><span><i class="dot"></i>в норме</span><span><i class="dot blue"></i>приёмка</span></div>
+    <section class="screen active" data-screen="warehouse">
+      <section class="card warehouse-card">
+        <div class="card-head"><div><h2>Схема центра</h2><span class="sub">Выберите зону для сборки</span></div></div>
+        <div class="warehouse-map" aria-label="Схема склада">
+          <div class="zone receiving"><strong>📥 Приёмка</strong><span>2 машины</span></div>
+          <div class="zone chilled"><strong>❄️ Охлаждёнка</strong><span>молоко · бананы</span></div>
+          <div class="zone dry"><strong>🧱 Сухач</strong><span>вода · хлеб</span></div>
+          <div class="zone dispatch"><strong>🛠️ Отгрузка</strong><span id="mapPallets">0 паллет</span></div>
+          <span class="map-truck">🚚</span><span class="map-pallet">ПАЛЛЕТА</span>
         </div>
       </section>
 
-      <section class="card mobile-focus">
-        <div class="focus-title"><div class="focus-icon">🚨</div><div><strong>Северный почти без воды</strong><small>Критическая задача · осталось 18 минут</small></div></div>
-        <div class="focus-row"><span>Нужно собрать</span><b>💧 Вода · 40 шт.</b></div>
-        <div class="focus-row"><span>Ближайшая машина</span><b>🚚 №3 · через 6 мин</b></div>
+      <section class="card mission-card">
+        <div class="mission-title"><span>🚨</span><div><strong>Северный почти без воды</strong><small>Критическая задача · осталось 18 минут</small></div></div>
+        <div class="mission-row"><span>Нужно собрать</span><b>💧 Вода · 2 шт.</b></div>
+        <div class="mission-row"><span>Текущая машина</span><button class="link-button" data-action="OPEN_VEHICLES" id="vehicleName">🚚 Сухой фургон</button></div>
       </section>
 
-      <aside class="side">
-        <section class="card stores"><div class="card-head"><div><h2>Дарксторы</h2><span class="sub">Состояние спроса</span></div><span class="badge">3 объекта</span></div>
-          <div class="store urgent"><div class="store-row"><div><div class="store-name">Северный</div><div class="store-meta">до дефицита: 18 мин</div></div><span class="badge red">Срочно</span></div><div class="bar"><i class="red" style="width:34%"></i></div><div class="goods"><span>💧 Вода 80/120</span><span>🥛 Молоко 35/40</span></div></div>
-          <div class="store"><div class="store-row"><div><div class="store-name">Центральный</div><div class="store-meta">до дефицита: 46 мин</div></div><span class="badge orange">Внимание</span></div><div class="bar"><i class="orange" style="width:63%"></i></div><div class="goods"><span>🍌 Бананы 42/60</span><span>🍞 Хлеб 28/35</span></div></div>
-          <div class="store"><div class="store-row"><div><div class="store-name">Западный</div><div class="store-meta">запас на 2 ч 10 мин</div></div><span class="badge">Стабильно</span></div><div class="bar"><i style="width:88%"></i></div><div class="goods"><span>🥤 Напитки 74/60</span><span>🍫 Снеки 90/70</span></div></div>
-        </section>
+      <button class="btn primary-cta" data-action="OPEN_BUILDER">Собрать паллету</button>
+    </section>
 
-        <section class="card inbound"><div class="card-head"><div><h2>Входящие машины</h2><span class="sub">Товар в пути</span></div></div>
-          <div class="shipment"><div class="ship-icon">🚛</div><div><strong>Поставщик «Свежий день»</strong><small>Молоко · вода · овощи</small></div><div class="spacer"></div><span class="load">через 4 мин</span></div>
-          <div class="shipment"><div class="ship-icon">📦</div><div><strong>Поставщик «Дом вкуса»</strong><small>Снеки · напитки · хлеб</small></div><div class="spacer"></div><span class="load">через 12 мин</span></div>
-        </section>
+    <section class="screen" data-screen="orders">
+      <section class="card detail-card"><h2>Заявки</h2><p>В этой смене одна срочная заявка: «Северный» ждёт воду из зоны «Сухач».</p><button class="btn" data-action="OPEN_BUILDER">Собрать паллету</button></section>
+    </section>
 
-        <section class="card trucks"><div class="card-head"><div><h2>Транспорт</h2><span class="sub">Готовность к отправке</span></div></div>
-          <div class="vehicle"><div class="vehicle-top"><span>🚚</span><div><strong>Фургон №3 · Северный</strong><small>Отправка через 6 минут</small></div><div class="spacer"></div><b class="load">87%</b></div><div class="bar"><i style="width:87%"></i></div></div>
-          <div class="vehicle"><div class="vehicle-top"><span>🚐</span><div><strong>Фургон №7 · Центральный</strong><small>Ожидает загрузки</small></div><div class="spacer"></div><b class="load">42%</b></div><div class="bar"><i class="orange" style="width:42%"></i></div></div>
-        </section>
-      </aside>
-    </div>
+    <section class="screen" data-screen="transport">
+      <section class="card detail-card"><h2>Транспорт</h2><p id="transportSummary">Выберите машину для отгрузки.</p><button class="btn" data-action="OPEN_VEHICLES">Открыть машины</button><button class="btn secondary" data-action="END_SHIFT">Завершить смену</button></section>
+    </section>
 
-    <section class="card bottom-action"><div class="action-text"><strong>⭐ Следующая задача</strong><span>Соберите паллету для «Северного», пока не закончилась вода</span></div><button class="btn" id="buildBtn">Собрать паллету →</button></section>
-    <nav class="bottom-nav"><button class="nav-item active" data-nav="Склад"><span>🏭</span>Склад</button><button class="nav-item" data-nav="Заказы"><span>📋</span>Заказы</button><button class="nav-item" data-nav="Транспорт"><span>🚚</span>Транспорт</button></nav>
+    <nav class="bottom-nav" aria-label="Навигация">
+      <button class="nav-item active" data-action="NAVIGATE" data-screen-target="warehouse"><span>🏭</span>Склад</button>
+      <button class="nav-item" data-action="NAVIGATE" data-screen-target="orders"><span>📋</span>Заявки</button>
+      <button class="nav-item" data-action="NAVIGATE" data-screen-target="transport"><span>🚚</span>Транспорт</button>
+    </nav>
   </main>
-  <div class="toast" id="toast"></div>
 
-  <div class="modal-backdrop" id="builderModal"><section class="modal">
-    <div class="modal-head"><h2>Сборка паллеты</h2><button class="close" id="closeBuilder">×</button></div>
-    <div class="select-label">Куда везём?</div>
-    <div class="store-selects"><button class="store-select selected" data-store="Северный">🔴 Северный</button><button class="store-select" data-store="Центральный">🟡 Центральный</button><button class="store-select" data-store="Западный">🟢 Западный</button></div>
+  <div class="toast" id="toast" role="status"></div>
+
+  <div class="modal-backdrop" id="builderModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="builderTitle">
+    <div class="modal-head"><h2 id="builderTitle">Сборка паллеты</h2><button class="close" data-action="CLOSE_BUILDER" aria-label="Закрыть">×</button></div>
+    <p class="builder-feedback" id="builderFeedback"></p>
+    <div class="select-label">Даркстор</div>
+    <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Северный</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Центральный</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Западный</button></div>
+    <div class="select-label">Зона</div>
+    <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry">🧱 Сухач</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled">❄️ Охлаждёнка</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen">🧊 Заморозка</button></div>
     <div class="select-label">Добавить товар</div>
-    <div class="item-row"><span class="item-emoji">💧</span><div><strong>Вода 1,5 л</strong><small>12 кг · критически нужна Северному</small></div><div class="qty"><button data-item="water" data-delta="-1">−</button><b id="waterQty">4</b><button data-item="water" data-delta="1">+</button></div></div>
-    <div class="item-row"><span class="item-emoji">🥛</span><div><strong>Молоко</strong><small>10 кг · срок годности 2 дня</small></div><div class="qty"><button data-item="milk" data-delta="-1">−</button><b id="milkQty">2</b><button data-item="milk" data-delta="1">+</button></div></div>
-    <div class="item-row"><span class="item-emoji">🍌</span><div><strong>Бананы</strong><small>8 кг · высокий спрос вечером</small></div><div class="qty"><button data-item="banana" data-delta="-1">−</button><b id="bananaQty">1</b><button data-item="banana" data-delta="1">+</button></div></div>
-    <div class="item-row"><span class="item-emoji">🍞</span><div><strong>Хлеб</strong><small>6 кг · обычный приоритет</small></div><div class="qty"><button data-item="bread" data-delta="-1">−</button><b id="breadQty">2</b><button data-item="bread" data-delta="1">+</button></div></div>
-    <div class="modal-foot"><div class="capacity">Паллетa: <b id="capacity">82 / 100 кг</b></div><button class="btn" id="confirmBuild">Поставить в зону отгрузки</button></div>
+    <div id="itemRows"></div>
+    <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b></div><button class="btn" data-action="LOAD_PALLET">Поставить в отгрузку</button></div>
   </section></div>
 
-  <div class="modal-backdrop" id="reportModal"><section class="modal report"><div class="big">★★★</div><h2>Смена завершена</h2><p>Ты закрыл критические заявки и отправил все срочные паллеты.</p><div class="report-grid"><div class="report-stat"><small>Доставлено вовремя</small><strong>94%</strong></div><div class="report-stat"><small>Заполнение машин</small><strong>91%</strong></div><div class="report-stat"><small>Списания</small><strong>1,4%</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong>21 680 ₽</strong></div></div><button class="btn" id="closeReport">Продолжить</button></section></div>
+  <div class="modal-backdrop" id="vehicleModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="vehicleTitle">
+    <div class="modal-head"><h2 id="vehicleTitle">Машины</h2><button class="close" data-action="CLOSE_VEHICLES" aria-label="Закрыть">×</button></div>
+    <div id="vehicleRows"></div>
+    <button class="btn secondary full-width" data-action="SET_ROUTE">Маршрут: Северный</button>
+  </section></div>
+
+  <div class="modal-backdrop" id="reportModal" aria-hidden="true"><section class="modal report" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+    <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Загрузка машин</small><strong id="reportUtilization">0%</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><button class="btn" data-action="CLOSE_REPORT">Продолжить</button>
+  </section></div>
 
   <script src="game-engine.js"></script>
+  <script src="app-state.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
