@@ -2,12 +2,14 @@ const engine = window.RyabinovayaEngine;
 const { reduceAction } = window.RyabinovayaAppState;
 const stores = { north: 'Северный', central: 'Центральный', west: 'Западный' };
 const zones = { dry: 'Сухач', chilled: 'Охлаждёнка', frozen: 'Заморозка' };
-const items = [
-  { sku: 'water', zone: 'dry', weightPerUnit: 12, emoji: '💧', name: 'Вода 1,5 л' },
-  { sku: 'milk', zone: 'chilled', weightPerUnit: 10, emoji: '🥛', name: 'Молоко' },
-  { sku: 'banana', zone: 'chilled', weightPerUnit: 8, emoji: '🍌', name: 'Бананы' },
-  { sku: 'bread', zone: 'dry', weightPerUnit: 6, emoji: '🍞', name: 'Хлеб' },
-];
+const itemDetails = {
+  water: { emoji: '💧', name: 'Вода 1,5 л' },
+  milk: { emoji: '🥛', name: 'Молоко' },
+  banana: { emoji: '🍌', name: 'Бананы' },
+  bread: { emoji: '🍞', name: 'Хлеб' },
+  'ice-cream': { emoji: '🍨', name: 'Мороженое' },
+};
+const items = Object.values(engine.ITEMS).map((item) => ({ ...item, ...itemDetails[item.sku] }));
 let state = {
   secondsRemaining: 210,
   paused: false,
@@ -16,6 +18,8 @@ let state = {
   vehicleDrawerOpen: false,
   report: null,
   selectedVehicleId: 'dry-1',
+  orders: [{ storeId: 'north' }],
+  routeStops: [],
   pallet: engine.createPallet({ storeId: 'north', zone: 'dry' }),
   vehicles: [
     engine.createVehicle({ id: 'dry-1', zone: 'dry' }),
@@ -52,13 +56,16 @@ function render(nextState, document) {
   document.querySelectorAll('.store-select').forEach((button) => button.classList.toggle('selected', button.dataset.store === nextState.pallet.storeId));
   document.querySelectorAll('.zone-select').forEach((button) => button.classList.toggle('selected', button.dataset.zone === nextState.pallet.zone));
 
-  byId(document, 'itemRows').innerHTML = items.map((item) => `<div class="item-row">
+  byId(document, 'itemRows').innerHTML = items.filter((item) => item.zone === nextState.pallet.zone).map((item) => `<div class="item-row">
     <span class="item-emoji">${item.emoji}</span><div><strong>${item.name}</strong><small>${item.weightPerUnit} кг · ${zones[item.zone]}</small></div>
     <div class="qty"><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="-1" aria-label="Убрать ${item.name}">−</button><b>${quantityFor(nextState.pallet, item.sku)}</b><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="1" aria-label="Добавить ${item.name}">+</button></div>
   </div>`).join('');
   byId(document, 'capacity').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
 
   byId(document, 'vehicleRows').innerHTML = nextState.vehicles.map((vehicle) => `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}"><span>🚚</span><span><strong>${vehicleLabel(vehicle)}</strong><small>${vehicle.pallets.length} паллет · ${vehicle.capacity} кг</small></span><b>${vehicle.zone === nextState.pallet.zone ? 'подходит' : 'другая зона'}</b></button>`).join('');
+  const routeStops = nextState.routeStops || [];
+  byId(document, 'routeStops').innerHTML = routeStops.length ? routeStops.map((storeId, index) => `<div class="route-stop"><span>${index + 1}. ${stores[storeId] || storeId}</span><span><button data-action="MOVE_STOP" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Выше">↑</button><button data-action="MOVE_STOP" data-index="${index}" data-direction="1" ${index === routeStops.length - 1 ? 'disabled' : ''} aria-label="Ниже">↓</button></span></div>`).join('') : '<p class="empty-route">Загрузите паллеты для добавления остановок.</p>';
+  byId(document, 'routeButton').textContent = routeStops.length ? `Построить маршрут: ${routeStops.map((storeId) => stores[storeId] || storeId).join(' → ')}` : 'Маршрут пока пуст';
 
   const builder = byId(document, 'builderModal');
   builder.classList.toggle('open', nextState.builderOpen);
@@ -77,7 +84,7 @@ function render(nextState, document) {
   if (nextState.report) {
     byId(document, 'reportStars').textContent = '★'.repeat(nextState.report.stars);
     byId(document, 'reportMessage').textContent = nextState.report.reasons[0] || 'Срочные паллеты готовы к отгрузке.';
-    byId(document, 'reportUtilization').textContent = `${loadedWeight}%`;
+    byId(document, 'reportUtilization').textContent = `${nextState.report.inputs.utilizationPercent}%`;
     byId(document, 'reportProfit').textContent = `${nextState.report.profit.toLocaleString('ru-RU')} ₽`;
   }
 
@@ -95,6 +102,13 @@ function dispatch(action) {
   else if (action.type === 'CLOSE_REPORT') state = { ...state, report: null, feedback: null };
   else if (action.type === 'NAVIGATE') state = { ...state, activeScreen: action.screen, feedback: null };
   else if (action.type === 'SELECT_VEHICLE') state = { ...state, selectedVehicleId: action.vehicleId, feedback: null };
+  else if (action.type === 'MOVE_STOP') {
+    const routeStops = [...state.routeStops];
+    const index = Number(action.index);
+    const target = index + Number(action.direction);
+    if (routeStops[target]) [routeStops[index], routeStops[target]] = [routeStops[target], routeStops[index]];
+    state = { ...state, routeStops, feedback: null };
+  }
   else {
     state = reduceAction(state, action);
     if (action.type === 'SELECT_ZONE') {
@@ -115,9 +129,10 @@ document.addEventListener('click', (event) => {
   if (action === 'SELECT_STORE') return dispatch({ type: action, storeId: button.dataset.store });
   if (action === 'SELECT_ZONE') return dispatch({ type: action, zone: button.dataset.zone });
   if (action === 'LOAD_PALLET') return dispatch({ type: action, vehicleId: state.selectedVehicleId });
-  if (action === 'SET_ROUTE') return dispatch({ type: action, vehicleId: state.selectedVehicleId, stops: ['north'] });
+  if (action === 'SET_ROUTE') return dispatch({ type: action, vehicleId: state.selectedVehicleId, stops: state.routeStops });
   if (action === 'NAVIGATE') return dispatch({ type: action, screen: button.dataset.screenTarget });
   if (action === 'SELECT_VEHICLE') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
+  if (action === 'MOVE_STOP') return dispatch({ type: action, index: button.dataset.index, direction: button.dataset.direction });
   dispatch({ type: action });
 });
 

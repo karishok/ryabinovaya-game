@@ -73,7 +73,9 @@
   <div class="modal-backdrop" id="vehicleModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="vehicleTitle">
     <div class="modal-head"><h2 id="vehicleTitle">Машины</h2><button class="close" data-action="CLOSE_VEHICLES" aria-label="Закрыть">×</button></div>
     <div id="vehicleRows"></div>
-    <button class="btn secondary full-width" data-action="SET_ROUTE">Маршрут: Северный</button>
+    <div class="select-label">Порядок остановок</div>
+    <div id="routeStops"></div>
+    <button class="btn secondary full-width" id="routeButton" data-action="SET_ROUTE">Маршрут пока пуст</button>
   </section></div>
 
   <div class="modal-backdrop" id="reportModal" aria-hidden="true"><section class="modal report" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
