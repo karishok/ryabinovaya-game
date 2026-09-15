@@ -1,0 +1,15 @@
+const engine = window.RyabinovayaEngine;
+const $ = (id) => document.getElementById(id);
+    const toast = (message) => { const el = $('toast'); el.textContent = message; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2400); };
+    let paused = false, seconds = (14 * 60 + 26), quantities = { water:4, milk:2, banana:1, bread:2 };
+    const updateCapacity = () => { const kg = quantities.water*12 + quantities.milk*10 + quantities.banana*8 + quantities.bread*6 + 12; $('capacity').textContent = `${kg} / 100 кг`; };
+    setInterval(() => { if (paused) return; seconds++; if (seconds >= 18*60) { seconds = 18*60; $('reportModal').classList.add('open'); paused = true; } const h = String(Math.floor(seconds/60)).padStart(2,'0'), m = String(seconds%60).padStart(2,'0'); $('clock').textContent = `${h}:${m} / 18:00`; }, 1000);
+    $('pause').onclick = () => { paused = !paused; $('pause').classList.toggle('active', paused); $('pause').textContent = paused ? '▶' : 'Ⅱ'; toast(paused ? 'Смена приостановлена' : 'Смена продолжается'); };
+    $('buildBtn').onclick = () => { $('builderModal').classList.add('open'); updateCapacity(); };
+    $('closeBuilder').onclick = () => $('builderModal').classList.remove('open');
+    document.querySelectorAll('.store-select').forEach(btn => btn.onclick = () => { document.querySelectorAll('.store-select').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); });
+    document.querySelectorAll('[data-item]').forEach(btn => btn.onclick = () => { const item = btn.dataset.item; quantities[item] = Math.max(0, Math.min(8, quantities[item] + Number(btn.dataset.delta))); $(`${item}Qty`).textContent = quantities[item]; updateCapacity(); });
+    $('confirmBuild').onclick = () => { $('builderModal').classList.remove('open'); $('utilization').textContent = '91%'; $('profit').textContent = '19 120 ₽'; $('orders').textContent = '84 / 100'; toast('Паллета №105 собрана и готова к отгрузке'); };
+    $('focusBtn').onclick = () => toast('Показаны задачи с самым высоким приоритетом');
+    document.querySelectorAll('.nav-item').forEach(btn => btn.onclick = () => { document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active')); btn.classList.add('active'); toast(`${btn.dataset.nav}: раздел пока в разработке`); });
+    $('closeReport').onclick = () => $('reportModal').classList.remove('open');
