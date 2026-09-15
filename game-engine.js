@@ -9,6 +9,7 @@
     MILK: Object.freeze({ sku: 'milk', zone: ZONES.CHILLED, weightPerUnit: 10 }),
     BANANA: Object.freeze({ sku: 'banana', zone: ZONES.CHILLED, weightPerUnit: 8 }),
     BREAD: Object.freeze({ sku: 'bread', zone: ZONES.DRY, weightPerUnit: 6 }),
+    ICE_CREAM: Object.freeze({ sku: 'ice-cream', zone: ZONES.FROZEN, weightPerUnit: 9 }),
   });
 
   function createPallet({ storeId, zone }) {
@@ -34,7 +35,18 @@
   }
 
   function loadPallet(vehicle, pallet) {
-    if (pallet.zone !== vehicle.zone) return { ok: false, reason: 'wrong-zone' };
+    if (pallet.zone !== vehicle.zone) {
+      return {
+        ok: false,
+        reason: 'wrong-zone',
+        spoilageReason: {
+          type: 'wrong-transport',
+          vehicleZone: vehicle.zone,
+          palletZone: pallet.zone,
+          message: `паллета испорчена из-за несовместимого транспорта: машина ${vehicle.zone}, паллета ${pallet.zone}`,
+        },
+      };
+    }
 
     const loadedWeight = vehicle.pallets.reduce((total, loadedPallet) => total + loadedPallet.weight, 0);
     if (loadedWeight + pallet.weight > vehicle.capacity) {
@@ -46,14 +58,35 @@
 
   function buildRoute(vehicle, stops) {
     const routeStops = [...stops];
-    const minutes = routeStops.length * 15;
-    const distanceScore = Math.max(0, 100 - Math.max(0, routeStops.length - 1) * 15);
+    const coordinates = {
+      depot: [0, 0],
+      north: [0, 3],
+      central: [2, 0],
+      west: [-3, 0],
+      east: [4, 1],
+    };
+    const pointFor = (stop) => coordinates[stop] || [String(stop).length, 0];
+    const distance = (from, to) => {
+      const [fromX, fromY] = pointFor(from);
+      const [toX, toY] = pointFor(to);
+      return Math.hypot(toX - fromX, toY - fromY);
+    };
+    const totalDistance = routeStops.reduce((total, stop, index) => {
+      const previous = index === 0 ? 'depot' : routeStops[index - 1];
+      return total + distance(previous, stop);
+    }, 0);
+    const minutes = Math.max(0, Math.round(totalDistance * 5));
+    const distanceScore = Math.max(0, Math.round(100 - totalDistance));
     return { stops: routeStops, minutes, distanceScore };
   }
 
-  function scoreShift({ deliveredPercent, onTimePercent, utilizationPercent, spoiledPallets, routePenalty }) {
+  function scoreShift({ deliveredPercent, onTimePercent, utilizationPercent, spoiledPallets, routePenalty, spoilageReasons = [] }) {
     const reasons = [];
-    if (spoiledPallets > 0) reasons.push(`паллета испорчена: ${spoiledPallets}`);
+    if (spoilageReasons.length > 0) {
+      reasons.push(...spoilageReasons.map((spoilageReason) => spoilageReason.message));
+    } else if (spoiledPallets > 0) {
+      reasons.push(`паллета испорчена: ${spoiledPallets}`);
+    }
     if (deliveredPercent < 90) reasons.push('Не все заявки доставлены');
     if (onTimePercent < 90) reasons.push('Опоздали из-за длинного маршрута');
     if (utilizationPercent < 80) reasons.push('Потеряли прибыль из-за недогруженной машины');
