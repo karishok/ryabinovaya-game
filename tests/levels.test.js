@@ -33,6 +33,13 @@ test('every level contains a complete scenario definition', () => {
   }
 });
 
+test('every campaign shift fits the global three-to-five-minute duration', () => {
+  for (const level of LEVELS) {
+    assert.ok(level.durationSeconds >= 180, `level ${level.id} is shorter than 180 seconds`);
+    assert.ok(level.durationSeconds <= 300, `level ${level.id} is longer than 300 seconds`);
+  }
+});
+
 test('level 4 teaches zone compatibility without a spoilage timer', () => {
   const level = LEVELS[3];
   assert.equal(level.events.some(event => event.type === 'spoilage'), false);
