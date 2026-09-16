@@ -46,5 +46,66 @@
     return Math.round(revenue - routeCost - weightCost - spoilCost);
   }
 
-  return { RATES, metricsFor, starsFor, profitFor };
+  const routeLabel = (stops, storeNames) => stops.map((id) => storeNames[id] || id).join(' → ');
+
+  function shortfallLines(outcome) {
+    const deliveredByKey = new Map();
+    for (const line of outcome.delivered || []) {
+      const key = `${line.storeId}:${line.zone}:${line.sku}`;
+      deliveredByKey.set(key, (deliveredByKey.get(key) || 0) + line.quantity);
+    }
+    return (outcome.demand || [])
+      .map((line) => {
+        const key = `${line.storeId}:${line.zone}:${line.sku}`;
+        const missing = line.quantity - (deliveredByKey.get(key) || 0);
+        return missing > 0 ? { ...line, quantity: missing } : null;
+      })
+      .filter(Boolean);
+  }
+
+  function reasonsFor(metrics, outcome) {
+    if (isPerfect(metrics, outcome)) return ['Смена отработана идеально'];
+
+    const reasons = [];
+    const storeNames = outcome.storeNames || {};
+    const routeless = outcome.vehiclesWithoutRoute || [];
+    if (routeless.length > 0) {
+      reasons.push(`Маршрут не построен: ${routeless.join(', ')} — их паллеты не засчитаны.`);
+    }
+    if ((outcome.spoiledPallets || 0) > 0) {
+      reasons.push(...(outcome.spoilageReasons || []).map((entry) => entry.message));
+    }
+    if (metrics.deliveredPercent < 100) {
+      const shortfalls = shortfallLines(outcome);
+      const missing = shortfalls.reduce((total, line) => total + line.quantity, 0);
+      const demanded = (outcome.demand || []).reduce((total, line) => total + line.quantity, 0);
+      const first = shortfalls[0];
+      const detail = first ? ` — ${first.storeName} не получил: ${first.itemName}` : '';
+      reasons.push(`Не доставлено: ${missing} из ${demanded} позиций${detail}`);
+    }
+    const routed = (outcome.routes || []).filter((route) => route.stops && route.stops.length > 0);
+    if (metrics.onTimePercent < 100 && routeless.length === 0 && routed.length > 0) {
+      const worst = routed.reduce((a, b) => (b.minutes - b.bestMinutes > a.minutes - a.bestMinutes ? b : a));
+      const gap = worst.minutes - worst.bestMinutes;
+      if (gap > 0) {
+        reasons.push(`Маршрут на ${gap} минут длиннее оптимального: короче было ${routeLabel(worst.bestStops, storeNames)}`);
+      }
+    }
+    if (metrics.precisionPercent < 100) {
+      reasons.push(`Отправили ${(outcome.loadedWeight || 0) - (outcome.usefulWeight || 0)} кг сверх заявки`);
+    }
+    return reasons;
+  }
+
+  function scoreShift(outcome) {
+    const metrics = metricsFor(outcome);
+    return {
+      metrics,
+      stars: starsFor(metrics, outcome),
+      profit: profitFor(outcome),
+      reasons: reasonsFor(metrics, outcome),
+    };
+  }
+
+  return { RATES, metricsFor, starsFor, profitFor, reasonsFor, scoreShift };
 });
