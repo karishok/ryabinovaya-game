@@ -144,6 +144,19 @@ test('a routeless vehicle is reported and suppresses the route-length complaint'
   assert.ok(!reasons.some((reason) => /длиннее оптимального/.test(reason)));
 });
 
+test('a routeless vehicle does not suppress a route-length complaint about another vehicle', () => {
+  const outcome = {
+    ...emptyOutcome, storeNames: names, vehiclesWithoutRoute: ['dry-2'],
+    routes: [
+      { vehicleId: 'dry-1', stops: ['north', 'west'], minutes: 40, bestStops: ['west', 'north'], bestMinutes: 30 },
+      { vehicleId: 'dry-2', stops: [], minutes: 0, bestStops: [], bestMinutes: 0 },
+    ],
+  };
+  const reasons = reasonsFor(metricsFor(outcome), outcome);
+  assert.ok(reasons.some((reason) => /Маршрут не построен: dry-2/.test(reason)));
+  assert.ok(reasons.some((reason) => reason === 'Маршрут на 10 минут длиннее оптимального: короче было Западный → Северный'));
+});
+
 test('a longer-than-optimal route names the shorter order', () => {
   const outcome = {
     ...emptyOutcome, storeNames: names,

@@ -84,7 +84,7 @@
       reasons.push(`Не доставлено: ${missing} из ${demanded} позиций${detail}`);
     }
     const routed = (outcome.routes || []).filter((route) => route.stops && route.stops.length > 0);
-    if (metrics.onTimePercent < 100 && routeless.length === 0 && routed.length > 0) {
+    if (metrics.onTimePercent < 100 && routed.length > 0) {
       const worst = routed.reduce((a, b) => (b.minutes - b.bestMinutes > a.minutes - a.bestMinutes ? b : a));
       const gap = worst.minutes - worst.bestMinutes;
       if (gap > 0) {
