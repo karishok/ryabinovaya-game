@@ -1,6 +1,6 @@
 const engine = window.RyabinovayaEngine;
 const { LEVELS } = window.RyabinovayaLevels;
-const { reduceAction, startLevel, onTimePercentFor, fulfillmentFor, utilizationFor, missingRouteVehicles } = window.RyabinovayaAppState;
+const { reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles } = window.RyabinovayaAppState;
 const stores = { north: 'Северный', central: 'Центральный', west: 'Западный', east: 'Восточный' };
 const zones = { dry: 'Сухач', chilled: 'Охлаждёнка', frozen: 'Заморозка' };
 const itemDetails = {
@@ -31,8 +31,9 @@ function render(nextState, document) {
   byId(document, 'clock').textContent = `${minutes}:${seconds}`;
   const fulfillment = fulfillmentFor(nextState);
   byId(document, 'orders').textContent = `${fulfillment.fulfilledQuantity} / ${fulfillment.demandQuantity}`;
-  byId(document, 'ontime').textContent = `${onTimePercentFor(nextState)}%`;
-  byId(document, 'utilization').textContent = `${utilizationFor(nextState)}%`;
+  const metrics = liveMetrics(nextState);
+  byId(document, 'ontime').textContent = `${metrics.onTimePercent}%`;
+  byId(document, 'precision').textContent = `${metrics.precisionPercent}%`;
   byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} паллет`;
   byId(document, 'missionTitle').textContent = mission ? `${stores[mission.storeId] || mission.storeId} ждёт заказ` : 'Все заявки собраны';
   byId(document, 'missionHint').textContent = level.goal;
@@ -104,7 +105,7 @@ function render(nextState, document) {
     byId(document, 'reportMessage').textContent = nextState.report.reasons[0] || 'Срочные паллеты готовы к отгрузке.';
     byId(document, 'reportDelivered').textContent = `${nextState.report.deliveredPercent}%`;
     byId(document, 'reportOnTime').textContent = `${nextState.report.onTimePercent}%`;
-    byId(document, 'reportUtilization').textContent = `${nextState.report.utilizationPercent}%`;
+    byId(document, 'reportPrecision').textContent = `${nextState.report.precisionPercent}%`;
     byId(document, 'reportSpoiled').textContent = String(nextState.report.spoiledPallets);
     byId(document, 'reportProfit').textContent = `${nextState.report.profit.toLocaleString('ru-RU')} ₽`;
     byId(document, 'reportReasons').innerHTML = nextState.report.reasons.slice(0, 3).map((reason) => `<li>${reason}</li>`).join('');

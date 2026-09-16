@@ -16,8 +16,8 @@
 
     <section class="metrics" aria-label="Показатели смены">
       <div class="metric"><div class="label">Заказы</div><div class="value" id="orders">0 / 1</div><div class="hint">главная задача</div></div>
-      <div class="metric"><div class="label">Вовремя</div><div class="value" id="ontime">92%</div><div class="hint">цель 90%</div></div>
-      <div class="metric"><div class="label">Загрузка</div><div class="value" id="utilization">0%</div><div class="hint warn">соберите паллету</div></div>
+      <div class="metric"><div class="label">Вовремя</div><div class="value" id="ontime">0%</div><div class="hint">порядок остановок</div></div>
+      <div class="metric"><div class="label">Точность</div><div class="value" id="precision">100%</div><div class="hint">без лишнего груза</div></div>
     </section>
 
     <button class="guide-trigger" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">
@@ -101,7 +101,7 @@
   </section></div>
 
   <div class="modal-backdrop" id="reportModal" aria-hidden="true"><section class="modal report" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
-    <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Доставлено</small><strong id="reportDelivered">0%</strong></div><div class="report-stat"><small>Вовремя</small><strong id="reportOnTime">0%</strong></div><div class="report-stat"><small>Загрузка машин</small><strong id="reportUtilization">0%</strong></div><div class="report-stat"><small>Испорчено паллет</small><strong id="reportSpoiled">0</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><ul class="report-reasons" id="reportReasons"></ul><button class="btn" id="nextShift" data-action="SHOW_STORY_AFTER">Следующая смена</button>
+    <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Доставлено</small><strong id="reportDelivered">0%</strong></div><div class="report-stat"><small>Вовремя</small><strong id="reportOnTime">0%</strong></div><div class="report-stat"><small>Точность</small><strong id="reportPrecision">0%</strong></div><div class="report-stat"><small>Испорчено паллет</small><strong id="reportSpoiled">0</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><ul class="report-reasons" id="reportReasons"></ul><button class="btn" id="nextShift" data-action="SHOW_STORY_AFTER">Следующая смена</button>
   </section></div>
 
   <div class="modal-backdrop" id="levelBriefing" aria-hidden="true"><section class="modal story-card" id="storyCard" role="dialog" aria-modal="true" aria-labelledby="briefingTitle">
@@ -114,6 +114,7 @@
 
   <script src="game-engine.js"></script>
   <script src="levels.js"></script>
+  <script src="scoring.js"></script>
   <script src="app-state.js?v=guide"></script>
   <script src="app.js?v=guide-2"></script>
 </body>
