@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { reduceAction, startLevel, tick, finishShift } = require('../app-state.js');
+const { reduceAction, startLevel, tick, finishShift, onTimePercentFor } = require('../app-state.js');
 
 test('level 1 starts with one dry store and one vehicle', () => {
   const state = startLevel(1);
@@ -14,6 +14,10 @@ test('level 1 starts with one dry store and one vehicle', () => {
 test('paused shift does not consume time', () => {
   const state = { ...startLevel(1), paused: true };
   assert.equal(tick(state, 10).secondsRemaining, state.secondsRemaining);
+});
+
+test('initial active-shift on-time KPI is zero until the player builds a route', () => {
+  assert.equal(onTimePercentFor(startLevel(1)), 0);
 });
 
 test('finished shift returns a report and unlocks the next level', () => {

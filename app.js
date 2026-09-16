@@ -1,6 +1,6 @@
 const engine = window.RyabinovayaEngine;
 const { LEVELS } = window.RyabinovayaLevels;
-const { reduceAction, startLevel } = window.RyabinovayaAppState;
+const { reduceAction, startLevel, onTimePercentFor } = window.RyabinovayaAppState;
 const stores = { north: 'Северный', central: 'Центральный', west: 'Западный', east: 'Восточный' };
 const zones = { dry: 'Сухач', chilled: 'Охлаждёнка', frozen: 'Заморозка' };
 const itemDetails = {
@@ -31,7 +31,7 @@ function render(nextState, document) {
   byId(document, 'levelTitle').textContent = `Уровень ${nextState.levelId} · ${level.title}`;
   byId(document, 'clock').textContent = `${minutes}:${seconds}`;
   byId(document, 'orders').textContent = `${nextState.loadedPallets.length} / ${activeOrders.length}`;
-  byId(document, 'ontime').textContent = `${Math.max(0, 100 - (nextState.route?.minutes || 0))}%`;
+  byId(document, 'ontime').textContent = `${onTimePercentFor(nextState)}%`;
   byId(document, 'utilization').textContent = `${selectedVehicle ? Math.min(100, Math.round((loadedWeight / selectedVehicle.capacity) * 100)) : 0}%`;
   byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} паллет`;
   byId(document, 'missionTitle').textContent = mission ? `${stores[mission.storeId] || mission.storeId} ждёт заказ` : 'Все заявки собраны';

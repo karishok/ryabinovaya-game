@@ -81,6 +81,11 @@
     return next;
   }
 
+  function onTimePercentFor(state) {
+    const routeStops = state.route?.stops || [];
+    return state.secondsRemaining > 0 && routeStops.length > 0 ? Math.max(0, 100 - state.route.minutes) : 0;
+  }
+
   function scoreInputs(state) {
     const metric = state.metrics || {};
     const loadedPallets = state.loadedPallets || [];
@@ -109,7 +114,7 @@
     const loadedWeight = loadedPallets.reduce((total, loadedPallet) => total + loadedPallet.weight, 0);
     const vehicleCapacity = loadedVehicles.reduce((total, vehicle) => total + vehicle.capacity, 0);
     const calculatedUtilizationPercent = vehicleCapacity ? Math.round((loadedWeight / vehicleCapacity) * 100) : 0;
-    const calculatedOnTimePercent = state.secondsRemaining > 0 && routeStops.length > 0 ? Math.max(0, 100 - state.route.minutes) : 0;
+    const calculatedOnTimePercent = onTimePercentFor(state);
 
     return {
       deliveredPercent: calculatedDeliveredPercent,
@@ -215,5 +220,5 @@
     return withFeedback(state, feedback('error', 'unknown-action', 'Команда не поддерживается.'));
   }
 
-  return { reduceAction, startLevel, tick, finishShift };
+  return { reduceAction, startLevel, tick, finishShift, onTimePercentFor };
 });
