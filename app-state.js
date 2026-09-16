@@ -1,11 +1,14 @@
 (function (root, factory) {
-  const engine = typeof module !== 'undefined' && module.exports ? require('./game-engine.js') : root.RyabinovayaEngine;
-  const levelData = typeof module !== 'undefined' && module.exports ? require('./levels.js') : root.RyabinovayaLevels;
-  const api = factory(engine, levelData);
-  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  const isNode = typeof module !== 'undefined' && module.exports;
+  const engine = isNode ? require('./game-engine.js') : root.RyabinovayaEngine;
+  const levelData = isNode ? require('./levels.js') : root.RyabinovayaLevels;
+  const scoring = isNode ? require('./scoring.js') : root.RyabinovayaScoring;
+  const api = factory(engine, levelData, scoring);
+  if (isNode) module.exports = api;
   else root.RyabinovayaAppState = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (engine, levelData) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (engine, levelData, scoring) {
   const LEVELS = levelData.LEVELS;
+  const STORE_NAMES = levelData.STORE_NAMES;
   const feedback = (kind, code, message) => ({ kind, code, message });
   const withFeedback = (state, nextFeedback) => ({ ...state, feedback: nextFeedback });
   const copy = (value) => JSON.parse(JSON.stringify(value));
@@ -60,6 +63,8 @@
       activeScreen: 'warehouse',
       builderOpen: false,
       vehicleDrawerOpen: false,
+      guideOpen: false,
+      guidePausedBeforeOpen: null,
       report: null,
       nextLevelId: null,
       selectedVehicleId: vehicles.find((vehicle) => vehicle.ready)?.id || vehicles[0]?.id || null,
@@ -99,24 +104,13 @@
     return next;
   }
 
-  function onTimePercentFor(state) {
-    if (state.secondsRemaining <= 0) return 0;
-    const loadedVehicles = (state.vehicles || []).filter((vehicle) => vehicle.pallets?.length > 0);
-    const vehicles = loadedVehicles.length
-      ? loadedVehicles
-      : (state.vehicles || []).filter((vehicle) => vehicle.id === state.selectedVehicleId);
-    if (!vehicles.length) return 0;
-    const routeScores = vehicles.map((vehicle) => {
-      const route = routeFor(state, vehicle.id);
-      return route?.stops.length > 0 ? Math.max(0, 100 - route.minutes) : 0;
-    });
-    return Math.round(routeScores.reduce((total, score) => total + score, 0) / routeScores.length);
-  }
-
-  function fulfillmentFor(state) {
+  function shiftOutcome(state) {
     const activeOrders = (state.orders || []).filter((order) => !order.cancelled);
     const fulfilledByLine = new Map();
+    let loadedWeight = 0;
+
     for (const pallet of state.loadedPallets || []) {
+      loadedWeight += pallet.weight;
       const vehicle = (state.vehicles || []).find((entry) => entry.id === pallet.vehicleId);
       const route = routeFor(state, pallet.vehicleId);
       if (!vehicle || vehicle.zone !== pallet.zone || !route?.stops.includes(pallet.storeId)) continue;
@@ -126,57 +120,70 @@
         fulfilledByLine.set(key, (fulfilledByLine.get(key) || 0) + item.quantity);
       }
     }
-    const demandQuantity = activeOrders.reduce((total, order) => total + order.quantity, 0);
-    const remainingByLine = new Map(fulfilledByLine);
-    const fulfilledQuantity = activeOrders.reduce((total, order) => {
+
+    const remaining = new Map(fulfilledByLine);
+    const delivered = [];
+    let usefulWeight = 0;
+    for (const order of activeOrders) {
       const key = `${order.storeId}:${order.zone}:${order.sku}`;
-      const fulfilled = Math.min(order.quantity, remainingByLine.get(key) || 0);
-      remainingByLine.set(key, (remainingByLine.get(key) || 0) - fulfilled);
-      return total + fulfilled;
-    }, 0);
+      const counted = Math.min(order.quantity, remaining.get(key) || 0);
+      remaining.set(key, (remaining.get(key) || 0) - counted);
+      if (counted > 0) {
+        const item = engine.itemBySku(order.sku);
+        usefulWeight += counted * (item?.weightPerUnit || 0);
+        delivered.push({ storeId: order.storeId, zone: order.zone, sku: order.sku, quantity: counted, price: item?.price || 0 });
+      }
+    }
+
+    const loadedVehicleIds = new Set((state.loadedPallets || []).map((pallet) => pallet.vehicleId));
+    const routes = (state.vehicles || [])
+      .filter((vehicle) => loadedVehicleIds.has(vehicle.id))
+      .map((vehicle) => {
+        const route = routeFor(state, vehicle.id);
+        const stops = route?.stops || [];
+        const best = engine.bestRoute(stops);
+        return { vehicleId: vehicle.id, stops, minutes: route?.minutes || 0, bestStops: best.stops, bestMinutes: best.minutes };
+      });
+
     return {
-      fulfilledQuantity,
-      demandQuantity,
-      deliveredPercent: demandQuantity ? Math.round((fulfilledQuantity / demandQuantity) * 100) : 0,
+      demand: activeOrders.map((order) => ({
+        storeId: order.storeId, zone: order.zone, sku: order.sku, quantity: order.quantity,
+        storeName: STORE_NAMES[order.storeId] || order.storeId,
+        itemName: engine.itemBySku(order.sku)?.name || order.sku,
+      })),
+      delivered,
+      loadedWeight,
+      usefulWeight,
+      routes,
+      vehiclesWithoutRoute: missingRouteVehicles(state),
+      spoiledPallets: state.metrics?.spoiledPallets || 0,
+      spoilageReasons: state.spoilageReasons || [],
+      storeNames: STORE_NAMES,
     };
   }
 
-  function utilizationFor(state) {
-    const loadedPallets = state.loadedPallets || [];
-    const loadedVehicles = (state.vehicles || []).filter((vehicle) => vehicle.pallets?.length > 0);
-    const loadedWeight = loadedPallets.reduce((total, loadedPallet) => total + loadedPallet.weight, 0);
-    const vehicleCapacity = loadedVehicles.reduce((total, vehicle) => total + vehicle.capacity, 0);
-    return vehicleCapacity ? Math.round((loadedWeight / vehicleCapacity) * 100) : 0;
-  }
+  const liveMetrics = (state) => scoring.metricsFor(shiftOutcome(state));
 
-  function scoreInputs(state) {
-    const metric = state.metrics || {};
-    const fulfillment = fulfillmentFor(state);
+  function fulfillmentFor(state) {
+    const outcome = shiftOutcome(state);
     return {
-      deliveredPercent: fulfillment.deliveredPercent,
-      onTimePercent: onTimePercentFor(state),
-      utilizationPercent: utilizationFor(state),
-      spoiledPallets: metric.spoiledPallets || 0,
-      routePenalty: metric.routePenalty || 0,
-      spoilageReasons: state.spoilageReasons || [],
+      fulfilledQuantity: outcome.delivered.reduce((total, line) => total + line.quantity, 0),
+      demandQuantity: outcome.demand.reduce((total, line) => total + line.quantity, 0),
+      deliveredPercent: scoring.metricsFor(outcome).deliveredPercent,
     };
   }
 
   function finishShift(state) {
-    const inputs = scoreInputs(state);
-    const score = engine.scoreShift(inputs);
-    const missing = missingRouteVehicles(state);
-    const reasons = missing.length > 0
-      ? [`Маршрут не построен: ${missing.join(', ')} — их паллеты не засчитаны.`, ...score.reasons]
-      : score.reasons;
+    const outcome = shiftOutcome(state);
+    const score = scoring.scoreShift(outcome);
     const report = {
-      ...score,
-      reasons,
-      deliveredPercent: inputs.deliveredPercent,
-      onTimePercent: inputs.onTimePercent,
-      utilizationPercent: inputs.utilizationPercent,
-      spoiledPallets: inputs.spoiledPallets,
-      inputs,
+      stars: score.stars,
+      profit: score.profit,
+      reasons: score.reasons,
+      deliveredPercent: score.metrics.deliveredPercent,
+      onTimePercent: score.metrics.onTimePercent,
+      precisionPercent: score.metrics.precisionPercent,
+      spoiledPallets: outcome.spoiledPallets,
     };
     const currentIndex = LEVELS.findIndex((level) => level.id === state.levelId);
     return { report, nextLevelId: currentIndex >= 0 ? LEVELS[currentIndex + 1]?.id || null : null };
@@ -186,6 +193,22 @@
     if (action.type === 'START_LEVEL') return startLevel(action.levelId);
     if (action.type === 'TICK') return tick(state, action.seconds);
     if (action.type === 'DISMISS_FEEDBACK') return { ...state, feedback: null };
+    if (action.type === 'OPEN_GUIDE') {
+      return {
+        ...state,
+        guideOpen: true,
+        guidePausedBeforeOpen: state.paused,
+        paused: true,
+      };
+    }
+    if (action.type === 'CLOSE_GUIDE') {
+      return {
+        ...state,
+        guideOpen: false,
+        paused: state.guidePausedBeforeOpen ?? state.paused,
+        guidePausedBeforeOpen: null,
+      };
+    }
     if (action.type === 'CONTINUE_STORY') {
       if (state.phase === 'story-after') return state.nextLevelId ? startLevel(state.nextLevelId) : { ...state, phase: 'endless', story: null, report: null };
       if (state.phase === 'briefing') return { ...state, phase: 'shift', story: null };
@@ -252,7 +275,7 @@
         if (result.reason === 'wrong-zone') {
           return withFeedback({
             ...state,
-            metrics: { ...state.metrics, spoiledPallets: (state.metrics?.spoiledPallets || 0) + 1, routePenalty: (state.metrics?.routePenalty || 0) + 10 },
+            metrics: { ...state.metrics, spoiledPallets: (state.metrics?.spoiledPallets || 0) + 1 },
             spoilageReasons: [...(state.spoilageReasons || []), result.spoilageReason],
             pallet: palletFor({ ...state, pallet }),
           }, feedback('error', result.reason, messages[result.reason]));
@@ -291,5 +314,5 @@
     return withFeedback(state, feedback('error', 'unknown-action', 'Команда не поддерживается.'));
   }
 
-  return { reduceAction, startLevel, tick, finishShift, onTimePercentFor, fulfillmentFor, utilizationFor, missingRouteVehicles };
+  return { reduceAction, startLevel, tick, finishShift, shiftOutcome, liveMetrics, fulfillmentFor, missingRouteVehicles };
 });

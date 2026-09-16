@@ -10,6 +10,13 @@
   const vehicle = (id, zone, capacity = 100) => ({ id, zone, capacity });
   const store = (id, zone) => ({ id, zone, acceptsFromSecond: 0 });
 
+  const STORE_NAMES = Object.freeze({
+    north: 'Северный',
+    central: 'Центральный',
+    west: 'Западный',
+    east: 'Восточный',
+  });
+
   const LEVELS = [
     {
       id: 1,
@@ -157,5 +164,5 @@
     },
   ];
 
-  return { LEVELS };
+  return { LEVELS, STORE_NAMES };
 });

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#101827" />
   <title>Рябиновая — Паллета</title>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=guide" />
 </head>
 <body>
   <main class="app" aria-live="polite">
@@ -16,9 +16,13 @@
 
     <section class="metrics" aria-label="Показатели смены">
       <div class="metric"><div class="label">Заказы</div><div class="value" id="orders">0 / 1</div><div class="hint">главная задача</div></div>
-      <div class="metric"><div class="label">Вовремя</div><div class="value" id="ontime">92%</div><div class="hint">цель 90%</div></div>
-      <div class="metric"><div class="label">Загрузка</div><div class="value" id="utilization">0%</div><div class="hint warn">соберите паллету</div></div>
+      <div class="metric"><div class="label">Вовремя</div><div class="value" id="ontime">0%</div><div class="hint">порядок остановок</div></div>
+      <div class="metric"><div class="label">Точность</div><div class="value" id="precision">100%</div><div class="hint">без лишнего груза</div></div>
     </section>
+
+    <button class="guide-trigger" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">
+      <span>📖 Как играть?</span><small>Порядок сборки и отправки заказа →</small>
+    </button>
 
     <div class="event-banner" id="eventBanner" role="status" aria-live="polite"></div>
 
@@ -61,6 +65,21 @@
 
   <div class="toast" id="toast" role="status"></div>
 
+  <div class="modal-backdrop" id="guideModal" aria-hidden="true"><section class="modal guide" id="guideDialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+    <div class="modal-head"><h2 id="guideTitle">Как играть?</h2><button class="close" data-action="CLOSE_GUIDE" aria-label="Вернуться к смене">×</button></div>
+    <p class="guide-intro">Цель смены — собрать товары по заявкам и доставить их в нужные дарксторы.</p>
+    <ol class="guide-steps">
+      <li><strong>Собери паллету для одной заявки.</strong> Нажми «Собрать паллету», выбери даркстор и зону из заявки.</li>
+      <li><strong>Добавь нужный товар.</strong> Кнопкой «+» выставь количество из заявки. Для каждого даркстора нужна отдельная паллета.</li>
+      <li><strong>Поставь паллету в отгрузку.</strong> Она загрузится в машину своей зоны, а адрес добавится в остановки.</li>
+      <li><strong>Построй маршрут.</strong> Открой «Транспорт», затем «Открыть машины» и нажми «Построить маршрут».</li>
+      <li><strong>Проверь результат.</strong> Нажми «Завершить смену». Ждать окончания таймера не нужно.</li>
+    </ol>
+    <div class="guide-example"><h3>Заявки этой смены</h3><div id="guideOrders"></div></div>
+    <p class="guide-tip">Важно: зона паллеты и машины должна совпадать. Во время гайда таймер остановлен; нажми «Вернуться к смене», чтобы продолжить.</p>
+    <button class="btn full-width" data-action="CLOSE_GUIDE">Вернуться к смене</button>
+  </section></div>
+
   <div class="modal-backdrop" id="builderModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="builderTitle">
     <div class="modal-head"><h2 id="builderTitle">Сборка паллеты</h2><button class="close" data-action="CLOSE_BUILDER" aria-label="Закрыть">×</button></div>
     <p class="builder-feedback" id="builderFeedback"></p>
@@ -82,11 +101,11 @@
   </section></div>
 
   <div class="modal-backdrop" id="reportModal" aria-hidden="true"><section class="modal report" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
-    <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Доставлено</small><strong id="reportDelivered">0%</strong></div><div class="report-stat"><small>Вовремя</small><strong id="reportOnTime">0%</strong></div><div class="report-stat"><small>Загрузка машин</small><strong id="reportUtilization">0%</strong></div><div class="report-stat"><small>Испорчено паллет</small><strong id="reportSpoiled">0</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><ul class="report-reasons" id="reportReasons"></ul><button class="btn" id="nextShift" data-action="SHOW_STORY_AFTER">Следующая смена</button>
+    <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Доставлено</small><strong id="reportDelivered">0%</strong></div><div class="report-stat"><small>Вовремя</small><strong id="reportOnTime">0%</strong></div><div class="report-stat"><small>Точность</small><strong id="reportPrecision">0%</strong></div><div class="report-stat"><small>Испорчено паллет</small><strong id="reportSpoiled">0</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><ul class="report-reasons" id="reportReasons"></ul><button class="btn" id="nextShift" data-action="SHOW_STORY_AFTER">Следующая смена</button>
   </section></div>
 
   <div class="modal-backdrop" id="levelBriefing" aria-hidden="true"><section class="modal story-card" id="storyCard" role="dialog" aria-modal="true" aria-labelledby="briefingTitle">
-    <span class="story-kicker" id="briefingKicker">Новая смена</span><h2 id="briefingTitle">Уровень 1</h2><p id="briefingText">Инструкции смены.</p><p class="story-goal" id="briefingGoal"></p><button class="btn" data-action="CONTINUE_STORY">Начать смену</button>
+    <span class="story-kicker" id="briefingKicker">Новая смена</span><h2 id="briefingTitle">Уровень 1</h2><p id="briefingText">Инструкции смены.</p><p class="story-goal" id="briefingGoal"></p><button class="btn" data-action="CONTINUE_STORY">Начать смену</button><button class="btn secondary full-width" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">Как играть?</button>
   </section></div>
 
   <div class="modal-backdrop" id="endlessMode" aria-hidden="true"><section class="modal story-card" role="dialog" aria-modal="true" aria-labelledby="endlessTitle">
@@ -95,7 +114,8 @@
 
   <script src="game-engine.js"></script>
   <script src="levels.js"></script>
-  <script src="app-state.js"></script>
-  <script src="app.js"></script>
+  <script src="scoring.js"></script>
+  <script src="app-state.js?v=guide"></script>
+  <script src="app.js?v=guide-2"></script>
 </body>
 </html>

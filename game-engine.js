@@ -5,12 +5,18 @@
   const ZONES = Object.freeze({ DRY: 'dry', FROZEN: 'frozen', CHILLED: 'chilled' });
 
   const ITEMS = Object.freeze({
-    WATER: Object.freeze({ sku: 'water', zone: ZONES.DRY, weightPerUnit: 12 }),
-    MILK: Object.freeze({ sku: 'milk', zone: ZONES.CHILLED, weightPerUnit: 10 }),
-    BANANA: Object.freeze({ sku: 'banana', zone: ZONES.CHILLED, weightPerUnit: 8 }),
-    BREAD: Object.freeze({ sku: 'bread', zone: ZONES.DRY, weightPerUnit: 6 }),
-    ICE_CREAM: Object.freeze({ sku: 'ice-cream', zone: ZONES.FROZEN, weightPerUnit: 9 }),
+    WATER: Object.freeze({ sku: 'water', zone: ZONES.DRY, weightPerUnit: 12, price: 1500, name: 'Вода 1,5 л' }),
+    MILK: Object.freeze({ sku: 'milk', zone: ZONES.CHILLED, weightPerUnit: 10, price: 1400, name: 'Молоко' }),
+    BANANA: Object.freeze({ sku: 'banana', zone: ZONES.CHILLED, weightPerUnit: 8, price: 1200, name: 'Бананы' }),
+    BREAD: Object.freeze({ sku: 'bread', zone: ZONES.DRY, weightPerUnit: 6, price: 900, name: 'Хлеб' }),
+    ICE_CREAM: Object.freeze({ sku: 'ice-cream', zone: ZONES.FROZEN, weightPerUnit: 9, price: 2200, name: 'Мороженое' }),
   });
+
+  const ITEM_BY_SKU = Object.freeze(Object.fromEntries(Object.values(ITEMS).map((item) => [item.sku, item])));
+
+  function itemBySku(sku) {
+    return ITEM_BY_SKU[sku] || null;
+  }
 
   function createPallet({ storeId, zone }) {
     return { storeId, zone, items: [], weight: 0, capacity: 100 };
@@ -89,27 +95,26 @@
     return { stops: routeStops, minutes, distanceScore };
   }
 
-  function scoreShift({ deliveredPercent, onTimePercent, utilizationPercent, spoiledPallets, routePenalty, spoilageReasons = [] }) {
-    const reasons = [];
-    if (spoilageReasons.length > 0) {
-      reasons.push(...spoilageReasons.map((spoilageReason) => spoilageReason.message));
-    } else if (spoiledPallets > 0) {
-      reasons.push(`паллета испорчена: ${spoiledPallets}`);
-    }
-    if (deliveredPercent < 90) reasons.push('Не все заявки доставлены');
-    if (onTimePercent < 90) reasons.push('Опоздали из-за длинного маршрута');
-    if (utilizationPercent < 80) reasons.push('Потеряли прибыль из-за недогруженной машины');
-    if (routePenalty > 0) reasons.push('Маршрут оказался неэффективным');
+  function permutations(values) {
+    if (values.length <= 1) return [values];
+    const result = [];
+    values.forEach((value, index) => {
+      const rest = [...values.slice(0, index), ...values.slice(index + 1)];
+      for (const tail of permutations(rest)) result.push([value, ...tail]);
+    });
+    return result;
+  }
 
-    const stars = deliveredPercent >= 90 && onTimePercent >= 90 && utilizationPercent >= 80 && spoiledPallets === 0 && routePenalty <= 10
-      ? 3
-      : deliveredPercent >= 70 && onTimePercent >= 60
-        ? 2
-        : 1;
-    const profit = Math.round(
-      deliveredPercent * 100 + onTimePercent * 40 + utilizationPercent * 30 - spoiledPallets * 500 - routePenalty * 20,
-    );
-    return { stars, profit, reasons };
+  function bestRoute(stops) {
+    const list = [...(stops || [])];
+    if (list.length === 0) return { stops: [], minutes: 0 };
+    if (list.length > 8) throw new RangeError(`Too many stops to optimize: ${list.length}`);
+    let best = null;
+    for (const candidate of permutations(list)) {
+      const { minutes } = buildRoute(null, candidate);
+      if (!best || minutes < best.minutes) best = { stops: candidate, minutes };
+    }
+    return best;
   }
 
   function copy(value) {
@@ -134,7 +139,6 @@
         deliveredOrders: 0,
         cancelledOrders: 0,
         spoiledPallets: 0,
-        routePenalty: 0,
       },
     };
   }
@@ -176,7 +180,8 @@
     createVehicle,
     loadPallet,
     buildRoute,
-    scoreShift,
+    bestRoute,
+    itemBySku,
     createShiftState,
     advanceScenario,
   };

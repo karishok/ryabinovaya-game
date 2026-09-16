@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { reduceAction, startLevel, tick, finishShift, onTimePercentFor } = require('../app-state.js');
+const { reduceAction, startLevel, tick, finishShift, liveMetrics } = require('../app-state.js');
 
 test('level 1 starts with one dry store and one vehicle', () => {
   const state = startLevel(1);
@@ -17,7 +17,7 @@ test('paused shift does not consume time', () => {
 });
 
 test('initial active-shift on-time KPI is zero until the player builds a route', () => {
-  assert.equal(onTimePercentFor(startLevel(1)), 0);
+  assert.equal(liveMetrics(startLevel(1)).onTimePercent, 0);
 });
 
 test('on-time KPI and report average all loaded vehicle routes, independent of selection', () => {
@@ -25,21 +25,24 @@ test('on-time KPI and report average all loaded vehicle routes, independent of s
     secondsRemaining: 120,
     selectedVehicleId: 'dry-1',
     orders: [],
-    loadedPallets: [],
+    loadedPallets: [
+      { vehicleId: 'dry-1', zone: 'dry', storeId: 'north', weight: 10, items: [] },
+      { vehicleId: 'dry-2', zone: 'dry', storeId: 'west', weight: 10, items: [] },
+    ],
     vehicles: [
-      { id: 'dry-1', capacity: 100, pallets: [{ weight: 10 }] },
-      { id: 'dry-2', capacity: 100, pallets: [{ weight: 10 }] },
+      { id: 'dry-1', zone: 'dry', capacity: 100, pallets: [{ weight: 10 }] },
+      { id: 'dry-2', zone: 'dry', capacity: 100, pallets: [{ weight: 10 }] },
     ],
     routesByVehicle: {
       'dry-1': { stops: ['north'], minutes: 10 },
       'dry-2': { stops: ['west'], minutes: 30 },
     },
-    metrics: { spoiledPallets: 0, routePenalty: 0 },
+    metrics: { spoiledPallets: 0 },
   };
 
-  assert.equal(onTimePercentFor(state), 80);
-  assert.equal(onTimePercentFor({ ...state, selectedVehicleId: 'dry-2' }), 80);
-  assert.equal(finishShift(state).report.onTimePercent, 80);
+  assert.equal(liveMetrics(state).onTimePercent, 75);
+  assert.equal(liveMetrics({ ...state, selectedVehicleId: 'dry-2' }).onTimePercent, 75);
+  assert.equal(finishShift(state).report.onTimePercent, 75);
 });
 
 test('finished shift returns a report and unlocks the next level', () => {
@@ -67,21 +70,13 @@ test('end-shift action keeps all report metrics available at the top level', () 
   state = reduceAction(state, { type: 'SET_ROUTE', vehicleId: 'dry-1', stops: ['north'] });
   const next = reduceAction(state, { type: 'END_SHIFT' });
   assert.deepEqual(next.report, {
-    stars: 2,
-    profit: 14120,
+    stars: 3,
+    profit: 1260,
     deliveredPercent: 100,
-    onTimePercent: 85,
-    utilizationPercent: 24,
+    onTimePercent: 100,
+    precisionPercent: 100,
     spoiledPallets: 0,
-    reasons: ['Опоздали из-за длинного маршрута', 'Потеряли прибыль из-за недогруженной машины'],
-    inputs: {
-      deliveredPercent: 100,
-      onTimePercent: 85,
-      utilizationPercent: 24,
-      spoiledPallets: 0,
-      routePenalty: 0,
-      spoilageReasons: [],
-    },
+    reasons: ['Смена отработана идеально'],
   });
 });
 
@@ -135,7 +130,7 @@ test('one loaded quantity is allocated only once across matching order lines', (
 
 test('campaign shell includes briefing, operational feedback, and a complete report', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  assert.match(html, /<script src="levels\.js"><\/script>\s*<script src="app-state\.js"><\/script>/);
+  assert.match(html, /<script src="levels\.js"><\/script>\s*<script src="scoring\.js"><\/script>\s*<script src="app-state\.js(?:\?[^\"]*)?"><\/script>/);
   for (const id of ['levelBriefing', 'storyCard', 'eventBanner', 'reportDelivered', 'reportOnTime', 'reportSpoiled', 'nextShift']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
@@ -167,6 +162,39 @@ test('finished shift reports which loaded vehicles never got a route built', () 
 
   const report = finishShift(state).report;
   assert.match(report.reasons[0], /Маршрут не построен.*dry-2/);
+});
+
+test('shiftOutcome describes the shift in plain data for the scorer', () => {
+  const { shiftOutcome, reduceAction, startLevel } = require('../app-state.js');
+  let state = startLevel(1);
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  state = reduceAction(state, { type: 'SET_ROUTE', vehicleId: 'dry-1', stops: ['north'] });
+
+  const outcome = shiftOutcome(state);
+  assert.equal(outcome.loadedWeight, 24);
+  assert.equal(outcome.usefulWeight, 24);
+  assert.deepEqual(outcome.delivered, [{ storeId: 'north', zone: 'dry', sku: 'water', quantity: 2, price: 1500 }]);
+  assert.deepEqual(outcome.routes, [{ vehicleId: 'dry-1', stops: ['north'], minutes: 15, bestStops: ['north'], bestMinutes: 15 }]);
+  assert.deepEqual(outcome.vehiclesWithoutRoute, []);
+  assert.equal(outcome.demand[0].storeName, 'Северный');
+  assert.equal(outcome.demand[0].itemName, 'Вода 1,5 л');
+});
+
+test('a perfectly played first level now earns three stars', () => {
+  const { reduceAction, startLevel, finishShift } = require('../app-state.js');
+  let state = startLevel(1);
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  state = reduceAction(state, { type: 'SET_ROUTE', vehicleId: 'dry-1', stops: ['north'] });
+
+  const { report } = finishShift(state);
+  assert.equal(report.stars, 3);
+  assert.equal(report.deliveredPercent, 100);
+  assert.equal(report.onTimePercent, 100);
+  assert.equal(report.precisionPercent, 100);
+  assert.equal(report.profit, 1260);
+  assert.deepEqual(report.reasons, ['Смена отработана идеально']);
 });
 
 test('orders screen is populated from current state instead of static level 1 copy', () => {

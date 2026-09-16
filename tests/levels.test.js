@@ -67,7 +67,6 @@ test('createShiftState copies the level into a fresh shift state', () => {
       deliveredOrders: 0,
       cancelledOrders: 0,
       spoiledPallets: 0,
-      routePenalty: 0,
     },
   });
   assert.notEqual(state.orders, LEVELS[0].initialOrders);

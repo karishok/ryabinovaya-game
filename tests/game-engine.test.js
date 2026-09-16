@@ -9,7 +9,8 @@ const {
   createVehicle,
   loadPallet,
   buildRoute,
-  scoreShift,
+  bestRoute,
+  itemBySku,
 } = require('../game-engine.js');
 
 test('defines the three immutable warehouse zones', () => {
@@ -136,30 +137,44 @@ test('unlisted stops of equal length still get distinct, stable fallback distanc
   assert.notEqual(south.minutes, radio.minutes);
 });
 
-test('three stars require strong delivery and utilization', () => {
-  const result = scoreShift({ deliveredPercent: 95, onTimePercent: 95, utilizationPercent: 90, spoiledPallets: 0, routePenalty: 0 });
-  assert.equal(result.stars, 3);
-  assert.ok(result.profit > 0);
+test('bestRoute finds the shortest stop order', () => {
+  const best = bestRoute(['north', 'west', 'central']);
+  assert.deepEqual(best.stops, ['central', 'north', 'west']);
+  assert.equal(best.minutes, 49);
 });
 
-test('wrong transport appears in the score reasons', () => {
-  const vehicle = createVehicle({ id: 'dry-1', zone: ZONES.DRY });
-  const pallet = createPallet({ storeId: 'north', zone: ZONES.CHILLED });
-  const failedLoad = loadPallet(vehicle, pallet);
-  const result = scoreShift({
-    deliveredPercent: 84,
-    onTimePercent: 80,
-    utilizationPercent: 70,
-    spoiledPallets: 1,
-    routePenalty: 10,
-    spoilageReasons: [failedLoad.spoilageReason],
-  });
-  assert.ok(result.reasons.some(reason => reason.includes('несовместим')));
+test('bestRoute is trivial for a single stop', () => {
+  assert.deepEqual(bestRoute(['north']), { stops: ['north'], minutes: 15 });
 });
 
-test('score is never below one star and penalizes operational losses', () => {
-  const result = scoreShift({ deliveredPercent: 0, onTimePercent: 0, utilizationPercent: 0, spoiledPallets: 3, routePenalty: 100 });
-  assert.equal(result.stars, 1);
-  assert.ok(result.profit < 0);
-  assert.ok(result.reasons.length > 0);
+test('bestRoute handles an empty route', () => {
+  assert.deepEqual(bestRoute([]), { stops: [], minutes: 0 });
+});
+
+test('bestRoute refuses to brute-force more than eight stops', () => {
+  const tooMany = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+  assert.throws(() => bestRoute(tooMany), RangeError);
+});
+
+test('every item carries a price and a display name', () => {
+  for (const item of Object.values(ITEMS)) {
+    assert.ok(item.price > 0, `${item.sku} без цены`);
+    assert.ok(item.name.length > 0, `${item.sku} без названия`);
+  }
+  assert.equal(ITEMS.WATER.price, 1500);
+  assert.equal(ITEMS.ICE_CREAM.price, 2200);
+});
+
+test('itemBySku resolves items and returns null for unknown goods', () => {
+  assert.equal(itemBySku('water').weightPerUnit, 12);
+  assert.equal(itemBySku('unicorn'), null);
+});
+
+test('store names cover every store used by the campaign', () => {
+  const { LEVELS, STORE_NAMES } = require('../levels.js');
+  for (const level of LEVELS) {
+    for (const store of level.stores) {
+      assert.ok(STORE_NAMES[store.id], `нет названия для ${store.id}`);
+    }
+  }
 });
