@@ -20,9 +20,13 @@
     return bySku;
   }, {}));
   const normalizedPallet = (pallet) => ({ capacity: 100, ...pallet, items: consolidateItems(pallet.items || []) });
-  const routeFor = (state, vehicleId) => Object.keys(state.routesByVehicle || {}).length > 0
-    ? state.routesByVehicle[vehicleId] || null
-    : state.route || null;
+  const routeFor = (state, vehicleId) => {
+    if (Object.keys(state.routesByVehicle || {}).length > 0) return state.routesByVehicle[vehicleId] || null;
+    const vehicleIds = new Set((state.vehicles || []).map((vehicle) => vehicle.id));
+    if (vehicleIds.size > 1 && state.selectedVehicleId !== vehicleId) return null;
+    if (vehicleIds.size === 1 && !vehicleIds.has(vehicleId)) return null;
+    return state.route || null;
+  };
   const routeStopsFor = (state, vehicleId) => state.routeStopsByVehicle?.[vehicleId]
     || routeFor(state, vehicleId)?.stops
     || [];
@@ -90,8 +94,17 @@
   }
 
   function onTimePercentFor(state) {
-    const route = routeFor(state, state.selectedVehicleId);
-    return state.secondsRemaining > 0 && route?.stops.length > 0 ? Math.max(0, 100 - route.minutes) : 0;
+    if (state.secondsRemaining <= 0) return 0;
+    const loadedVehicles = (state.vehicles || []).filter((vehicle) => vehicle.pallets?.length > 0);
+    const vehicles = loadedVehicles.length
+      ? loadedVehicles
+      : (state.vehicles || []).filter((vehicle) => vehicle.id === state.selectedVehicleId);
+    if (!vehicles.length) return 0;
+    const routeScores = vehicles.map((vehicle) => {
+      const route = routeFor(state, vehicle.id);
+      return route?.stops.length > 0 ? Math.max(0, 100 - route.minutes) : 0;
+    });
+    return Math.round(routeScores.reduce((total, score) => total + score, 0) / routeScores.length);
   }
 
   function fulfillmentFor(state) {
@@ -224,7 +237,7 @@
       if (pallet.weight === 0) return withFeedback(state, feedback('info', 'empty-pallet', 'Сначала добавьте товар на паллету.'));
       const result = engine.loadPallet(vehicle, pallet);
       if (!result.ok) {
-        const messages = { 'wrong-zone': 'Эта машина не обслуживает выбранную зону.', 'over-capacity': 'В машине не осталось места для этой паллеты.' };
+        const messages = { 'wrong-zone': 'Неверная зона: паллета испорчена, соберите её заново.', 'over-capacity': 'В машине не осталось места для этой паллеты.' };
         if (result.reason === 'wrong-zone') {
           return withFeedback({
             ...state,

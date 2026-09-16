@@ -62,6 +62,7 @@ test('wrong-transport spoilage clears the builder pallet so its goods cannot lat
 
   assert.equal(spoiled.builderOpen, true);
   assert.equal(spoiled.feedback.code, 'wrong-zone');
+  assert.match(spoiled.feedback.message, /испорчен/i);
   assert.deepEqual(spoiled.pallet.items, []);
   assert.equal(spoiled.pallet.weight, 0);
   assert.equal((laterLoad.loadedPallets || []).length, 0);
@@ -116,6 +117,34 @@ test('a vehicle route cannot deliver a pallet loaded on another vehicle', () => 
       { id: 'dry-2', zone: 'dry', capacity: 100, pallets: [westPallet] },
     ],
     routesByVehicle: { 'dry-1': { stops: ['north'], minutes: 15 } },
+    route: { stops: ['north', 'west'], minutes: 30 },
+    metrics: { spoiledPallets: 0, routePenalty: 0 },
+  };
+
+  assert.equal(reduceAction(state, { type: 'END_SHIFT' }).report.deliveredPercent, 50);
+});
+
+test('legacy shared route only applies to the selected vehicle in a multi-vehicle state', () => {
+  const northPallet = {
+    storeId: 'north', zone: 'dry', vehicleId: 'dry-1', weight: 12,
+    items: [{ sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 }],
+  };
+  const westPallet = {
+    storeId: 'west', zone: 'dry', vehicleId: 'dry-2', weight: 12,
+    items: [{ sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 }],
+  };
+  const state = {
+    selectedVehicleId: 'dry-1',
+    secondsRemaining: 120,
+    orders: [
+      { id: 'north-water', storeId: 'north', zone: 'dry', sku: 'water', quantity: 1 },
+      { id: 'west-water', storeId: 'west', zone: 'dry', sku: 'water', quantity: 1 },
+    ],
+    loadedPallets: [northPallet, westPallet],
+    vehicles: [
+      { id: 'dry-1', zone: 'dry', capacity: 100, pallets: [northPallet] },
+      { id: 'dry-2', zone: 'dry', capacity: 100, pallets: [westPallet] },
+    ],
     route: { stops: ['north', 'west'], minutes: 30 },
     metrics: { spoiledPallets: 0, routePenalty: 0 },
   };

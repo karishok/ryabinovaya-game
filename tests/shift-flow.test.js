@@ -20,6 +20,28 @@ test('initial active-shift on-time KPI is zero until the player builds a route',
   assert.equal(onTimePercentFor(startLevel(1)), 0);
 });
 
+test('on-time KPI and report average all loaded vehicle routes, independent of selection', () => {
+  const state = {
+    secondsRemaining: 120,
+    selectedVehicleId: 'dry-1',
+    orders: [],
+    loadedPallets: [],
+    vehicles: [
+      { id: 'dry-1', capacity: 100, pallets: [{ weight: 10 }] },
+      { id: 'dry-2', capacity: 100, pallets: [{ weight: 10 }] },
+    ],
+    routesByVehicle: {
+      'dry-1': { stops: ['north'], minutes: 10 },
+      'dry-2': { stops: ['west'], minutes: 30 },
+    },
+    metrics: { spoiledPallets: 0, routePenalty: 0 },
+  };
+
+  assert.equal(onTimePercentFor(state), 80);
+  assert.equal(onTimePercentFor({ ...state, selectedVehicleId: 'dry-2' }), 80);
+  assert.equal(finishShift(state).report.onTimePercent, 80);
+});
+
 test('finished shift returns a report and unlocks the next level', () => {
   let state = startLevel(1);
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
