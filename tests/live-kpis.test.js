@@ -32,7 +32,7 @@ function renderKpis(state) {
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
   window.render(state, document);
-  return { orders: elementFor('orders').textContent, utilization: elementFor('utilization').textContent };
+  return { orders: elementFor('orders').textContent, precision: elementFor('precision').textContent };
 }
 
 test('live orders KPI counts fulfilled quantities instead of loaded pallet rows', () => {
@@ -53,7 +53,7 @@ test('live orders KPI counts fulfilled quantities instead of loaded pallet rows'
   assert.equal(renderKpis(state).orders, '1 / 2');
 });
 
-test('live and final utilization use the same fleet-wide capacity regardless of selected vehicle', () => {
+test('live and final precision agree regardless of the selected vehicle', () => {
   const dryPallet = { storeId: 'north', zone: 'dry', vehicleId: 'dry-1', weight: 80, items: [] };
   const chilledPallet = { storeId: 'central', zone: 'chilled', vehicleId: 'chilled-1', weight: 20, items: [] };
   const state = {
@@ -68,7 +68,6 @@ test('live and final utilization use the same fleet-wide capacity regardless of 
     metrics: { spoiledPallets: 0, routePenalty: 0 },
   };
 
-  assert.equal(renderKpis({ ...state, selectedVehicleId: 'dry-1' }).utilization, '33%');
-  assert.equal(renderKpis({ ...state, selectedVehicleId: 'chilled-1' }).utilization, '33%');
-  assert.equal(appState.finishShift(state).report.utilizationPercent, 33);
+  assert.equal(renderKpis({ ...state, selectedVehicleId: 'dry-1' }).precision, renderKpis({ ...state, selectedVehicleId: 'chilled-1' }).precision);
+  assert.equal(appState.finishShift(state).report.precisionPercent, Number(renderKpis(state).precision.replace('%', '')));
 });

@@ -84,9 +84,9 @@ test('end-shift score includes accumulated spoilage and penalty data', () => {
   };
   const next = reduceAction(initial, { type: 'END_SHIFT' });
   assert.ok(next.report.reasons.some((reason) => reason.includes('несовместимого транспорта')));
-  assert.ok(next.report.reasons.includes('Маршрут оказался неэффективным'));
-  assert.equal(next.report.inputs.deliveredPercent, 100);
-  assert.equal(next.report.inputs.utilizationPercent, 80);
+  assert.ok(next.report.reasons.some((reason) => reason.includes('сверх заявки')));
+  assert.equal(next.report.deliveredPercent, 100);
+  assert.equal(next.report.precisionPercent, 30);
 });
 
 test('multi-stop route state preserves player-selected order', () => {

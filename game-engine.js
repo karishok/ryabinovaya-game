@@ -117,29 +117,6 @@
     return best;
   }
 
-  function scoreShift({ deliveredPercent, onTimePercent, utilizationPercent, spoiledPallets, routePenalty, spoilageReasons = [] }) {
-    const reasons = [];
-    if (spoilageReasons.length > 0) {
-      reasons.push(...spoilageReasons.map((spoilageReason) => spoilageReason.message));
-    } else if (spoiledPallets > 0) {
-      reasons.push(`паллета испорчена: ${spoiledPallets}`);
-    }
-    if (deliveredPercent < 90) reasons.push('Не все заявки доставлены');
-    if (onTimePercent < 90) reasons.push('Опоздали из-за длинного маршрута');
-    if (utilizationPercent < 80) reasons.push('Потеряли прибыль из-за недогруженной машины');
-    if (routePenalty > 0) reasons.push('Маршрут оказался неэффективным');
-
-    const stars = deliveredPercent >= 90 && onTimePercent >= 90 && utilizationPercent >= 80 && spoiledPallets === 0 && routePenalty <= 10
-      ? 3
-      : deliveredPercent >= 70 && onTimePercent >= 60
-        ? 2
-        : 1;
-    const profit = Math.round(
-      deliveredPercent * 100 + onTimePercent * 40 + utilizationPercent * 30 - spoiledPallets * 500 - routePenalty * 20,
-    );
-    return { stars, profit, reasons };
-  }
-
   function copy(value) {
     if (Array.isArray(value)) return value.map(copy);
     if (value && typeof value === 'object') {
@@ -206,7 +183,6 @@
     buildRoute,
     bestRoute,
     itemBySku,
-    scoreShift,
     createShiftState,
     advanceScenario,
   };
