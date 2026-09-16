@@ -53,7 +53,8 @@
       return { ok: false, reason: 'over-capacity' };
     }
 
-    return { ok: true, vehicle: { ...vehicle, pallets: [...vehicle.pallets, pallet] } };
+    const loadedPallet = { ...pallet, vehicleId: vehicle.id };
+    return { ok: true, vehicle: { ...vehicle, pallets: [...vehicle.pallets, loadedPallet] }, pallet: loadedPallet };
   }
 
   function buildRoute(vehicle, stops) {
@@ -65,7 +66,15 @@
       west: [-3, 0],
       east: [4, 1],
     };
-    const pointFor = (stop) => coordinates[stop] || [String(stop).length, 0];
+    const hashPoint = (stop) => {
+      const text = String(stop);
+      let hash = 0;
+      for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+      const angle = (hash % 360) * (Math.PI / 180);
+      const radius = 2 + (hash % 5);
+      return [Math.cos(angle) * radius, Math.sin(angle) * radius];
+    };
+    const pointFor = (stop) => coordinates[stop] || hashPoint(stop);
     const distance = (from, to) => {
       const [fromX, fromY] = pointFor(from);
       const [toX, toY] = pointFor(to);

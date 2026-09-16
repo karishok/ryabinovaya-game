@@ -30,6 +30,12 @@
   const routeStopsFor = (state, vehicleId) => state.routeStopsByVehicle?.[vehicleId]
     || routeFor(state, vehicleId)?.stops
     || [];
+  const missingRouteVehicles = (state) => {
+    const loadedVehicleIds = new Set((state.loadedPallets || []).map((pallet) => pallet.vehicleId));
+    return (state.vehicles || [])
+      .filter((vehicle) => loadedVehicleIds.has(vehicle.id) && !(routeFor(state, vehicle.id)?.stops.length > 0))
+      .map((vehicle) => vehicle.id);
+  };
 
   function startLevel(levelId) {
     const level = levelFor(levelId);
@@ -159,8 +165,13 @@
   function finishShift(state) {
     const inputs = scoreInputs(state);
     const score = engine.scoreShift(inputs);
+    const missing = missingRouteVehicles(state);
+    const reasons = missing.length > 0
+      ? [`Маршрут не построен: ${missing.join(', ')} — их паллеты не засчитаны.`, ...score.reasons]
+      : score.reasons;
     const report = {
       ...score,
+      reasons,
       deliveredPercent: inputs.deliveredPercent,
       onTimePercent: inputs.onTimePercent,
       utilizationPercent: inputs.utilizationPercent,
@@ -253,7 +264,7 @@
       return withFeedback({
         ...state,
         vehicles: state.vehicles.map((entry) => entry.id === vehicle.id ? result.vehicle : entry),
-        loadedPallets: [...(state.loadedPallets || []), { ...pallet, vehicleId: vehicle.id }],
+        loadedPallets: [...(state.loadedPallets || []), result.pallet],
         routeStops: state.selectedVehicleId === vehicle.id ? nextRouteStops : state.routeStops || [],
         routeStopsByVehicle: { ...(state.routeStopsByVehicle || {}), [vehicle.id]: nextRouteStops },
         pallet: palletFor({ ...state, pallet }),
@@ -280,5 +291,5 @@
     return withFeedback(state, feedback('error', 'unknown-action', 'Команда не поддерживается.'));
   }
 
-  return { reduceAction, startLevel, tick, finishShift, onTimePercentFor, fulfillmentFor, utilizationFor };
+  return { reduceAction, startLevel, tick, finishShift, onTimePercentFor, fulfillmentFor, utilizationFor, missingRouteVehicles };
 });

@@ -1,6 +1,6 @@
 const engine = window.RyabinovayaEngine;
 const { LEVELS } = window.RyabinovayaLevels;
-const { reduceAction, startLevel, onTimePercentFor, fulfillmentFor, utilizationFor } = window.RyabinovayaAppState;
+const { reduceAction, startLevel, onTimePercentFor, fulfillmentFor, utilizationFor, missingRouteVehicles } = window.RyabinovayaAppState;
 const stores = { north: 'Северный', central: 'Центральный', west: 'Западный', east: 'Восточный' };
 const zones = { dry: 'Сухач', chilled: 'Охлаждёнка', frozen: 'Заморозка' };
 const itemDetails = {
@@ -64,7 +64,15 @@ function render(nextState, document) {
     <div class="qty"><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="-1" aria-label="Убрать ${item.name}">−</button><b>${quantityFor(nextState.pallet, item.sku)}</b><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="1" aria-label="Добавить ${item.name}">+</button></div>
   </div>`).join('');
   byId(document, 'capacity').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
-  byId(document, 'vehicleRows').innerHTML = nextState.vehicles.map((vehicle) => `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span>🚚</span><span><strong>${vehicleLabel(vehicle)}</strong><small>${vehicle.pallets.length} паллет · ${vehicle.capacity} кг</small></span><b>${vehicle.ready ? (vehicle.zone === nextState.pallet.zone ? 'подходит' : 'другая зона') : 'ожидаем'}</b></button>`).join('');
+  const routelessVehicles = new Set(missingRouteVehicles(nextState));
+  byId(document, 'vehicleRows').innerHTML = nextState.vehicles.map((vehicle) => {
+    const status = !vehicle.ready
+      ? 'ожидаем'
+      : routelessVehicles.has(vehicle.id)
+        ? 'нет маршрута'
+        : (vehicle.zone === nextState.pallet.zone ? 'подходит' : 'другая зона');
+    return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span>🚚</span><span><strong>${vehicleLabel(vehicle)}</strong><small>${vehicle.pallets.length} паллет · ${vehicle.capacity} кг</small></span><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
+  }).join('');
   const routeStops = nextState.routeStops || [];
   byId(document, 'routeStops').innerHTML = routeStops.length ? routeStops.map((storeId, index) => `<div class="route-stop"><span>${index + 1}. ${stores[storeId] || storeId}</span><span><button data-action="MOVE_STOP" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Выше">↑</button><button data-action="MOVE_STOP" data-index="${index}" data-direction="1" ${index === routeStops.length - 1 ? 'disabled' : ''} aria-label="Ниже">↓</button></span></div>`).join('') : '<p class="empty-route">Загрузите паллеты для добавления остановок.</p>';
   byId(document, 'routeButton').textContent = routeStops.length ? `Построить маршрут: ${routeStops.map((storeId) => stores[storeId] || storeId).join(' → ')}` : 'Маршрут пока пуст';
