@@ -20,6 +20,12 @@
     return bySku;
   }, {}));
   const normalizedPallet = (pallet) => ({ capacity: 100, ...pallet, items: consolidateItems(pallet.items || []) });
+  const routeFor = (state, vehicleId) => Object.keys(state.routesByVehicle || {}).length > 0
+    ? state.routesByVehicle[vehicleId] || null
+    : state.route || null;
+  const routeStopsFor = (state, vehicleId) => state.routeStopsByVehicle?.[vehicleId]
+    || routeFor(state, vehicleId)?.stops
+    || [];
 
   function startLevel(levelId) {
     const level = levelFor(levelId);
@@ -48,6 +54,8 @@
       nextLevelId: null,
       selectedVehicleId: vehicles.find((vehicle) => vehicle.ready)?.id || vehicles[0]?.id || null,
       routeStops: [],
+      routeStopsByVehicle: {},
+      routesByVehicle: {},
       pallet: engine.createPallet({ storeId: firstStore, zone: firstZone }),
       loadedPallets: [],
       spoilageReasons: [],
@@ -82,19 +90,17 @@
   }
 
   function onTimePercentFor(state) {
-    const routeStops = state.route?.stops || [];
-    return state.secondsRemaining > 0 && routeStops.length > 0 ? Math.max(0, 100 - state.route.minutes) : 0;
+    const route = routeFor(state, state.selectedVehicleId);
+    return state.secondsRemaining > 0 && route?.stops.length > 0 ? Math.max(0, 100 - route.minutes) : 0;
   }
 
-  function scoreInputs(state) {
-    const metric = state.metrics || {};
-    const loadedPallets = state.loadedPallets || [];
+  function fulfillmentFor(state) {
     const activeOrders = (state.orders || []).filter((order) => !order.cancelled);
-    const routeStops = state.route?.stops || [];
     const fulfilledByLine = new Map();
-    for (const pallet of loadedPallets) {
+    for (const pallet of state.loadedPallets || []) {
       const vehicle = (state.vehicles || []).find((entry) => entry.id === pallet.vehicleId);
-      if (!vehicle || vehicle.zone !== pallet.zone || !routeStops.includes(pallet.storeId)) continue;
+      const route = routeFor(state, pallet.vehicleId);
+      if (!vehicle || vehicle.zone !== pallet.zone || !route?.stops.includes(pallet.storeId)) continue;
       for (const item of pallet.items || []) {
         if (item.zone !== pallet.zone) continue;
         const key = `${pallet.storeId}:${pallet.zone}:${item.sku}`;
@@ -109,17 +115,28 @@
       remainingByLine.set(key, (remainingByLine.get(key) || 0) - fulfilled);
       return total + fulfilled;
     }, 0);
-    const calculatedDeliveredPercent = demandQuantity ? Math.round((fulfilledQuantity / demandQuantity) * 100) : 0;
+    return {
+      fulfilledQuantity,
+      demandQuantity,
+      deliveredPercent: demandQuantity ? Math.round((fulfilledQuantity / demandQuantity) * 100) : 0,
+    };
+  }
+
+  function utilizationFor(state) {
+    const loadedPallets = state.loadedPallets || [];
     const loadedVehicles = (state.vehicles || []).filter((vehicle) => vehicle.pallets?.length > 0);
     const loadedWeight = loadedPallets.reduce((total, loadedPallet) => total + loadedPallet.weight, 0);
     const vehicleCapacity = loadedVehicles.reduce((total, vehicle) => total + vehicle.capacity, 0);
-    const calculatedUtilizationPercent = vehicleCapacity ? Math.round((loadedWeight / vehicleCapacity) * 100) : 0;
-    const calculatedOnTimePercent = onTimePercentFor(state);
+    return vehicleCapacity ? Math.round((loadedWeight / vehicleCapacity) * 100) : 0;
+  }
 
+  function scoreInputs(state) {
+    const metric = state.metrics || {};
+    const fulfillment = fulfillmentFor(state);
     return {
-      deliveredPercent: calculatedDeliveredPercent,
-      onTimePercent: calculatedOnTimePercent,
-      utilizationPercent: calculatedUtilizationPercent,
+      deliveredPercent: fulfillment.deliveredPercent,
+      onTimePercent: onTimePercentFor(state),
+      utilizationPercent: utilizationFor(state),
       spoiledPallets: metric.spoiledPallets || 0,
       routePenalty: metric.routePenalty || 0,
       spoilageReasons: state.spoilageReasons || [],
@@ -153,6 +170,26 @@
     if (action.type === 'SHOW_STORY_AFTER') {
       const level = levelFor(state.levelId);
       return { ...state, phase: 'story-after', report: null, story: { kind: 'after', text: level?.storyAfter || 'Смена завершена.' }, feedback: null };
+    }
+
+    if (action.type === 'SELECT_VEHICLE') {
+      const vehicle = (state.vehicles || []).find((entry) => entry.id === action.vehicleId);
+      if (!vehicle) return withFeedback(state, feedback('error', 'unknown-vehicle', 'Машина для отгрузки не найдена.'));
+      const route = routeFor(state, vehicle.id);
+      return withFeedback({ ...state, selectedVehicleId: vehicle.id, route, routeStops: [...routeStopsFor(state, vehicle.id)] }, null);
+    }
+
+    if (action.type === 'MOVE_STOP') {
+      const vehicleId = state.selectedVehicleId;
+      const routeStops = [...routeStopsFor(state, vehicleId)];
+      const index = Number(action.index);
+      const target = index + Number(action.direction);
+      if (routeStops[target]) [routeStops[index], routeStops[target]] = [routeStops[target], routeStops[index]];
+      return withFeedback({
+        ...state,
+        routeStops,
+        routeStopsByVehicle: { ...(state.routeStopsByVehicle || {}), [vehicleId]: routeStops },
+      }, null);
     }
 
     const pallet = normalizedPallet(state.pallet || engine.createPallet({ storeId: 'north', zone: 'dry' }));
@@ -193,15 +230,19 @@
             ...state,
             metrics: { ...state.metrics, spoiledPallets: (state.metrics?.spoiledPallets || 0) + 1, routePenalty: (state.metrics?.routePenalty || 0) + 10 },
             spoilageReasons: [...(state.spoilageReasons || []), result.spoilageReason],
+            pallet: palletFor({ ...state, pallet }),
           }, feedback('error', result.reason, messages[result.reason]));
         }
         return withFeedback(state, feedback('error', result.reason, messages[result.reason]));
       }
+      const vehicleRouteStops = routeStopsFor(state, vehicle.id);
+      const nextRouteStops = vehicleRouteStops.includes(pallet.storeId) ? vehicleRouteStops : [...vehicleRouteStops, pallet.storeId];
       return withFeedback({
         ...state,
         vehicles: state.vehicles.map((entry) => entry.id === vehicle.id ? result.vehicle : entry),
         loadedPallets: [...(state.loadedPallets || []), { ...pallet, vehicleId: vehicle.id }],
-        routeStops: (state.routeStops || []).includes(pallet.storeId) ? (state.routeStops || []) : [...(state.routeStops || []), pallet.storeId],
+        routeStops: state.selectedVehicleId === vehicle.id ? nextRouteStops : state.routeStops || [],
+        routeStopsByVehicle: { ...(state.routeStopsByVehicle || {}), [vehicle.id]: nextRouteStops },
         pallet: palletFor({ ...state, pallet }),
       }, feedback('success', 'pallet-loaded', 'Паллета собрана и готова к отгрузке.'));
     }
@@ -210,7 +251,13 @@
       const vehicle = (state.vehicles || []).find((entry) => entry.id === (action.vehicleId || state.selectedVehicleId));
       if (!vehicle) return withFeedback(state, feedback('error', 'unknown-vehicle', 'Выберите машину для маршрута.'));
       const route = engine.buildRoute(vehicle, action.stops);
-      return withFeedback({ ...state, route, routeStops: [...route.stops] }, null);
+      return withFeedback({
+        ...state,
+        route,
+        routeStops: [...route.stops],
+        routeStopsByVehicle: { ...(state.routeStopsByVehicle || {}), [vehicle.id]: [...route.stops] },
+        routesByVehicle: { ...(state.routesByVehicle || {}), [vehicle.id]: route },
+      }, null);
     }
     if (action.type === 'PAUSE') return withFeedback({ ...state, paused: !state.paused }, feedback('info', state.paused ? 'resumed' : 'paused', state.paused ? 'Смена продолжается.' : 'Смена приостановлена.'));
     if (action.type === 'END_SHIFT') {
@@ -220,5 +267,5 @@
     return withFeedback(state, feedback('error', 'unknown-action', 'Команда не поддерживается.'));
   }
 
-  return { reduceAction, startLevel, tick, finishShift, onTimePercentFor };
+  return { reduceAction, startLevel, tick, finishShift, onTimePercentFor, fulfillmentFor, utilizationFor };
 });

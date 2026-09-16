@@ -1,6 +1,6 @@
 const engine = window.RyabinovayaEngine;
 const { LEVELS } = window.RyabinovayaLevels;
-const { reduceAction, startLevel, onTimePercentFor } = window.RyabinovayaAppState;
+const { reduceAction, startLevel, onTimePercentFor, fulfillmentFor, utilizationFor } = window.RyabinovayaAppState;
 const stores = { north: 'Северный', central: 'Центральный', west: 'Западный', east: 'Восточный' };
 const zones = { dry: 'Сухач', chilled: 'Охлаждёнка', frozen: 'Заморозка' };
 const itemDetails = {
@@ -22,7 +22,6 @@ const orderMarkup = (order) => `<div class="order-row"><strong>${stores[order.st
 function render(nextState, document) {
   const level = levelFor(nextState.levelId);
   const selectedVehicle = nextState.vehicles.find((vehicle) => vehicle.id === nextState.selectedVehicleId) || nextState.vehicles[0];
-  const loadedWeight = nextState.loadedPallets.reduce((total, pallet) => total + pallet.weight, 0);
   const minutes = String(Math.floor(nextState.secondsRemaining / 60)).padStart(2, '0');
   const seconds = String(nextState.secondsRemaining % 60).padStart(2, '0');
   const activeOrders = nextState.orders.filter((order) => !order.cancelled);
@@ -30,9 +29,10 @@ function render(nextState, document) {
 
   byId(document, 'levelTitle').textContent = `Уровень ${nextState.levelId} · ${level.title}`;
   byId(document, 'clock').textContent = `${minutes}:${seconds}`;
-  byId(document, 'orders').textContent = `${nextState.loadedPallets.length} / ${activeOrders.length}`;
+  const fulfillment = fulfillmentFor(nextState);
+  byId(document, 'orders').textContent = `${fulfillment.fulfilledQuantity} / ${fulfillment.demandQuantity}`;
   byId(document, 'ontime').textContent = `${onTimePercentFor(nextState)}%`;
-  byId(document, 'utilization').textContent = `${selectedVehicle ? Math.min(100, Math.round((loadedWeight / selectedVehicle.capacity) * 100)) : 0}%`;
+  byId(document, 'utilization').textContent = `${utilizationFor(nextState)}%`;
   byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} паллет`;
   byId(document, 'missionTitle').textContent = mission ? `${stores[mission.storeId] || mission.storeId} ждёт заказ` : 'Все заявки собраны';
   byId(document, 'missionHint').textContent = level.goal;
@@ -126,14 +126,7 @@ function dispatch(action) {
   else if (action.type === 'OPEN_VEHICLES') state = { ...state, vehicleDrawerOpen: true, feedback: null };
   else if (action.type === 'CLOSE_VEHICLES') state = { ...state, vehicleDrawerOpen: false, feedback: null };
   else if (action.type === 'NAVIGATE') state = { ...state, activeScreen: action.screen, feedback: null };
-  else if (action.type === 'SELECT_VEHICLE') state = { ...state, selectedVehicleId: action.vehicleId, feedback: null };
-  else if (action.type === 'MOVE_STOP') {
-    const routeStops = [...state.routeStops];
-    const index = Number(action.index);
-    const target = index + Number(action.direction);
-    if (routeStops[target]) [routeStops[index], routeStops[target]] = [routeStops[target], routeStops[index]];
-    state = { ...state, routeStops, feedback: null };
-  } else {
+  else {
     state = reduceAction(state, action);
     if (action.type === 'SELECT_ZONE') {
       const compatibleVehicle = state.vehicles.find((vehicle) => vehicle.zone === state.pallet.zone && vehicle.ready);

@@ -43,6 +43,30 @@ test('rejected incompatible load preserves builder state and records spoilage', 
   assert.equal(next.feedback.code, 'wrong-zone');
 });
 
+test('wrong-transport spoilage clears the builder pallet so its goods cannot later be delivered', () => {
+  const initial = {
+    builderOpen: true,
+    pallet: {
+      ...createPallet({ storeId: 'north', zone: 'chilled' }),
+      weight: 10,
+      items: [{ sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity: 1 }],
+    },
+    vehicles: [createVehicle({ id: 'dry-1', zone: 'dry' }), createVehicle({ id: 'chilled-1', zone: 'chilled' })],
+    orders: [{ id: 'north-milk', storeId: 'north', zone: 'chilled', sku: 'milk', quantity: 1 }],
+    metrics: { spoiledPallets: 0, routePenalty: 0 },
+    secondsRemaining: 120,
+  };
+
+  const spoiled = reduceAction(initial, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  const laterLoad = reduceAction(spoiled, { type: 'LOAD_PALLET', vehicleId: 'chilled-1' });
+
+  assert.equal(spoiled.builderOpen, true);
+  assert.equal(spoiled.feedback.code, 'wrong-zone');
+  assert.deepEqual(spoiled.pallet.items, []);
+  assert.equal(spoiled.pallet.weight, 0);
+  assert.equal((laterLoad.loadedPallets || []).length, 0);
+});
+
 test('end-shift score includes accumulated spoilage and penalty data', () => {
   const pallet = {
     storeId: 'north', zone: 'dry', vehicleId: 'dry-1', weight: 80,
@@ -69,4 +93,32 @@ test('multi-stop route state preserves player-selected order', () => {
   const next = reduceAction(initial, { type: 'SET_ROUTE', stops: ['west', 'north', 'central'] });
   assert.deepEqual(next.route.stops, ['west', 'north', 'central']);
   assert.deepEqual(next.routeStops, ['west', 'north', 'central']);
+});
+
+test('a vehicle route cannot deliver a pallet loaded on another vehicle', () => {
+  const northPallet = {
+    storeId: 'north', zone: 'dry', vehicleId: 'dry-1', weight: 12,
+    items: [{ sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 }],
+  };
+  const westPallet = {
+    storeId: 'west', zone: 'dry', vehicleId: 'dry-2', weight: 12,
+    items: [{ sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 }],
+  };
+  const state = {
+    secondsRemaining: 120,
+    orders: [
+      { id: 'north-water', storeId: 'north', zone: 'dry', sku: 'water', quantity: 1 },
+      { id: 'west-water', storeId: 'west', zone: 'dry', sku: 'water', quantity: 1 },
+    ],
+    loadedPallets: [northPallet, westPallet],
+    vehicles: [
+      { id: 'dry-1', zone: 'dry', capacity: 100, pallets: [northPallet] },
+      { id: 'dry-2', zone: 'dry', capacity: 100, pallets: [westPallet] },
+    ],
+    routesByVehicle: { 'dry-1': { stops: ['north'], minutes: 15 } },
+    route: { stops: ['north', 'west'], minutes: 30 },
+    metrics: { spoiledPallets: 0, routePenalty: 0 },
+  };
+
+  assert.equal(reduceAction(state, { type: 'END_SHIFT' }).report.deliveredPercent, 50);
 });
