@@ -3,7 +3,8 @@
 Ryabinovaya is a mobile-first warehouse strategy prototype. Manage a short
 distribution-center shift by sorting goods into storage zones, assembling
 pallets for dark stores, loading vehicles, and planning delivery routes. Your
-shift ends with a report on deliveries, timing, vehicle utilization, spoilage,
+shift ends with a report on deliveries, timing, precision (how much of the
+loaded cargo weight matched an actual order versus dead weight), spoilage,
 and profit.
 
 ## Open the prototype
