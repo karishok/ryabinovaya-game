@@ -37,7 +37,7 @@ test('on-time KPI and report average all loaded vehicle routes, independent of s
       'dry-1': { stops: ['north'], minutes: 10 },
       'dry-2': { stops: ['west'], minutes: 30 },
     },
-    metrics: { spoiledPallets: 0, routePenalty: 0 },
+    metrics: { spoiledPallets: 0 },
   };
 
   assert.equal(liveMetrics(state).onTimePercent, 75);

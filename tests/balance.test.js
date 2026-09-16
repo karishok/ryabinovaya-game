@@ -30,7 +30,7 @@ function assignStores(state) {
   return assignment;
 }
 
-function play(levelId, extraWaterPerPallet = 0) {
+function play(levelId, extraQuantityPerLine = 0) {
   let state = settled(levelId);
   const orders = state.orders.filter((entry) => !entry.cancelled);
 
@@ -43,7 +43,7 @@ function play(levelId, extraWaterPerPallet = 0) {
         const item = engine.itemBySku(line.sku);
         state = reduceAction(state, {
           type: 'ADD_ITEM', sku: line.sku, zone: line.zone,
-          weightPerUnit: item.weightPerUnit, quantity: line.quantity + extraWaterPerPallet,
+          weightPerUnit: item.weightPerUnit, quantity: line.quantity + extraQuantityPerLine,
         });
       }
       state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId });

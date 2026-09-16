@@ -139,7 +139,6 @@
         deliveredOrders: 0,
         cancelledOrders: 0,
         spoiledPallets: 0,
-        routePenalty: 0,
       },
     };
   }

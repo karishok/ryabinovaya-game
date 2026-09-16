@@ -71,7 +71,7 @@ test('live and final precision agree regardless of the selected vehicle', () => 
     ],
     route: { stops: ['north'], minutes: 15 },
     routesByVehicle: { 'dry-1': { stops: ['north'], minutes: 15 } },
-    metrics: { spoiledPallets: 0, routePenalty: 0 },
+    metrics: { spoiledPallets: 0 },
   };
 
   // usefulWeight (24 = 2 * 12kg water) / loadedWeight (100 = 80 + 20) -> round(24) = 24%.

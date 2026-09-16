@@ -48,6 +48,9 @@
 
   const routeLabel = (stops, storeNames) => stops.map((id) => storeNames[id] || id).join(' → ');
 
+  // Assumes outcome.demand has at most one line per storeId:zone:sku — a duplicate key would
+  // compare each line's shortfall against the same shared deliveredByKey total independently,
+  // producing a wrong missing count. shiftOutcome() currently guarantees one line per order.
   function shortfallLines(outcome) {
     const deliveredByKey = new Map();
     for (const line of outcome.delivered || []) {

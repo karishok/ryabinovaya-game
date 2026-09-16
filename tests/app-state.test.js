@@ -33,12 +33,11 @@ test('rejected incompatible load preserves builder state and records spoilage', 
     builderOpen: true,
     pallet: { ...createPallet({ storeId: 'north', zone: 'chilled' }), weight: 10 },
     vehicles: [createVehicle({ id: 'dry-1', zone: 'dry' })],
-    metrics: { spoiledPallets: 0, routePenalty: 0 },
+    metrics: { spoiledPallets: 0 },
   };
   const next = reduceAction(initial, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
   assert.equal(next.builderOpen, true);
   assert.equal(next.metrics.spoiledPallets, 1);
-  assert.equal(next.metrics.routePenalty, 10);
   assert.equal(next.spoilageReasons[0].type, 'wrong-transport');
   assert.equal(next.feedback.code, 'wrong-zone');
 });
@@ -53,7 +52,7 @@ test('wrong-transport spoilage clears the builder pallet so its goods cannot lat
     },
     vehicles: [createVehicle({ id: 'dry-1', zone: 'dry' }), createVehicle({ id: 'chilled-1', zone: 'chilled' })],
     orders: [{ id: 'north-milk', storeId: 'north', zone: 'chilled', sku: 'milk', quantity: 1 }],
-    metrics: { spoiledPallets: 0, routePenalty: 0 },
+    metrics: { spoiledPallets: 0 },
     secondsRemaining: 120,
   };
 
@@ -78,7 +77,7 @@ test('end-shift score includes accumulated spoilage and penalty data', () => {
     orders: [{ id: 'order-north', storeId: 'north', zone: 'dry', sku: 'water', quantity: 2 }],
     loadedPallets: [pallet],
     vehicles: [{ id: 'dry-1', zone: 'dry', capacity: 100, pallets: [pallet] }],
-    metrics: { spoiledPallets: 1, routePenalty: 10 },
+    metrics: { spoiledPallets: 1 },
     spoilageReasons: [{ message: 'паллета испорчена из-за несовместимого транспорта' }],
     route: { stops: ['north'], minutes: 12, distanceScore: 88 },
   };
@@ -118,7 +117,7 @@ test('a vehicle route cannot deliver a pallet loaded on another vehicle', () => 
     ],
     routesByVehicle: { 'dry-1': { stops: ['north'], minutes: 15 } },
     route: { stops: ['north', 'west'], minutes: 30 },
-    metrics: { spoiledPallets: 0, routePenalty: 0 },
+    metrics: { spoiledPallets: 0 },
   };
 
   assert.equal(reduceAction(state, { type: 'END_SHIFT' }).report.deliveredPercent, 50);
@@ -146,7 +145,7 @@ test('legacy shared route only applies to the selected vehicle in a multi-vehicl
       { id: 'dry-2', zone: 'dry', capacity: 100, pallets: [westPallet] },
     ],
     route: { stops: ['north', 'west'], minutes: 30 },
-    metrics: { spoiledPallets: 0, routePenalty: 0 },
+    metrics: { spoiledPallets: 0 },
   };
 
   assert.equal(reduceAction(state, { type: 'END_SHIFT' }).report.deliveredPercent, 50);

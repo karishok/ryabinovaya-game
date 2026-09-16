@@ -275,7 +275,7 @@
         if (result.reason === 'wrong-zone') {
           return withFeedback({
             ...state,
-            metrics: { ...state.metrics, spoiledPallets: (state.metrics?.spoiledPallets || 0) + 1, routePenalty: (state.metrics?.routePenalty || 0) + 10 },
+            metrics: { ...state.metrics, spoiledPallets: (state.metrics?.spoiledPallets || 0) + 1 },
             spoilageReasons: [...(state.spoilageReasons || []), result.spoilageReason],
             pallet: palletFor({ ...state, pallet }),
           }, feedback('error', result.reason, messages[result.reason]));
