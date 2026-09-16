@@ -10,6 +10,8 @@ const {
   loadPallet,
   buildRoute,
   scoreShift,
+  bestRoute,
+  itemBySku,
 } = require('../game-engine.js');
 
 test('defines the three immutable warehouse zones', () => {
@@ -162,4 +164,46 @@ test('score is never below one star and penalizes operational losses', () => {
   assert.equal(result.stars, 1);
   assert.ok(result.profit < 0);
   assert.ok(result.reasons.length > 0);
+});
+
+test('bestRoute finds the shortest stop order', () => {
+  const best = bestRoute(['north', 'west', 'central']);
+  assert.deepEqual(best.stops, ['central', 'north', 'west']);
+  assert.equal(best.minutes, 49);
+});
+
+test('bestRoute is trivial for a single stop', () => {
+  assert.deepEqual(bestRoute(['north']), { stops: ['north'], minutes: 15 });
+});
+
+test('bestRoute handles an empty route', () => {
+  assert.deepEqual(bestRoute([]), { stops: [], minutes: 0 });
+});
+
+test('bestRoute refuses to brute-force more than eight stops', () => {
+  const tooMany = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'];
+  assert.throws(() => bestRoute(tooMany), RangeError);
+});
+
+test('every item carries a price and a display name', () => {
+  for (const item of Object.values(ITEMS)) {
+    assert.ok(item.price > 0, `${item.sku} без цены`);
+    assert.ok(item.name.length > 0, `${item.sku} без названия`);
+  }
+  assert.equal(ITEMS.WATER.price, 1500);
+  assert.equal(ITEMS.ICE_CREAM.price, 2200);
+});
+
+test('itemBySku resolves items and returns null for unknown goods', () => {
+  assert.equal(itemBySku('water').weightPerUnit, 12);
+  assert.equal(itemBySku('unicorn'), null);
+});
+
+test('store names cover every store used by the campaign', () => {
+  const { LEVELS, STORE_NAMES } = require('../levels.js');
+  for (const level of LEVELS) {
+    for (const store of level.stores) {
+      assert.ok(STORE_NAMES[store.id], `нет названия для ${store.id}`);
+    }
+  }
 });

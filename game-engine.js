@@ -5,12 +5,18 @@
   const ZONES = Object.freeze({ DRY: 'dry', FROZEN: 'frozen', CHILLED: 'chilled' });
 
   const ITEMS = Object.freeze({
-    WATER: Object.freeze({ sku: 'water', zone: ZONES.DRY, weightPerUnit: 12 }),
-    MILK: Object.freeze({ sku: 'milk', zone: ZONES.CHILLED, weightPerUnit: 10 }),
-    BANANA: Object.freeze({ sku: 'banana', zone: ZONES.CHILLED, weightPerUnit: 8 }),
-    BREAD: Object.freeze({ sku: 'bread', zone: ZONES.DRY, weightPerUnit: 6 }),
-    ICE_CREAM: Object.freeze({ sku: 'ice-cream', zone: ZONES.FROZEN, weightPerUnit: 9 }),
+    WATER: Object.freeze({ sku: 'water', zone: ZONES.DRY, weightPerUnit: 12, price: 1500, name: 'Вода 1,5 л' }),
+    MILK: Object.freeze({ sku: 'milk', zone: ZONES.CHILLED, weightPerUnit: 10, price: 1400, name: 'Молоко' }),
+    BANANA: Object.freeze({ sku: 'banana', zone: ZONES.CHILLED, weightPerUnit: 8, price: 1200, name: 'Бананы' }),
+    BREAD: Object.freeze({ sku: 'bread', zone: ZONES.DRY, weightPerUnit: 6, price: 900, name: 'Хлеб' }),
+    ICE_CREAM: Object.freeze({ sku: 'ice-cream', zone: ZONES.FROZEN, weightPerUnit: 9, price: 2200, name: 'Мороженое' }),
   });
+
+  const ITEM_BY_SKU = Object.freeze(Object.fromEntries(Object.values(ITEMS).map((item) => [item.sku, item])));
+
+  function itemBySku(sku) {
+    return ITEM_BY_SKU[sku] || null;
+  }
 
   function createPallet({ storeId, zone }) {
     return { storeId, zone, items: [], weight: 0, capacity: 100 };
@@ -87,6 +93,28 @@
     const minutes = Math.max(0, Math.round(totalDistance * 5));
     const distanceScore = Math.max(0, Math.round(100 - totalDistance));
     return { stops: routeStops, minutes, distanceScore };
+  }
+
+  function permutations(values) {
+    if (values.length <= 1) return [values];
+    const result = [];
+    values.forEach((value, index) => {
+      const rest = [...values.slice(0, index), ...values.slice(index + 1)];
+      for (const tail of permutations(rest)) result.push([value, ...tail]);
+    });
+    return result;
+  }
+
+  function bestRoute(stops) {
+    const list = [...(stops || [])];
+    if (list.length === 0) return { stops: [], minutes: 0 };
+    if (list.length > 8) throw new RangeError(`Too many stops to optimize: ${list.length}`);
+    let best = null;
+    for (const candidate of permutations(list)) {
+      const { minutes } = buildRoute(null, candidate);
+      if (!best || minutes < best.minutes) best = { stops: candidate, minutes };
+    }
+    return best;
   }
 
   function scoreShift({ deliveredPercent, onTimePercent, utilizationPercent, spoiledPallets, routePenalty, spoilageReasons = [] }) {
@@ -176,6 +204,8 @@
     createVehicle,
     loadPallet,
     buildRoute,
+    bestRoute,
+    itemBySku,
     scoreShift,
     createShiftState,
     advanceScenario,
