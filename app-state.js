@@ -60,6 +60,8 @@
       activeScreen: 'warehouse',
       builderOpen: false,
       vehicleDrawerOpen: false,
+      guideOpen: false,
+      guidePausedBeforeOpen: null,
       report: null,
       nextLevelId: null,
       selectedVehicleId: vehicles.find((vehicle) => vehicle.ready)?.id || vehicles[0]?.id || null,
@@ -186,6 +188,22 @@
     if (action.type === 'START_LEVEL') return startLevel(action.levelId);
     if (action.type === 'TICK') return tick(state, action.seconds);
     if (action.type === 'DISMISS_FEEDBACK') return { ...state, feedback: null };
+    if (action.type === 'OPEN_GUIDE') {
+      return {
+        ...state,
+        guideOpen: true,
+        guidePausedBeforeOpen: state.paused,
+        paused: true,
+      };
+    }
+    if (action.type === 'CLOSE_GUIDE') {
+      return {
+        ...state,
+        guideOpen: false,
+        paused: state.guidePausedBeforeOpen ?? state.paused,
+        guidePausedBeforeOpen: null,
+      };
+    }
     if (action.type === 'CONTINUE_STORY') {
       if (state.phase === 'story-after') return state.nextLevelId ? startLevel(state.nextLevelId) : { ...state, phase: 'endless', story: null, report: null };
       if (state.phase === 'briefing') return { ...state, phase: 'shift', story: null };

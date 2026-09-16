@@ -34,3 +34,14 @@ button:disabled { opacity:.45; cursor:default; }
 .order-row { padding:10px; border:1px solid #35415b; border-radius:12px; background:#202b42; }
 .order-row strong,.order-row span { display:block; }
 .order-row span { margin-top:3px; color:var(--muted); font-size:12px; }
+.guide-trigger { display:flex; width:100%; min-height:50px; align-items:center; justify-content:space-between; gap:10px; margin:0 0 12px; padding:9px 13px; border:1px solid #76efc855; border-radius:13px; background:#1a2d38; text-align:left; }
+.guide-trigger span { color:var(--mint); font-weight:800; }
+.guide-trigger small { color:var(--muted); font-size:10px; text-align:right; }
+.guide-intro { color:var(--muted); }
+.guide-steps { display:grid; gap:10px; margin:14px 0; padding-left:23px; }
+.guide-steps li { padding-left:2px; color:#d9e4e5; }
+.guide-steps li strong { color:var(--mint); }
+.guide-example { margin:15px 0; padding:12px; border:1px solid var(--line); border-radius:14px; background:#121d2a; }
+.guide-example h3 { margin:0 0 8px; font-size:13px; }
+.guide-example .order-row + .order-row { margin-top:7px; }
+.guide-tip { margin:12px 0; padding:10px; border-radius:11px; background:#3b3527; color:#ffe5a7; font-size:12px; }

@@ -40,6 +40,7 @@ function render(nextState, document) {
   byId(document, 'vehicleName').textContent = selectedVehicle ? `🚚 ${vehicleLabel(selectedVehicle)}` : 'Выберите машину';
   byId(document, 'transportSummary').textContent = selectedVehicle ? `${vehicleLabel(selectedVehicle)}: ${selectedVehicle.pallets.length} паллет в кузове.` : 'Выберите машину для отгрузки.';
   byId(document, 'ordersList').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Активных заявок нет.</p>';
+  byId(document, 'guideOrders').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Все заявки закрыты.</p>';
 
   const pause = document.querySelector('[data-action="PAUSE"]');
   pause.disabled = nextState.phase !== 'shift';
@@ -88,6 +89,13 @@ function render(nextState, document) {
   vehicleModal.classList.toggle('open', nextState.vehicleDrawerOpen);
   vehicleModal.setAttribute('aria-hidden', String(!nextState.vehicleDrawerOpen));
 
+  const guideModal = byId(document, 'guideModal');
+  guideModal.classList.toggle('open', nextState.guideOpen);
+  guideModal.setAttribute('aria-hidden', String(!nextState.guideOpen));
+  document.querySelectorAll('[data-action="OPEN_GUIDE"]').forEach((button) => {
+    button.setAttribute('aria-expanded', String(nextState.guideOpen));
+  });
+
   const reportModal = byId(document, 'reportModal');
   reportModal.classList.toggle('open', nextState.phase === 'report');
   reportModal.setAttribute('aria-hidden', String(nextState.phase !== 'report'));
@@ -104,7 +112,7 @@ function render(nextState, document) {
   }
 
   const briefing = byId(document, 'levelBriefing');
-  const showStory = nextState.phase === 'briefing' || nextState.phase === 'story-after';
+  const showStory = !nextState.guideOpen && (nextState.phase === 'briefing' || nextState.phase === 'story-after');
   briefing.classList.toggle('open', showStory);
   briefing.setAttribute('aria-hidden', String(!showStory));
   if (showStory) {
