@@ -30,3 +30,7 @@ button:disabled { opacity:.45; cursor:default; }
 .toast.error { background:#ffe1e6; color:#54222d; }
 .toast.info { background:#dcecff; color:#17375b; }
 @keyframes banner-in { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+.orders-list { display:grid; gap:8px; margin:12px 0; }
+.order-row { padding:10px; border:1px solid #35415b; border-radius:12px; background:#202b42; }
+.order-row strong,.order-row span { display:block; }
+.order-row span { margin-top:3px; color:var(--muted); font-size:12px; }

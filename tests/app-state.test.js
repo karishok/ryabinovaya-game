@@ -44,14 +44,18 @@ test('rejected incompatible load preserves builder state and records spoilage', 
 });
 
 test('end-shift score includes accumulated spoilage and penalty data', () => {
+  const pallet = {
+    storeId: 'north', zone: 'dry', vehicleId: 'dry-1', weight: 80,
+    items: [{ sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 }],
+  };
   const initial = {
     secondsRemaining: 120,
-    orders: [{ storeId: 'north' }],
-    loadedPallets: [{ storeId: 'north', weight: 80 }],
-    vehicles: [{ id: 'dry-1', capacity: 100, pallets: [{ weight: 80 }] }],
+    orders: [{ id: 'order-north', storeId: 'north', zone: 'dry', sku: 'water', quantity: 2 }],
+    loadedPallets: [pallet],
+    vehicles: [{ id: 'dry-1', zone: 'dry', capacity: 100, pallets: [pallet] }],
     metrics: { spoiledPallets: 1, routePenalty: 10 },
     spoilageReasons: [{ message: 'паллета испорчена из-за несовместимого транспорта' }],
-    route: { minutes: 12, distanceScore: 88 },
+    route: { stops: ['north'], minutes: 12, distanceScore: 88 },
   };
   const next = reduceAction(initial, { type: 'END_SHIFT' });
   assert.ok(next.report.reasons.some((reason) => reason.includes('несовместимого транспорта')));

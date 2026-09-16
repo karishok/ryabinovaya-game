@@ -17,6 +17,7 @@ const orderLabel = (order) => {
   const item = itemDetails[order.sku] || { emoji: '📦', name: order.sku };
   return `${item.emoji} ${item.name} · ${order.quantity} шт.`;
 };
+const orderMarkup = (order) => `<div class="order-row"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel(order)} · ${zones[order.zone]}</span></div>`;
 
 function render(nextState, document) {
   const level = levelFor(nextState.levelId);
@@ -38,6 +39,7 @@ function render(nextState, document) {
   byId(document, 'missionOrder').textContent = mission ? orderLabel(mission) : 'Проверьте маршрут и завершите смену.';
   byId(document, 'vehicleName').textContent = selectedVehicle ? `🚚 ${vehicleLabel(selectedVehicle)}` : 'Выберите машину';
   byId(document, 'transportSummary').textContent = selectedVehicle ? `${vehicleLabel(selectedVehicle)}: ${selectedVehicle.pallets.length} паллет в кузове.` : 'Выберите машину для отгрузки.';
+  byId(document, 'ordersList').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Активных заявок нет.</p>';
 
   const pause = document.querySelector('[data-action="PAUSE"]');
   pause.disabled = nextState.phase !== 'shift';

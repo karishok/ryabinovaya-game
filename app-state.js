@@ -84,22 +84,39 @@
   function scoreInputs(state) {
     const metric = state.metrics || {};
     const loadedPallets = state.loadedPallets || [];
-    const orderStores = [...new Set((state.orders || loadedPallets).filter((order) => !order.cancelled).map((order) => order.storeId))];
-    const deliveredStores = new Set(loadedPallets.map((pallet) => pallet.storeId));
-    const calculatedDeliveredPercent = orderStores.length ? Math.round((orderStores.filter((storeId) => deliveredStores.has(storeId)).length / orderStores.length) * 100) : 0;
+    const activeOrders = (state.orders || []).filter((order) => !order.cancelled);
+    const routeStops = state.route?.stops || [];
+    const fulfilledByLine = new Map();
+    for (const pallet of loadedPallets) {
+      const vehicle = (state.vehicles || []).find((entry) => entry.id === pallet.vehicleId);
+      if (!vehicle || vehicle.zone !== pallet.zone || !routeStops.includes(pallet.storeId)) continue;
+      for (const item of pallet.items || []) {
+        if (item.zone !== pallet.zone) continue;
+        const key = `${pallet.storeId}:${pallet.zone}:${item.sku}`;
+        fulfilledByLine.set(key, (fulfilledByLine.get(key) || 0) + item.quantity);
+      }
+    }
+    const demandQuantity = activeOrders.reduce((total, order) => total + order.quantity, 0);
+    const remainingByLine = new Map(fulfilledByLine);
+    const fulfilledQuantity = activeOrders.reduce((total, order) => {
+      const key = `${order.storeId}:${order.zone}:${order.sku}`;
+      const fulfilled = Math.min(order.quantity, remainingByLine.get(key) || 0);
+      remainingByLine.set(key, (remainingByLine.get(key) || 0) - fulfilled);
+      return total + fulfilled;
+    }, 0);
+    const calculatedDeliveredPercent = demandQuantity ? Math.round((fulfilledQuantity / demandQuantity) * 100) : 0;
     const loadedVehicles = (state.vehicles || []).filter((vehicle) => vehicle.pallets?.length > 0);
     const loadedWeight = loadedPallets.reduce((total, loadedPallet) => total + loadedPallet.weight, 0);
     const vehicleCapacity = loadedVehicles.reduce((total, vehicle) => total + vehicle.capacity, 0);
     const calculatedUtilizationPercent = vehicleCapacity ? Math.round((loadedWeight / vehicleCapacity) * 100) : 0;
-    const calculatedOnTimePercent = state.secondsRemaining > 0 ? Math.max(0, 100 - (state.route?.minutes || 0)) : 0;
-    const supplied = (key, fallback) => Number.isFinite(metric[key]) ? metric[key] : fallback;
+    const calculatedOnTimePercent = state.secondsRemaining > 0 && routeStops.length > 0 ? Math.max(0, 100 - state.route.minutes) : 0;
 
     return {
-      deliveredPercent: supplied('deliveredPercent', calculatedDeliveredPercent),
-      onTimePercent: supplied('onTimePercent', calculatedOnTimePercent),
-      utilizationPercent: supplied('utilizationPercent', calculatedUtilizationPercent),
-      spoiledPallets: supplied('spoiledPallets', 0),
-      routePenalty: supplied('routePenalty', 0),
+      deliveredPercent: calculatedDeliveredPercent,
+      onTimePercent: calculatedOnTimePercent,
+      utilizationPercent: calculatedUtilizationPercent,
+      spoiledPallets: metric.spoiledPallets || 0,
+      routePenalty: metric.routePenalty || 0,
       spoilageReasons: state.spoilageReasons || [],
     };
   }
@@ -178,7 +195,7 @@
       return withFeedback({
         ...state,
         vehicles: state.vehicles.map((entry) => entry.id === vehicle.id ? result.vehicle : entry),
-        loadedPallets: [...(state.loadedPallets || []), pallet],
+        loadedPallets: [...(state.loadedPallets || []), { ...pallet, vehicleId: vehicle.id }],
         routeStops: (state.routeStops || []).includes(pallet.storeId) ? (state.routeStops || []) : [...(state.routeStops || []), pallet.storeId],
         pallet: palletFor({ ...state, pallet }),
       }, feedback('success', 'pallet-loaded', 'Паллета собрана и готова к отгрузке.'));

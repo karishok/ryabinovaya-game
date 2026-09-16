@@ -17,9 +17,12 @@ test('paused shift does not consume time', () => {
 });
 
 test('finished shift returns a report and unlocks the next level', () => {
-  const state = { ...startLevel(1), metrics: { deliveredPercent: 100, onTimePercent: 100, utilizationPercent: 90, spoiledPallets: 0, routePenalty: 0 } };
+  let state = startLevel(1);
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  state = reduceAction(state, { type: 'SET_ROUTE', vehicleId: 'dry-1', stops: ['north'] });
   const result = finishShift(state);
-  assert.equal(result.report.stars, 3);
+  assert.equal(result.report.deliveredPercent, 100);
   assert.equal(result.nextLevelId, 2);
 });
 
@@ -32,23 +35,23 @@ test('tick applies a scheduled demand change once and exposes short feedback', (
 });
 
 test('end-shift action keeps all report metrics available at the top level', () => {
-  const state = {
-    ...startLevel(1),
-    metrics: { deliveredPercent: 100, onTimePercent: 100, utilizationPercent: 90, spoiledPallets: 0, routePenalty: 0 },
-  };
+  let state = startLevel(1);
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  state = reduceAction(state, { type: 'SET_ROUTE', vehicleId: 'dry-1', stops: ['north'] });
   const next = reduceAction(state, { type: 'END_SHIFT' });
   assert.deepEqual(next.report, {
-    stars: 3,
-    profit: 16700,
+    stars: 2,
+    profit: 14120,
     deliveredPercent: 100,
-    onTimePercent: 100,
-    utilizationPercent: 90,
+    onTimePercent: 85,
+    utilizationPercent: 24,
     spoiledPallets: 0,
-    reasons: [],
+    reasons: ['Опоздали из-за длинного маршрута', 'Потеряли прибыль из-за недогруженной машины'],
     inputs: {
       deliveredPercent: 100,
-      onTimePercent: 100,
-      utilizationPercent: 90,
+      onTimePercent: 85,
+      utilizationPercent: 24,
       spoiledPallets: 0,
       routePenalty: 0,
       spoilageReasons: [],
@@ -63,6 +66,47 @@ test('dismiss-feedback removes an operational notification without changing shif
   assert.equal(next.levelId, 1);
 });
 
+test('wrong West pallet after the level 7 demand change does not fulfil demand or count as on time without a route', () => {
+  let state = tick(startLevel(7), 120);
+  state = reduceAction(state, { type: 'SELECT_STORE', storeId: 'west' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+
+  const report = finishShift(state).report;
+  assert.equal(report.deliveredPercent, 0);
+  assert.equal(report.onTimePercent, 0);
+  assert.notEqual(report.stars, 3);
+});
+
+test('matching SKU and quantity count as delivered only when their store is on the route', () => {
+  let state = startLevel(1);
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  state = reduceAction(state, { type: 'SET_ROUTE', vehicleId: 'dry-1', stops: ['north'] });
+
+  const report = finishShift(state).report;
+  assert.equal(report.deliveredPercent, 100);
+  assert.ok(report.onTimePercent > 0);
+});
+
+test('one loaded quantity is allocated only once across matching order lines', () => {
+  const pallet = {
+    storeId: 'north', zone: 'dry', vehicleId: 'dry-1', weight: 24,
+    items: [{ sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 }],
+  };
+  const state = {
+    ...startLevel(1),
+    orders: [
+      { id: 'first', storeId: 'north', zone: 'dry', sku: 'water', quantity: 2 },
+      { id: 'second', storeId: 'north', zone: 'dry', sku: 'water', quantity: 2 },
+    ],
+    loadedPallets: [pallet],
+    vehicles: [{ id: 'dry-1', zone: 'dry', capacity: 100, pallets: [pallet] }],
+    route: { stops: ['north'], minutes: 15 },
+  };
+  assert.equal(finishShift(state).report.deliveredPercent, 50);
+});
+
 test('campaign shell includes briefing, operational feedback, and a complete report', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   assert.match(html, /<script src="levels\.js"><\/script>\s*<script src="app-state\.js"><\/script>/);
@@ -70,4 +114,14 @@ test('campaign shell includes briefing, operational feedback, and a complete rep
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /Следующая смена/);
+});
+
+test('orders screen is populated from current state instead of static level 1 copy', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const app = fs.readFileSync('app.js', 'utf8');
+  assert.doesNotMatch(html, /В этой смене одна срочная заявка: «Северный» ждёт воду из зоны «Сухач»\./);
+  assert.match(html, /id="ordersList"/);
+  assert.match(app, /nextState\.orders/);
+  assert.match(app, /byId\(document, 'ordersList'\)\.innerHTML/);
+  assert.match(app, /orderLabel\(order\)/);
 });
