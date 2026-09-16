@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { metricsFor } = require('../scoring.js');
+const { metricsFor, starsFor, profitFor } = require('../scoring.js');
 
 const emptyOutcome = {
   demand: [], delivered: [], loadedWeight: 0, usefulWeight: 0,
@@ -82,4 +82,48 @@ test('under-delivery does not hurt precision', () => {
 
 test('an empty demand counts as fully delivered', () => {
   assert.equal(metricsFor(emptyOutcome).deliveredPercent, 100);
+});
+
+const perfect = { deliveredPercent: 100, onTimePercent: 100, precisionPercent: 100 };
+
+test('three stars require perfect play with no spoilage', () => {
+  assert.equal(starsFor(perfect, { ...emptyOutcome }), 3);
+});
+
+test('spoilage alone blocks three stars', () => {
+  assert.equal(starsFor(perfect, { ...emptyOutcome, spoiledPallets: 1 }), 2);
+});
+
+test('a single imperfect metric blocks three stars', () => {
+  assert.equal(starsFor({ ...perfect, onTimePercent: 99 }, emptyOutcome), 2);
+  assert.equal(starsFor({ ...perfect, precisionPercent: 99 }, emptyOutcome), 2);
+});
+
+test('two stars need seventy percent delivered', () => {
+  assert.equal(starsFor({ ...perfect, deliveredPercent: 70 }, emptyOutcome), 2);
+  assert.equal(starsFor({ ...perfect, deliveredPercent: 69 }, emptyOutcome), 1);
+});
+
+test('profit is revenue minus route, weight and spoilage costs', () => {
+  const profit = profitFor({
+    ...emptyOutcome,
+    delivered: [{ storeId: 'north', zone: 'dry', sku: 'water', quantity: 2, price: 1500 }],
+    loadedWeight: 24,
+    routes: [{ vehicleId: 'dry-1', stops: ['north'], minutes: 15, bestStops: ['north'], bestMinutes: 15 }],
+  });
+  assert.equal(profit, 3000 - 1500 - 240);
+});
+
+test('stuffing the truck earns less than shipping exactly the order', () => {
+  const base = {
+    ...emptyOutcome,
+    delivered: [{ storeId: 'north', zone: 'dry', sku: 'water', quantity: 2, price: 1500 }],
+    routes: [{ vehicleId: 'dry-1', stops: ['north'], minutes: 15, bestStops: ['north'], bestMinutes: 15 }],
+  };
+  assert.ok(profitFor({ ...base, loadedWeight: 96 }) < profitFor({ ...base, loadedWeight: 24 }));
+});
+
+test('spoilage is charged against profit', () => {
+  const base = { ...emptyOutcome, delivered: [{ storeId: 'north', zone: 'dry', sku: 'water', quantity: 2, price: 1500 }] };
+  assert.equal(profitFor({ ...base, spoiledPallets: 1 }) - profitFor(base), -3000);
 });

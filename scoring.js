@@ -26,5 +26,25 @@
     return { deliveredPercent, onTimePercent, precisionPercent };
   }
 
-  return { metricsFor };
+  const RATES = Object.freeze({ perRouteMinute: 100, perLoadedKg: 10, spoiledPallet: 3000 });
+
+  const isPerfect = (metrics, outcome) => metrics.deliveredPercent === 100
+    && metrics.onTimePercent === 100
+    && metrics.precisionPercent === 100
+    && (outcome.spoiledPallets || 0) === 0;
+
+  function starsFor(metrics, outcome) {
+    if (isPerfect(metrics, outcome)) return 3;
+    return metrics.deliveredPercent >= 70 ? 2 : 1;
+  }
+
+  function profitFor(outcome) {
+    const revenue = (outcome.delivered || []).reduce((total, line) => total + line.quantity * line.price, 0);
+    const routeCost = (outcome.routes || []).reduce((total, route) => total + route.minutes * RATES.perRouteMinute, 0);
+    const weightCost = (outcome.loadedWeight || 0) * RATES.perLoadedKg;
+    const spoilCost = (outcome.spoiledPallets || 0) * RATES.spoiledPallet;
+    return Math.round(revenue - routeCost - weightCost - spoilCost);
+  }
+
+  return { RATES, metricsFor, starsFor, profitFor };
 });
