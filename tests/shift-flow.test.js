@@ -142,6 +142,33 @@ test('campaign shell includes briefing, operational feedback, and a complete rep
   assert.match(html, /Следующая смена/);
 });
 
+test('finished shift reports which loaded vehicles never got a route built', () => {
+  const northPallet = {
+    storeId: 'north', zone: 'dry', vehicleId: 'dry-1', weight: 12,
+    items: [{ sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 }],
+  };
+  const westPallet = {
+    storeId: 'west', zone: 'dry', vehicleId: 'dry-2', weight: 12,
+    items: [{ sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 }],
+  };
+  const state = {
+    ...startLevel(1),
+    orders: [
+      { id: 'north-water', storeId: 'north', zone: 'dry', sku: 'water', quantity: 1 },
+      { id: 'west-water', storeId: 'west', zone: 'dry', sku: 'water', quantity: 1 },
+    ],
+    loadedPallets: [northPallet, westPallet],
+    vehicles: [
+      { id: 'dry-1', zone: 'dry', capacity: 100, pallets: [northPallet] },
+      { id: 'dry-2', zone: 'dry', capacity: 100, pallets: [westPallet] },
+    ],
+    routesByVehicle: { 'dry-1': { stops: ['north'], minutes: 15 } },
+  };
+
+  const report = finishShift(state).report;
+  assert.match(report.reasons[0], /Маршрут не построен.*dry-2/);
+});
+
 test('orders screen is populated from current state instead of static level 1 copy', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const app = fs.readFileSync('app.js', 'utf8');

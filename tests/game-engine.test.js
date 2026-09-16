@@ -90,6 +90,14 @@ test('vehicle capacity applies across multiple pallets', () => {
   assert.deepEqual(loadPallet(loaded.vehicle, second), { ok: false, reason: 'over-capacity' });
 });
 
+test('a loaded pallet is tagged with the vehicle it was loaded onto', () => {
+  const vehicle = createVehicle({ id: 'dry-1', zone: ZONES.DRY });
+  const pallet = createPallet({ storeId: 'north', zone: ZONES.DRY });
+  const result = loadPallet(vehicle, pallet);
+  assert.equal(result.pallet.vehicleId, 'dry-1');
+  assert.equal(result.vehicle.pallets[0].vehicleId, 'dry-1');
+});
+
 test('vehicle loading is immutable', () => {
   const vehicle = createVehicle({ id: 'dry-1', zone: ZONES.DRY });
   const pallet = createPallet({ storeId: 'north', zone: ZONES.DRY });
@@ -118,6 +126,14 @@ test('route order changes time and efficiency for the same stops', () => {
   const second = buildRoute({ id: 'dry-1', zone: 'dry' }, ['west', 'north', 'central']);
   assert.notEqual(first.minutes, second.minutes);
   assert.notEqual(first.distanceScore, second.distanceScore);
+});
+
+test('unlisted stops of equal length still get distinct, stable fallback distances', () => {
+  const south = buildRoute({ id: 'dry-1', zone: 'dry' }, ['south']);
+  const southRepeat = buildRoute({ id: 'dry-1', zone: 'dry' }, ['south']);
+  const radio = buildRoute({ id: 'dry-1', zone: 'dry' }, ['radio']);
+  assert.equal(south.minutes, southRepeat.minutes);
+  assert.notEqual(south.minutes, radio.minutes);
 });
 
 test('three stars require strong delivery and utilization', () => {
