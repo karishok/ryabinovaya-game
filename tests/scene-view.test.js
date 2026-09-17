@@ -10,6 +10,19 @@ test('initial shift points the warehouse at the active order zone', () => {
   assert.equal(view.mode, 'idle');
 });
 
+test('idle status names the zone in Russian, not its internal code', () => {
+  const view = warehouseViewFor(startLevel(1));
+  assert.equal(view.statusText, 'Зона Сухач: можно начинать сборку.');
+});
+
+test('idle status names the chilled and frozen zones in Russian on later levels', () => {
+  assert.equal(warehouseViewFor(startLevel(4)).statusText, 'Зона Сухач: можно начинать сборку.');
+  const chilledFirst = { ...startLevel(4), orders: [{ id: 'x', storeId: 'east', zone: 'chilled', sku: 'milk', quantity: 1 }] };
+  assert.equal(warehouseViewFor(chilledFirst).statusText, 'Зона Охлаждёнка: можно начинать сборку.');
+  const frozenFirst = { ...startLevel(4), orders: [{ id: 'x', storeId: 'central', zone: 'frozen', sku: 'ice-cream', quantity: 1 }] };
+  assert.equal(warehouseViewFor(frozenFirst).statusText, 'Зона Заморозка: можно начинать сборку.');
+});
+
 test('items on the current pallet turn the scene into collecting mode', () => {
   const state = reduceAction(startLevel(1), { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
   const view = warehouseViewFor(state);

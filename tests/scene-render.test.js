@@ -5,7 +5,8 @@ const vm = require('node:vm');
 const engine = require('../game-engine.js');
 const appState = require('../app-state.js');
 const sceneView = require('../scene-view.js');
-const { LEVELS } = require('../levels.js');
+const levels = require('../levels.js');
+const { LEVELS } = levels;
 
 function loadUi() {
   const elements = new Map();
@@ -28,7 +29,7 @@ function loadUi() {
   };
   const window = {
     RyabinovayaEngine: engine,
-    RyabinovayaLevels: { LEVELS },
+    RyabinovayaLevels: levels,
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: sceneView,
     setTimeout() {},

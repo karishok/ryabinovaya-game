@@ -17,6 +17,12 @@
     east: 'Восточный',
   });
 
+  const ZONE_NAMES = Object.freeze({
+    dry: 'Сухач',
+    chilled: 'Охлаждёнка',
+    frozen: 'Заморозка',
+  });
+
   const LEVELS = [
     {
       id: 1,
@@ -164,5 +170,5 @@
     },
   ];
 
-  return { LEVELS, STORE_NAMES };
+  return { LEVELS, STORE_NAMES, ZONE_NAMES };
 });
