@@ -15,6 +15,33 @@ const byId = (document, id) => document.getElementById(id);
 const quantityFor = (pallet, sku) => pallet.items.filter((item) => item.sku === sku).reduce((total, item) => total + item.quantity, 0);
 const vehicleLabel = (vehicle) => `${zones[vehicle.zone]} фургон`;
 const levelFor = (levelId) => LEVELS.find((level) => level.id === levelId);
+const screenForTsd = (nextState, baseScreen) => {
+  if (nextState.report || nextState.phase === 'report') return 'report';
+  if (nextState.builderOpen) return 'builder';
+  if (nextState.vehicleDrawerOpen) return 'vehicles';
+  if (nextState.guideOpen) return 'guide';
+  if (nextState.tsd?.screen === 'task') return 'task';
+  if (nextState.phase === 'briefing' || nextState.phase === 'story-after') return 'briefing';
+  if (nextState.feedback) return 'feedback';
+  return nextState.tsd?.screen || baseScreen;
+};
+const tsdViewFor = (nextState) => {
+  const baseView = terminalViewFor(nextState);
+  const screen = screenForTsd(nextState, baseView.screen);
+  const titleByScreen = {
+    builder: 'Сборка паллеты',
+    vehicles: 'Машины',
+    guide: 'Как играть?',
+    feedback: 'Оперативное обновление',
+  };
+  return {
+    ...baseView,
+    open: baseView.open || !['current', 'task'].includes(screen),
+    screen,
+    title: titleByScreen[screen] || baseView.title,
+    message: screen === 'feedback' ? nextState.feedback?.message || baseView.message : baseView.message,
+  };
+};
 const orderLabel = (order) => {
   const item = itemDetails[order.sku] || { emoji: '📦', name: order.sku };
   return `${item.emoji} ${item.name} · ${order.quantity} шт.`;
@@ -65,12 +92,17 @@ function renderTsd(view, document) {
   continueStory.textContent = view.title === 'Смена завершена' ? 'Продолжить' : 'Начать смену';
   byId(document, 'tsdAccept').hidden = !view.canAccept;
   byId(document, 'tsdContinue').hidden = view.screen !== 'report';
+  const panels = document.querySelectorAll ? document.querySelectorAll('[data-tsd-panel]') : [];
+  panels.forEach((panel) => {
+    panel.hidden = panel.dataset.tsdPanel !== view.screen;
+    panel.setAttribute('aria-hidden', String(panel.hidden));
+  });
   byId(document, 'warehouseScene').setAttribute('aria-hidden', 'false');
 }
 
 function render(nextState, document) {
   renderScene(warehouseViewFor(nextState), document);
-  renderTsd(terminalViewFor(nextState), document);
+  renderTsd(tsdViewFor(nextState), document);
   const level = levelFor(nextState.levelId);
   const selectedVehicle = nextState.vehicles.find((vehicle) => vehicle.id === nextState.selectedVehicleId) || nextState.vehicles[0];
   const minutes = String(Math.floor(nextState.secondsRemaining / 60)).padStart(2, '0');
@@ -148,8 +180,7 @@ function render(nextState, document) {
 
   const reportModal = byId(document, 'reportModal');
   reportModal.classList.toggle('open', false);
-  reportModal.hidden = true;
-  reportModal.setAttribute('aria-hidden', 'true');
+  reportModal.setAttribute('aria-hidden', String(nextState.report ? false : true));
   if (nextState.report) {
     byId(document, 'reportStars').textContent = '★'.repeat(nextState.report.stars);
     byId(document, 'reportMessage').textContent = nextState.report.reasons[0] || 'Срочные паллеты готовы к отгрузке.';
@@ -165,8 +196,8 @@ function render(nextState, document) {
   const briefing = byId(document, 'levelBriefing');
   const showStory = !nextState.guideOpen && (nextState.phase === 'briefing' || nextState.phase === 'story-after');
   briefing.classList.toggle('open', false);
-  briefing.hidden = true;
-  briefing.setAttribute('aria-hidden', 'true');
+  briefing.hidden = !showStory;
+  briefing.setAttribute('aria-hidden', String(!showStory));
   if (showStory) {
     byId(document, 'briefingKicker').textContent = nextState.phase === 'briefing' ? 'Новая смена' : 'Итоги истории';
     byId(document, 'briefingTitle').textContent = nextState.phase === 'briefing' ? `Уровень ${level.id} · ${level.title}` : 'Смена завершена';
@@ -174,25 +205,36 @@ function render(nextState, document) {
     byId(document, 'briefingGoal').textContent = nextState.phase === 'briefing' ? level.goal : (nextState.nextLevelId ? 'Нажмите, чтобы перейти к следующей смене.' : 'Кампания пройдена.');
   }
   const endless = byId(document, 'endlessMode');
+  endless.hidden = nextState.phase !== 'endless';
   endless.classList.toggle('open', nextState.phase === 'endless');
   endless.setAttribute('aria-hidden', String(nextState.phase !== 'endless'));
 
   const eventBanner = byId(document, 'eventBanner');
   const eventCodes = ['demand-increase', 'vehicle-ready', 'store-reception-change', 'order-cancelled'];
   const isEvent = nextState.phase === 'shift' && eventCodes.includes(nextState.feedback?.code);
-  eventBanner.textContent = isEvent ? nextState.feedback.message : '';
-  eventBanner.classList.toggle('show', isEvent);
+  const showTsdFeedback = tsdViewFor(nextState).screen === 'feedback';
+  eventBanner.textContent = showTsdFeedback ? nextState.feedback?.message || '' : '';
+  eventBanner.classList.toggle('show', showTsdFeedback);
   const toast = byId(document, 'toast');
-  const showToast = nextState.feedback && !isBuilderError && !isEvent;
+  const showToast = nextState.feedback && !isBuilderError && !isEvent && !showTsdFeedback;
   toast.textContent = showToast ? nextState.feedback.message : '';
   toast.className = `toast ${showToast ? `show ${nextState.feedback.kind}` : ''}`;
 }
 
 function dispatch(action) {
-  if (action.type === 'OPEN_BUILDER') state = { ...state, builderOpen: true, feedback: null };
-  else if (action.type === 'CLOSE_BUILDER') state = { ...state, builderOpen: false, feedback: null };
-  else if (action.type === 'OPEN_VEHICLES') state = { ...state, vehicleDrawerOpen: true, feedback: null };
-  else if (action.type === 'CLOSE_VEHICLES') state = { ...state, vehicleDrawerOpen: false, feedback: null };
+  if (action.type === 'OPEN_BUILDER') {
+    if (!state.tsd?.acceptedOrderId) state = reduceAction(state, { type: 'SHOW_TSD_TASK' });
+    else state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } };
+  } else if (action.type === 'CLOSE_BUILDER') state = { ...state, builderOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
+  else if (action.type === 'OPEN_VEHICLES') state = { ...state, vehicleDrawerOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'vehicles' } };
+  else if (action.type === 'CLOSE_VEHICLES') state = { ...state, vehicleDrawerOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
+  else if (action.type === 'OPEN_GUIDE') {
+    state = reduceAction(state, action);
+    state = { ...state, tsd: { ...state.tsd, open: true, screen: 'guide' } };
+  } else if (action.type === 'CLOSE_GUIDE') {
+    state = reduceAction(state, action);
+    state = { ...state, tsd: { ...state.tsd, open: false, screen: 'current' } };
+  }
   else if (action.type === 'NAVIGATE') state = { ...state, activeScreen: action.screen, feedback: null };
   else {
     state = reduceAction(state, action);

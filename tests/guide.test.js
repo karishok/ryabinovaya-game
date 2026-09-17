@@ -100,6 +100,14 @@ test('game shell provides a reachable, accessible guide with the core shift step
   assert.match(html, /id="guideOrders"/);
 });
 
+test('briefing and guide are TSD screens rather than competing modal backdrops', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.doesNotMatch(html, /id="levelBriefing"[^>]*class="modal-backdrop"/);
+  assert.doesNotMatch(html, /id="guideModal"[^>]*class="modal-backdrop"/);
+  assert.match(html, /id="tsdBriefing"/);
+  assert.match(html, /id="tsdGuide"/);
+});
+
 test('static page requests fresh guide assets so an open game picks up the update', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   for (const asset of ['styles.css?v=guide', 'app-state.js?v=guide', 'app.js?v=guide-2']) {

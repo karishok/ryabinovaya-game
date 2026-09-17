@@ -150,6 +150,14 @@ test('campaign shell includes briefing, operational feedback, and a complete rep
   assert.match(html, /Следующая смена/);
 });
 
+test('warehouse workflow actions select their TSD screen while retaining compatibility flags', () => {
+  const app = fs.readFileSync('app.js', 'utf8');
+  assert.match(app, /screen:\s*'builder'/);
+  assert.match(app, /screen:\s*'vehicles'/);
+  assert.match(app, /screen:\s*'current'/);
+  assert.match(app, /screenForTsd/);
+});
+
 test('finished shift reports which loaded vehicles never got a route built', () => {
   const northPallet = {
     storeId: 'north', zone: 'dry', vehicleId: 'dry-1', weight: 12,

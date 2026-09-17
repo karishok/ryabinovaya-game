@@ -71,6 +71,12 @@ test('warehouse actions are attached to the pallet and truck instead of a bottom
   assert.doesNotMatch(html, /class="mission-dock"/);
 });
 
+test('builder, vehicle and report content share the physical TSD shell', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  for (const id of ['tsdBuilder', 'tsdVehicles', 'tsdReport']) assert.match(html, new RegExp(`id="${id}"`));
+  assert.equal((html.match(/class="tsd-device"/g) || []).length, 1);
+});
+
 test('TSD is outside the warehouse stacking context and layers above navigation', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const css = fs.readFileSync('styles.css', 'utf8');

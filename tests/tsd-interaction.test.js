@@ -68,6 +68,9 @@ test('closed TSD leaves pallet and truck actions reachable', () => {
   const { click, elements } = loadUiWithClicks();
 
   click({ dataset: { action: 'OPEN_BUILDER' }, disabled: false });
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'task');
+  click({ dataset: { action: 'ACCEPT_TASK' }, disabled: false });
+  click({ dataset: { action: 'OPEN_BUILDER' }, disabled: false });
   assert.equal(elements.get('builderModal').attributes['aria-hidden'], 'false');
 
   click({ dataset: { action: 'CLOSE_BUILDER' }, disabled: false });
@@ -117,16 +120,16 @@ test('report continues through the visible TSD shell control', () => {
 test('TSD owns briefing and report presentation while legacy dialogs stay hidden', () => {
   const { window, document, elements } = loadUiWithClicks();
   assert.equal(elements.get('tsdDevice').dataset.screen, 'briefing');
-  assert.equal(elements.get('levelBriefing').hidden, true);
-  assert.equal(elements.get('levelBriefing').attributes['aria-hidden'], 'true');
+  assert.equal(elements.get('levelBriefing').hidden, false);
+  assert.equal(elements.get('levelBriefing').attributes['aria-hidden'], 'false');
 
   const shift = appState.reduceAction(appState.startLevel(1), { type: 'CONTINUE_STORY' });
   const report = appState.reduceAction(shift, { type: 'END_SHIFT' });
   window.render(report, document);
 
   assert.equal(elements.get('tsdDevice').dataset.screen, 'report');
-  assert.equal(elements.get('reportModal').hidden, true);
-  assert.equal(elements.get('reportModal').attributes['aria-hidden'], 'true');
+  assert.equal(elements.get('reportModal').hidden, false);
+  assert.equal(elements.get('reportModal').attributes['aria-hidden'], 'false');
 });
 
 test('closing a reopened TSD restores focus to its warehouse opener', () => {
