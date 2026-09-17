@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const engine = require('../game-engine.js');
 const appState = require('../app-state.js');
-const { LEVELS } = require('../levels.js');
+const levels = require('../levels.js');
+const { LEVELS } = levels;
 
 function renderKpis(state) {
   const elements = new Map();
@@ -12,6 +13,8 @@ function renderKpis(state) {
     if (!elements.has(id)) elements.set(id, {
       classList: { toggle() {} },
       setAttribute() {},
+      dataset: {},
+      style: { setProperty() {} },
       textContent: '',
       innerHTML: '',
       disabled: false,
@@ -26,8 +29,9 @@ function renderKpis(state) {
   };
   const window = {
     RyabinovayaEngine: engine,
-    RyabinovayaLevels: { LEVELS },
+    RyabinovayaLevels: levels,
     RyabinovayaAppState: appState,
+    RyabinovayaSceneView: require('../scene-view.js'),
     setTimeout() {},
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
