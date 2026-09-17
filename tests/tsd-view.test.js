@@ -39,3 +39,42 @@ test('feedback view puts operational errors on the TSD', () => {
   assert.equal(view.signal, 'error');
   assert.equal(view.message, 'Этот товар нужно собирать в другой зоне.');
 });
+
+test('feedback screen reopens the TSD when an error arrives while it is closed', () => {
+  let state = reduceAction(startLevel(1), { type: 'CONTINUE_STORY' });
+  state = reduceAction(state, { type: 'ACCEPT_TASK' });
+  state = {
+    ...state,
+    feedback: { kind: 'error', code: 'wrong-zone', message: 'Этот товар нужно собирать в другой зоне.' },
+  };
+  const view = terminalViewFor(state);
+  assert.equal(view.screen, 'feedback');
+  assert.equal(view.open, true);
+});
+
+test('report and after-story screens reopen the TSD when their state is closed', () => {
+  const initial = startLevel(1);
+  const report = terminalViewFor({
+    ...initial,
+    phase: 'report',
+    report: { reasons: ['Смена завершена.'] },
+    tsd: { ...initial.tsd, open: false },
+  });
+  const story = terminalViewFor({
+    ...initial,
+    phase: 'story-after',
+    story: { kind: 'after', text: 'Первая заявка закрыта.' },
+    tsd: { ...initial.tsd, open: false },
+  });
+  assert.deepEqual({ screen: report.screen, open: report.open }, { screen: 'report', open: true });
+  assert.deepEqual({ screen: story.screen, open: story.open }, { screen: 'briefing', open: true });
+});
+
+test('an already accepted task cannot be accepted again when reopened', () => {
+  let state = reduceAction(startLevel(1), { type: 'CONTINUE_STORY' });
+  state = reduceAction(state, { type: 'ACCEPT_TASK' });
+  state = reduceAction(state, { type: 'SHOW_TSD_TASK' });
+  const view = terminalViewFor(state);
+  assert.equal(view.screen, 'task');
+  assert.equal(view.canAccept, false);
+});

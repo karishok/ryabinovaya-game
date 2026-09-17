@@ -54,9 +54,10 @@
       task: state.feedback?.message || (order ? 'Проверьте заявку и примите её.' : 'Активных заявок нет.'),
       current: state.feedback?.message || '',
     };
+    const mandatoryOpen = ['feedback', 'briefing', 'report'].includes(screen);
 
     return {
-      open: Boolean(state.tsd?.open),
+      open: mandatoryOpen || Boolean(state.tsd?.open),
       screen,
       signal,
       title: titleByScreen[screen],
@@ -65,7 +66,7 @@
       zoneName: order ? ZONE_NAMES[order.zone] || order.zone : '',
       progressText,
       message: messageByScreen[screen],
-      canAccept: screen === 'task' && Boolean(order),
+      canAccept: screen === 'task' && !state.tsd?.acceptedOrderId && Boolean(order),
     };
   }
 
