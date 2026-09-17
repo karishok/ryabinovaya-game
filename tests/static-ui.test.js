@@ -106,7 +106,10 @@ test('warehouse styles define mobile motion and accessible fallbacks', () => {
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.match(css, /--industrial-green:/);
   assert.match(css, /\.warehouse-scene\s*\{/);
-  assert.match(css, /height:\s*clamp\([^;]*svh/);
+  // Высота сцены задаётся только через aspect-ratio. Любой height в
+  // медиазапросах перебьёт его и уведёт хотспоты с объектов на фотографии.
+  const mobileBlock = css.slice(css.indexOf('@media (max-width: 390px)'));
+  assert.doesNotMatch(mobileBlock.slice(0, mobileBlock.indexOf('}\n}')), /\.warehouse-scene[^}]*height:/s);
   assert.match(css, /\[data-mode="to-dispatch"\]/);
   assert.match(css, /\[data-mode="spoiled"\]/);
   assert.match(css, /@media\s*\(max-width:\s*390px\)/);
@@ -159,4 +162,30 @@ test('the vehicles panel shows where darkstores are and how long the route takes
   assert.match(app, /engine\.STORE_COORDINATES/);
   assert.match(app, /engine\.legMinutes\(/);
   assert.match(app, /лучший/);
+});
+
+test('the closed TSD strip never covers the bottom navigation', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  const device = css.slice(css.indexOf('.tsd-device {'));
+  const closed = device.slice(0, device.indexOf('}'));
+  // Полоса стоит выше навигации по z-index, поэтому любое наложение делает
+  // «Склад/Заявки/Транспорт» некликабельными.
+  assert.match(closed, /bottom:\s*calc\(68px \+/);
+  assert.doesNotMatch(css, /\.tsd-device\[data-open="false"\]\s*\{\s*transform:\s*translate\(-50%,\s*68%\)/);
+  // Контент не должен уезжать под плавающую полосу.
+  assert.match(css, /\.app\s*\{[^}]*padding:\s*0 0 196px/s);
+});
+
+test('the TSD panel is rendered as the screen of a device body', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  // Содержимое панели должно жить внутри экрана прибора, а не быть просто
+  // всплывающим окном: корпус рисуется CSS, потому что на фотографии экран
+  // занимает 29.5% ширины и для читаемых 330px сканер вышел бы ~1120px.
+  assert.match(html, /id="tsdDisplay"/);
+  assert.match(html, /class="tsd-display"[\s\S]*?id="tsdTitle"/);
+  assert.match(css, /\.tsd-screen::before/);
+  assert.match(css, /\.tsd-screen::after/);
+  const display = css.slice(css.indexOf('.tsd-display {'));
+  assert.match(display.slice(0, display.indexOf('}')), /max-height:\s*min\(66svh/);
 });

@@ -3,9 +3,10 @@ const assert = require('node:assert/strict');
 const { warehouseViewFor } = require('../scene-view.js');
 const { startLevel, reduceAction } = require('../app-state.js');
 
-test('initial shift points the warehouse at the active order zone', () => {
+test('initial shift selects the order zone without highlighting the only rack', () => {
   const view = warehouseViewFor(startLevel(1));
-  assert.equal(view.activeZone, 'dry');
+  // Уровень 1 открывает одну зону: подсвечивать нечего, выбирать не из чего.
+  assert.equal(view.activeZone, null);
   assert.equal(view.selectedZone, 'dry');
   assert.equal(view.mode, 'idle');
 });
@@ -85,4 +86,14 @@ test('vehicle-capacity feedback highlights the truck', () => {
   state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
   assert.equal(state.feedback?.code, 'over-capacity');
   assert.equal(warehouseViewFor(state).highlightObject, 'truck');
+});
+
+test('a single unlocked zone needs no highlight because there is nothing to choose', () => {
+  const single = warehouseViewFor({ ...startLevel(1), phase: 'shift' });
+  assert.equal(single.activeZone, null);
+});
+
+test('three unlocked zones highlight the zone the current order belongs to', () => {
+  const many = warehouseViewFor({ ...startLevel(4), phase: 'shift' });
+  assert.ok(['dry', 'frozen', 'chilled'].includes(many.activeZone));
 });

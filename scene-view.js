@@ -46,7 +46,11 @@
     };
 
     return {
-      activeZone: order?.zone || state.pallet?.zone || 'dry',
+      // Подсвечивать зону имеет смысл только там, где есть из чего выбирать.
+      // На уровнях с одной открытой зоной подсказка повторяет ТСД и схему.
+      activeZone: (state.unlockedZones || []).length > 1
+        ? (order?.zone || state.pallet?.zone || 'dry')
+        : null,
       selectedZone: state.pallet?.zone || 'dry',
       selectedVehicleZone: selectedVehicle?.zone || null,
       highlightObject: code === 'wrong-zone' ? 'pallet' : code === 'over-capacity' ? capacityTargetFor(state) : code === 'demand-increase' ? 'zone' : '',

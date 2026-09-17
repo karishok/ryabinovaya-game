@@ -43,7 +43,8 @@ button:disabled { cursor: default; opacity: 0.42; }
   width: min(430px, 100%);
   min-height: 100svh;
   margin: 0 auto;
-  padding: 0 0 86px;
+  /* 86px под навигацию плюс высота плавающей полосы ТСД над ней. */
+  padding: 0 0 196px;
   background: #111b16;
 }
 
@@ -135,14 +136,17 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-device {
   position: fixed;
   z-index: 19;
-  bottom: max(12px, env(safe-area-inset-bottom));
+  /* Закрытая полоса стоит НАД нижней навигацией: она перекрывает её по
+     z-index, и любое наложение делает «Склад/Заявки/Транспорт» некликабельными. */
+  bottom: calc(68px + max(12px, env(safe-area-inset-bottom)));
   left: 50%;
   width: min(430px, 100%);
   pointer-events: none;
   transform: translateX(-50%);
-  transition: transform 260ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
+  transition: bottom 260ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
 }
-.tsd-device[data-open="false"] { transform: translate(-50%, 68%); }
+/* Открытый терминал занимает экран целиком и навигацию закрывает намеренно. */
+.tsd-device[data-open="true"] { bottom: max(12px, env(safe-area-inset-bottom)); }
 /* Закрытый ТСД — это не просто фотография сканера: на нём должно быть
    видно текущее задание. Экран самой железки занимает ~56px по ширине,
    туда текст не влезает, поэтому арт стоит слева, а задание читается рядом. */
@@ -184,29 +188,69 @@ button:disabled { cursor: default; opacity: 0.42; }
 }
 .tsd-device[data-open="true"] { pointer-events: auto; }
 .tsd-device[data-open="true"] .tsd-hardware { display: none; }
+/* Корпус ТСД. Вписать панель в экран настоящей фотографии нельзя: там экран
+   занимает 29.5% ширины устройства, и ради читаемых 330px сканер пришлось бы
+   рисовать шириной ~1120px. Поэтому корпус собран из CSS, а содержимое
+   панели живёт внутри .tsd-display — это и есть экран прибора. */
 .tsd-screen {
   position: relative;
   display: none;
   width: calc(100% - 24px);
-  max-height: min(82svh, 760px);
-  overflow: auto;
   margin: 0 auto;
-  padding: 21px 18px 18px;
-  border: 1px solid rgba(244, 234, 216, 0.22);
-  border-radius: 26px;
-  background: linear-gradient(155deg, #1d3026, #102019 72%);
-  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.55);
+  padding: 30px 13px 40px;
+  border: 1px solid #0c0e11;
+  border-radius: 30px;
+  background: linear-gradient(158deg, #3c424a 0%, #242930 44%, #15181c 100%);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   pointer-events: none;
+}
+/* Динамик над экраном. */
+.tsd-screen::before {
+  position: absolute;
+  top: 13px;
+  left: 50%;
+  width: 54px;
+  height: 5px;
+  border-radius: 999px;
+  background: #0d0f12;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.9);
+  transform: translateX(-50%);
+  content: "";
+}
+/* Клавиатура под экраном, с оранжевой кнопкой сканирования по центру. */
+.tsd-screen::after {
+  position: absolute;
+  right: 30px;
+  bottom: 13px;
+  left: 30px;
+  height: 18px;
+  background:
+    radial-gradient(circle at 12% 50%, #4b515b 0 5px, transparent 5px),
+    radial-gradient(circle at 31% 50%, #4b515b 0 5px, transparent 5px),
+    radial-gradient(circle at 50% 50%, var(--terracotta) 0 7px, transparent 7px),
+    radial-gradient(circle at 69% 50%, #4b515b 0 5px, transparent 5px),
+    radial-gradient(circle at 88% 50%, #4b515b 0 5px, transparent 5px);
+  content: "";
+}
+/* Собственно экран прибора. */
+.tsd-display {
+  max-height: min(66svh, 600px);
+  overflow: auto;
+  padding: 16px 15px;
+  border: 1px solid #090b0d;
+  border-radius: 13px;
+  background: linear-gradient(155deg, #1d3026, #102019 72%);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.5), inset 0 2px 16px rgba(0, 0, 0, 0.6);
 }
 .tsd-device[data-open="true"] .tsd-screen { display: block; pointer-events: auto; }
 .tsd-device[data-open="true"] .tsd-screen { animation: tsd-slide-in 260ms cubic-bezier(.22, .8, .24, 1); }
-.tsd-close { position: absolute; top: 11px; right: 11px; width: 44px; min-width: 44px; padding: 0; background: #293a30; }
+.tsd-close { position: absolute; z-index: 2; top: 36px; right: 22px; width: 44px; min-width: 44px; padding: 0; border-radius: 11px; background: #293a30; }
 .tsd-kicker { display: block; color: #b4e7ca; font-size: 10px; font-weight: 850; letter-spacing: 0.1em; text-transform: uppercase; }
-.tsd-screen h2 { margin: 8px 48px 13px 0; color: var(--cream); font-size: 22px; letter-spacing: -0.04em; }
-.tsd-screen > strong { display: block; color: #d9f0de; font-size: 15px; }
-.tsd-screen > p { margin: 7px 0 0; color: var(--muted); }
-.tsd-screen > p[id="tsdProgress"] { color: #ffe0a0; font-size: 12px; font-weight: 800; }
-.tsd-screen > p[role="status"] { min-height: 24px; color: #d8fff3; }
+.tsd-display h2 { margin: 8px 48px 13px 0; color: var(--cream); font-size: 22px; letter-spacing: -0.04em; }
+.tsd-display > strong { display: block; color: #d9f0de; font-size: 15px; }
+.tsd-display > p { margin: 7px 0 0; color: var(--muted); }
+.tsd-display > p[id="tsdProgress"] { color: #ffe0a0; font-size: 12px; font-weight: 800; }
+.tsd-display > p[role="status"] { min-height: 24px; color: #d8fff3; }
 .tsd-primary { width: 100%; min-height: 48px; margin-top: 16px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 14px; background: linear-gradient(135deg, #d65e40, #b94732); color: #fffaf0; font-weight: 850; box-shadow: 0 8px 18px rgba(178, 65, 45, 0.36); }
 .tsd-content-slot { display: grid; gap: 10px; margin-top: 15px; }
 .tsd-task-card { display: grid; gap: 3px; padding: 11px 13px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: rgba(9, 18, 14, 0.55); }
@@ -455,7 +499,9 @@ button:disabled { cursor: default; opacity: 0.42; }
 
 @media (max-width: 390px) {
   .app { width: 100%; }
-  .warehouse-scene { height: clamp(560px, 81svh, 700px); min-height: 560px; border-radius: 0 0 24px 24px; }
+  /* Высоту здесь задавать нельзя: она перебьёт aspect-ratio сцены, полоса
+     кадра уедет, и хотспоты перестанут совпадать с объектами на фотографии. */
+  .warehouse-scene { border-radius: 0 0 24px 24px; }
 }
 
 @media (max-width: 360px) {
@@ -480,6 +526,7 @@ button:disabled { cursor: default; opacity: 0.42; }
     transform: translateX(-50%);
     transition: opacity 80ms ease !important;
   }
+  .tsd-device[data-open="true"] { bottom: max(12px, env(safe-area-inset-bottom)); }
   .tsd-device[data-open="false"] .tsd-screen {
     display: block;
     position: absolute;
