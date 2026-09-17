@@ -70,3 +70,16 @@ test('warehouse actions are attached to the pallet and truck instead of a bottom
   assert.doesNotMatch(html, /class="mission-ribbon"/);
   assert.doesNotMatch(html, /class="mission-dock"/);
 });
+
+test('TSD is outside the warehouse stacking context and layers above navigation', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(html, /<\/section>\s*<\/section>\s*<div class="tsd-backdrop" id="tsdBackdrop"/);
+  assert.match(css, /\.tsd-backdrop\s*\{[^}]*z-index:\s*18;/s);
+  assert.match(css, /\.tsd-device\s*\{[^}]*z-index:\s*19;/s);
+});
+
+test('scene AGV is decorative and cannot intercept warehouse taps', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /\.agv\s*\{[^}]*pointer-events:\s*none;/s);
+});

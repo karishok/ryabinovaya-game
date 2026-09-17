@@ -19,26 +19,6 @@
           <div class="shift"><div class="clock" id="clock">03:00</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
         </div>
 
-        <div class="tsd-backdrop" id="tsdBackdrop" aria-hidden="true"></div>
-        <section class="tsd-device" id="tsdDevice" data-open="true" data-screen="briefing" data-signal="new" aria-label="Терминал сбора данных">
-          <button class="tsd-hardware" data-action="OPEN_TSD" type="button" aria-label="Открыть ТСД">
-            <span class="tsd-indicator" aria-hidden="true"></span>
-            <span class="tsd-compact-copy" id="tsdCompactCopy">Новое задание</span>
-          </button>
-          <div class="tsd-screen" id="tsdScreen" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
-            <button class="tsd-close" data-action="CLOSE_TSD" type="button" aria-label="Убрать ТСД">×</button>
-            <small class="tsd-kicker">Рябиновая · ТСД</small>
-            <h2 id="tsdTitle">Новая смена</h2>
-            <strong id="tsdStore"></strong>
-            <p id="tsdOrder"></p>
-            <p id="tsdZone"></p>
-            <p id="tsdProgress"></p>
-            <p id="tsdMessage" role="status"></p>
-            <button class="tsd-primary" id="tsdAccept" data-action="ACCEPT_TASK" type="button">Принять</button>
-            <div class="tsd-content-slot" id="tsdContentSlot"></div>
-          </div>
-        </section>
-
         <button class="scene-zone scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry"><span>Сухач</span></button>
         <button class="scene-zone scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled"><span>Охлаждёнка</span></button>
         <button class="scene-zone scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
@@ -51,6 +31,26 @@
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
       </section>
+    </section>
+
+    <div class="tsd-backdrop" id="tsdBackdrop" aria-hidden="true"></div>
+    <section class="tsd-device" id="tsdDevice" data-open="true" data-screen="briefing" data-signal="new" aria-label="Терминал сбора данных">
+      <button class="tsd-hardware" data-action="OPEN_TSD" type="button" aria-label="Открыть ТСД">
+        <span class="tsd-indicator" aria-hidden="true"></span>
+        <span class="tsd-compact-copy" id="tsdCompactCopy">Новое задание</span>
+      </button>
+      <div class="tsd-screen" id="tsdScreen" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
+        <button class="tsd-close" data-action="CLOSE_TSD" type="button" aria-label="Убрать ТСД">×</button>
+        <small class="tsd-kicker">Рябиновая · ТСД</small>
+        <h2 id="tsdTitle">Новая смена</h2>
+        <strong id="tsdStore"></strong>
+        <p id="tsdOrder"></p>
+        <p id="tsdZone"></p>
+        <p id="tsdProgress"></p>
+        <p id="tsdMessage" role="status"></p>
+        <button class="tsd-primary" id="tsdAccept" data-action="ACCEPT_TASK" type="button">Принять</button>
+        <div class="tsd-content-slot" id="tsdContentSlot"></div>
+      </div>
     </section>
 
     <button class="guide-trigger" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">

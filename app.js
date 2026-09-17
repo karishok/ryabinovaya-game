@@ -141,8 +141,9 @@ function render(nextState, document) {
   });
 
   const reportModal = byId(document, 'reportModal');
-  reportModal.classList.toggle('open', nextState.phase === 'report');
-  reportModal.setAttribute('aria-hidden', String(nextState.phase !== 'report'));
+  reportModal.classList.toggle('open', false);
+  reportModal.hidden = true;
+  reportModal.setAttribute('aria-hidden', 'true');
   if (nextState.report) {
     byId(document, 'reportStars').textContent = '★'.repeat(nextState.report.stars);
     byId(document, 'reportMessage').textContent = nextState.report.reasons[0] || 'Срочные паллеты готовы к отгрузке.';
@@ -157,8 +158,9 @@ function render(nextState, document) {
 
   const briefing = byId(document, 'levelBriefing');
   const showStory = !nextState.guideOpen && (nextState.phase === 'briefing' || nextState.phase === 'story-after');
-  briefing.classList.toggle('open', showStory);
-  briefing.setAttribute('aria-hidden', String(!showStory));
+  briefing.classList.toggle('open', false);
+  briefing.hidden = true;
+  briefing.setAttribute('aria-hidden', 'true');
   if (showStory) {
     byId(document, 'briefingKicker').textContent = nextState.phase === 'briefing' ? 'Новая смена' : 'Итоги истории';
     byId(document, 'briefingTitle').textContent = nextState.phase === 'briefing' ? `Уровень ${level.id} · ${level.title}` : 'Смена завершена';

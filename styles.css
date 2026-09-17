@@ -243,6 +243,7 @@ button:disabled { cursor: default; opacity: 0.42; }
   border-radius: 10px 10px 8px 8px;
   background: linear-gradient(180deg, #4a514c 0 48%, #202621 49%);
   box-shadow: 0 10px 12px rgba(0, 0, 0, 0.38);
+  pointer-events: none;
   transition: transform 720ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
 }
 .agv::after { position: absolute; right: 8px; bottom: -6px; left: 8px; height: 5px; border-radius: 50%; background: #090d0a; content: ""; }
@@ -360,6 +361,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Bottom sheets */
 .modal-backdrop { position: fixed; z-index: 20; inset: 0; display: none; align-items: flex-end; justify-content: center; padding: 12px; background: rgba(5, 11, 8, 0.68); }
 .modal-backdrop.open { display: flex; }
+.modal-backdrop[hidden] { display: none !important; pointer-events: none; }
 .modal { width: min(430px, 100%); max-height: min(88svh, 760px); overflow: auto; padding: 18px; border: 1px solid var(--line); border-radius: 24px; background: #17261f; box-shadow: 0 -20px 70px rgba(0, 0, 0, 0.44); }
 .modal-head, .modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .modal-head { margin-bottom: 14px; }

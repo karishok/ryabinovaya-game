@@ -82,10 +82,10 @@ test('guide can open from the level briefing and return without skipping it', ()
   assert.equal(closed.guideOpen, false);
 });
 
-test('opening the guide hides the briefing overlay until the player returns', () => {
+test('opening the guide keeps the legacy briefing overlay hidden', () => {
   const state = reduceAction(startLevel(2), { type: 'OPEN_GUIDE' });
   assert.deepEqual(renderModalVisibility(state), { guideOpen: true, briefingOpen: false });
-  assert.deepEqual(renderModalVisibility(reduceAction(state, { type: 'CLOSE_GUIDE' })), { guideOpen: false, briefingOpen: true });
+  assert.deepEqual(renderModalVisibility(reduceAction(state, { type: 'CLOSE_GUIDE' })), { guideOpen: false, briefingOpen: false });
 });
 
 test('game shell provides a reachable, accessible guide with the core shift steps', () => {

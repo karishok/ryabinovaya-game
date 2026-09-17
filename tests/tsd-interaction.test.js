@@ -40,6 +40,8 @@ function loadUiWithClicks() {
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
 
   return {
+    window,
+    document,
     elements,
     click(target) {
       clickHandler({ target: { closest: () => target } });
@@ -66,6 +68,21 @@ test('TSD accept action closes the terminal and leaves the warehouse active', ()
 
   assert.equal(elements.get('tsdDevice').dataset.open, 'false');
   assert.equal(elements.get('warehouseScene').attributes['aria-hidden'], 'false');
+});
+
+test('TSD owns briefing and report presentation while legacy dialogs stay hidden', () => {
+  const { window, document, elements } = loadUiWithClicks();
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'briefing');
+  assert.equal(elements.get('levelBriefing').hidden, true);
+  assert.equal(elements.get('levelBriefing').attributes['aria-hidden'], 'true');
+
+  const shift = appState.reduceAction(appState.startLevel(1), { type: 'CONTINUE_STORY' });
+  const report = appState.reduceAction(shift, { type: 'END_SHIFT' });
+  window.render(report, document);
+
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'report');
+  assert.equal(elements.get('reportModal').hidden, true);
+  assert.equal(elements.get('reportModal').attributes['aria-hidden'], 'true');
 });
 
 test('closing a reopened TSD restores focus to its warehouse opener', () => {
