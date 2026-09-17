@@ -22,3 +22,11 @@ node --test tests/*.test.js
 
 The tests use Node.js's built-in test runner and require no additional
 dependencies.
+
+## Living warehouse UI
+
+The mobile warehouse is rendered as a layered scene: an optimized WebP
+environment, semantic HTML interaction layers, and a pure `scene-view.js`
+mapper that turns existing game state into visual modes. Animations represent
+reducer state only and are disabled through the operating system's
+reduced-motion preference.
