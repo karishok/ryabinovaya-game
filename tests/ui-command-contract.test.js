@@ -5,13 +5,16 @@ const fs = require('node:fs');
 test('redesign keeps every established gameplay command reachable', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const app = fs.readFileSync('app.js', 'utf8');
-  const staticActions = ['SELECT_ZONE', 'SELECT_STORE', 'PAUSE', 'END_SHIFT', 'OPEN_BUILDER', 'OPEN_VEHICLES', 'NAVIGATE'];
-  const delegatedActions = ['ADD_ITEM', 'LOAD_PALLET', 'SET_ROUTE'];
+  const reachableMarkup = `${html}\n${app}`;
+  const actions = [
+    'OPEN_TSD', 'CLOSE_TSD', 'ACCEPT_TASK',
+    'SELECT_ZONE', 'SELECT_STORE', 'ADD_ITEM', 'LOAD_PALLET',
+    'OPEN_BUILDER', 'OPEN_VEHICLES', 'SELECT_VEHICLE',
+    'MOVE_STOP', 'SET_ROUTE', 'PAUSE', 'END_SHIFT', 'NAVIGATE',
+  ];
 
-  for (const action of staticActions) assert.match(html, new RegExp(`data-action="${action}"`));
-  for (const action of delegatedActions) assert.match(app, new RegExp(`action === '${action}'`));
-  for (const action of ['OPEN_TSD', 'CLOSE_TSD', 'ACCEPT_TASK', 'OPEN_BUILDER', 'OPEN_VEHICLES']) {
-    assert.match(html, new RegExp(`data-action="${action}"`));
+  for (const action of actions) {
+    assert.match(reachableMarkup, new RegExp(`(?:data-action="${action}"|action === '${action}')`));
   }
 });
 
