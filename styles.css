@@ -53,10 +53,12 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Living warehouse */
 .warehouse-scene {
   position: relative;
-  /* Пропорции строго как у assets/warehouse-center.webp (780x1386).
-     Пока они совпадают, object-fit не обрезает кадр, и проценты в
-     координатах хотспотов указывают на те же точки, что на фотографии. */
-  aspect-ratio: 780 / 1386;
+  /* Цель — экран iPhone: при ширине 390pt сцена занимает 499px, оставляя
+     место полосе ТСД и нижней навигации. Кадрирование поэтому осознанное:
+     фиксированные пропорции 780/998 плюс object-position ниже дают строго
+     полосу 6%..78% фотографии, и проценты в координатах хотспотов
+     пересчитаны под эту полосу. Менять одно без другого нельзя. */
+  aspect-ratio: 780 / 998;
   width: 100%;
   overflow: hidden;
   isolation: isolate;
@@ -72,7 +74,8 @@ button:disabled { cursor: default; opacity: 0.42; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center;
+  /* 21.4% по вертикали ставит верх видимой полосы ровно на 6% кадра. */
+  object-position: 50% 21.4%;
 }
 
 .scene-shade {
@@ -140,28 +143,37 @@ button:disabled { cursor: default; opacity: 0.42; }
   transition: transform 260ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
 }
 .tsd-device[data-open="false"] { transform: translate(-50%, 68%); }
+/* Закрытый ТСД — это не просто фотография сканера: на нём должно быть
+   видно текущее задание. Экран самой железки занимает ~56px по ширине,
+   туда текст не влезает, поэтому арт стоит слева, а задание читается рядом. */
 .tsd-hardware {
   position: relative;
-  display: block;
-  width: min(190px, calc(100% - 24px));
-  height: min(300px, 44svh);
-  min-height: 250px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: min(430px, calc(100% - 24px));
+  min-height: 0;
   margin: 0 auto;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
+  padding: 9px 14px 9px 9px;
+  border: 1px solid rgba(244, 234, 216, 0.22);
+  border-radius: 20px;
+  background: linear-gradient(155deg, #1d3026, #102019 72%);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
   pointer-events: auto;
+  text-align: left;
 }
-.tsd-handheld { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.5)); pointer-events: none; }
-.tsd-indicator, .tsd-compact-copy { display: none; }
+.tsd-handheld { display: block; flex: none; width: 52px; height: 78px; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.5)); pointer-events: none; }
+.tsd-compact-copy { display: grid; flex: 1; gap: 3px; min-width: 0; pointer-events: none; }
+.tsd-compact-kicker { color: #b4e7ca; font-size: 9px; font-weight: 850; letter-spacing: 0.1em; text-transform: uppercase; }
+.tsd-compact-task { overflow: hidden; color: var(--cream); font-size: 13px; font-weight: 850; line-height: 1.25; }
+.tsd-compact-meta { color: var(--muted); font-size: 11px; font-weight: 700; }
+.tsd-indicator { display: none; }
 .tsd-indicator { pointer-events: none; }
 .tsd-device[data-signal="new"] .tsd-indicator {
   position: absolute;
   z-index: 1;
-  top: 16px;
-  right: 28px;
+  top: 12px;
+  right: 14px;
   display: block;
   width: 12px;
   height: 12px;
@@ -197,6 +209,9 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-screen > p[role="status"] { min-height: 24px; color: #d8fff3; }
 .tsd-primary { width: 100%; min-height: 48px; margin-top: 16px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 14px; background: linear-gradient(135deg, #d65e40, #b94732); color: #fffaf0; font-weight: 850; box-shadow: 0 8px 18px rgba(178, 65, 45, 0.36); }
 .tsd-content-slot { display: grid; gap: 10px; margin-top: 15px; }
+.tsd-task-card { display: grid; gap: 3px; padding: 11px 13px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: rgba(9, 18, 14, 0.55); }
+.tsd-task-label { color: #b4e7ca; font-size: 9px; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
+.tsd-task-card strong { color: var(--cream); font-size: 15px; }
 
 .scene-zone-sign {
   /* Область поверх самого стеллажа на фотографии, а не табличка рядом с ним. */
@@ -223,10 +238,10 @@ button:disabled { cursor: default; opacity: 0.42; }
   white-space: nowrap;
   pointer-events: none;
 }
-/* Границы совпадают с тремя подсвеченными рядами на фотографии. */
-.scene-zone--dry { top: 7%; left: 1%; width: 23%; height: 45%; }
-.scene-zone--chilled { top: 11%; left: 26%; width: 19%; height: 41%; }
-.scene-zone--frozen { top: 14%; left: 53%; width: 19%; height: 37%; }
+/* Границы совпадают с тремя подсвеченными рядами в видимой полосе кадра. */
+.scene-zone--dry { top: 1.4%; left: 1%; width: 23%; height: 62.5%; }
+.scene-zone--chilled { top: 6.9%; left: 26%; width: 19%; height: 56.9%; }
+.scene-zone--frozen { top: 11.1%; left: 53%; width: 19%; height: 51.4%; }
 /* Все три зоны оформлены одинаково: различает их только состояние, не цвет. */
 .scene-zone-sign.is-selected { border-color: rgba(244, 234, 216, 0.5); background: rgba(244, 234, 216, 0.07); }
 .scene-zone-sign.is-active { border-color: var(--cream); background: rgba(244, 234, 216, 0.12); box-shadow: inset 0 0 26px rgba(244, 234, 216, 0.16); }
@@ -259,9 +274,9 @@ button:disabled { cursor: default; opacity: 0.42; }
 }
 
 /* Тележка с паллетой в ближнем проходе кадра. */
-.scene-pallet { top: 61%; left: 28%; width: 21%; height: 15%; }
+.scene-pallet { top: 76.4%; left: 28%; width: 21%; height: 20.8%; }
 /* Фуры у погрузочных доков в глубине кадра. */
-.truck-bay { top: 47%; left: 73%; width: 27%; height: 11%; }
+.truck-bay { top: 56.9%; left: 73%; width: 27%; height: 15.3%; }
 
 /* Заполнение текущей паллеты — полоса по низу её хотспота. */
 .scene-pallet::after {

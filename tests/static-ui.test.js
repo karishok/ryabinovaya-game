@@ -59,8 +59,11 @@ test('the scene keeps the backdrop aspect ratio so percentages stay on the photo
   // 780x1386 — натуральный размер assets/warehouse-center.webp. Как только
   // пропорции контейнера расходятся с фоном, object-fit: cover обрезает кадр
   // и все координаты хотспотов уезжают вместе с полом.
-  assert.match(scene, /aspect-ratio:\s*780\s*\/\s*1386/);
+  assert.match(scene, /aspect-ratio:\s*780\s*\/\s*998/);
   assert.doesNotMatch(scene.slice(0, scene.indexOf('}')), /height:\s*clamp/);
+  // Полоса кадра задаётся object-position; сдвинуть её, не пересчитав
+  // координаты хотспотов, значит снова развесить их в воздухе.
+  assert.match(css, /\.scene-backdrop\s*\{[^}]*object-position:\s*50%\s*21\.4%/s);
 });
 
 test('zone names are rack-mounted scene controls and not a floating mission banner', () => {

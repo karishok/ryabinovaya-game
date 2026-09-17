@@ -117,6 +117,12 @@ function renderTsd(view, document) {
   byId(document, 'tsdOrder').textContent = view.orderText;
   byId(document, 'tsdZone').textContent = view.zoneName ? `Зона: ${view.zoneName}` : '';
   byId(document, 'tsdProgress').textContent = view.progressText;
+  byId(document, 'tsdCompactKicker').textContent = view.compactKicker;
+  byId(document, 'tsdCompactTask').textContent = view.compactTask;
+  byId(document, 'tsdCompactMeta').textContent = view.compactMeta;
+  byId(document, 'tsdTaskStore').textContent = view.storeName;
+  byId(document, 'tsdTaskOrder').textContent = view.orderText;
+  byId(document, 'tsdTaskZone').textContent = view.zoneName;
   byId(document, 'tsdMessage').textContent = view.message;
   byId(document, 'tsdReportSummary').textContent = view.reportSummary || '';
   byId(document, 'tsdReportSummary').hidden = view.screen !== 'report';

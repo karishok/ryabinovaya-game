@@ -58,6 +58,18 @@
       ? `Доставлено: ${state.report.deliveredPercent ?? 0}% · Вовремя: ${state.report.onTimePercent ?? 0}% · Точность: ${state.report.precisionPercent ?? 0}%`
       : '';
     const mandatoryOpen = ['feedback', 'briefing', 'report'].includes(screen);
+    const accepted = Boolean(state.tsd?.acceptedOrderId);
+    // Закрытый ТСД обязан показывать текущее задание: игрок смотрит на
+    // железку, чтобы вспомнить, что собирает, не открывая терминал.
+    const compactKicker = screen === 'report'
+      ? 'Итоги'
+      : accepted ? 'В работе' : 'Новое задание';
+    const compactTask = order
+      ? `${STORE_NAMES[order.storeId] || order.storeId} · ${item?.name || order.sku} · ${order.quantity} шт.`
+      : 'Активных заявок нет';
+    const compactMeta = order
+      ? `${ZONE_NAMES[order.zone] || order.zone} · паллета ${progressText}`
+      : '';
 
     return {
       open: mandatoryOpen || Boolean(state.tsd?.open),
@@ -70,7 +82,10 @@
       progressText,
       message: messageByScreen[screen],
       reportSummary,
-      canAccept: screen === 'task' && !state.tsd?.acceptedOrderId && Boolean(order),
+      canAccept: screen === 'task' && !accepted && Boolean(order),
+      compactKicker,
+      compactTask,
+      compactMeta,
     };
   }
 

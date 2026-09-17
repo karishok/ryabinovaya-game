@@ -35,7 +35,11 @@
       <span class="tsd-indicator" aria-hidden="true"></span>
       <button class="tsd-hardware" id="tsdHardware" data-action="OPEN_TSD" type="button" aria-label="Открыть ТСД">
         <img class="tsd-handheld" src="assets/tsd-handheld.webp" alt="" aria-hidden="true">
-        <span class="tsd-compact-copy" id="tsdCompactCopy">Новое задание</span>
+        <span class="tsd-compact-copy" id="tsdCompactCopy">
+          <span class="tsd-compact-kicker" id="tsdCompactKicker">Задание</span>
+          <span class="tsd-compact-task" id="tsdCompactTask">Новое задание</span>
+          <span class="tsd-compact-meta" id="tsdCompactMeta"></span>
+        </span>
       </button>
       <div class="tsd-screen" id="tsdScreen" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
         <button class="tsd-close" data-action="CLOSE_TSD" type="button" aria-label="Убрать ТСД">×</button>
@@ -58,7 +62,11 @@
               </section>
             </section>
           </section>
-          <section id="tsdTask" data-tsd-panel="task" hidden></section>
+          <section id="tsdTask" data-tsd-panel="task" hidden>
+            <div class="tsd-task-card"><span class="tsd-task-label">Куда</span><strong id="tsdTaskStore"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label">Что собрать</span><strong id="tsdTaskOrder"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label">Зона хранения</span><strong id="tsdTaskZone"></strong></div>
+          </section>
           <section id="tsdCurrent" data-tsd-panel="current" hidden>
             <section class="tsd-panel story-card" id="endlessMode" aria-hidden="true">
               <span class="story-kicker">Кампания завершена</span><h2 id="endlessTitle">Бесконечный режим</h2><p>Скоро здесь появятся новые смены. Пока режим находится в разработке.</p>
