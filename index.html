@@ -19,23 +19,22 @@
           <div class="shift"><div class="clock" id="clock">03:00</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
         </div>
 
+        <section class="mission-ribbon" aria-labelledby="missionTitle">
+          <div><small id="missionHint">Текущая заявка</small><strong id="missionTitle">Северный ждёт заказ</strong><span id="missionOrder">Вода · 2 шт.</span></div>
+          <div class="ribbon-pallet"><span>Паллета</span><b id="capacityCompact">0 / 100 кг</b><i><span id="scenePalletFill"></span></i></div>
+        </section>
+
         <button class="scene-zone scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry"><span>Сухач</span></button>
         <button class="scene-zone scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled"><span>Охлаждёнка</span></button>
         <button class="scene-zone scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
 
         <div class="scene-route" aria-hidden="true"></div>
+        <div class="ambient-traffic" aria-hidden="true"><span class="ambient-agv ambient-agv--one"></span><span class="ambient-agv ambient-agv--two"></span><span class="warehouse-worker warehouse-worker--one"></span><span class="warehouse-worker warehouse-worker--two"></span></div>
         <div class="agv" id="sceneAgv" aria-hidden="true"><span class="agv-light"></span></div>
-        <div class="scene-pallet" id="scenePallet" aria-label="Текущая паллета"><span class="pallet-load"></span></div>
-        <div class="truck-bay" id="sceneTruckBay" aria-hidden="true"><span class="truck-light"></span></div>
+        <button class="scene-pallet" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="pallet-load"></span><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
+        <button class="truck-bay" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light"></span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
 
-        <div class="operator-callout" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span></div>
-
-        <section class="mission-dock" aria-labelledby="missionTitle">
-          <div class="mission-copy"><small id="missionHint">Текущая заявка</small><strong id="missionTitle">Северный ждёт заказ</strong><span id="missionOrder">Вода · 2 шт.</span></div>
-          <button class="vehicle-chip" data-action="OPEN_VEHICLES" id="vehicleName">Сухой фургон</button>
-          <div class="pallet-meter"><span>Паллета</span><b id="capacityCompact">0 / 100 кг</b><i><span id="scenePalletFill"></span></i></div>
-          <button class="btn primary-cta" data-action="OPEN_BUILDER">Собрать паллету</button>
-        </section>
+        <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
       </section>
     </section>
 

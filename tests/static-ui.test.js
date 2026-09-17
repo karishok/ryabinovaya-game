@@ -41,10 +41,18 @@ test('warehouse styles define mobile motion and accessible fallbacks', () => {
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.match(css, /--industrial-green:/);
   assert.match(css, /\.warehouse-scene\s*\{/);
-  assert.match(css, /height:\s*clamp\([^;]*72svh/);
+  assert.match(css, /height:\s*clamp\([^;]*svh/);
   assert.match(css, /\[data-mode="to-dispatch"\]/);
   assert.match(css, /\[data-mode="spoiled"\]/);
   assert.match(css, /@media\s*\(max-width:\s*390px\)/);
   assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
   assert.match(css, /overflow-x:\s*hidden/);
+});
+
+test('warehouse actions are attached to the pallet and truck instead of a bottom control panel', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.match(html, /<button class="scene-pallet" id="scenePallet"[^>]*data-action="OPEN_BUILDER"/);
+  assert.match(html, /<button class="truck-bay" id="sceneTruckBay"[^>]*data-action="OPEN_VEHICLES"/);
+  assert.match(html, /class="mission-ribbon"/);
+  assert.doesNotMatch(html, /class="mission-dock"/);
 });
