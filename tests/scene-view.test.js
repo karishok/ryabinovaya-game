@@ -71,3 +71,18 @@ test('wrong-zone feedback highlights the pallet while over-capacity highlights t
   assert.equal(warehouseViewFor(wrongZone).highlightObject, 'pallet');
   assert.equal(warehouseViewFor(capacity).highlightObject, 'truck');
 });
+
+test('pallet-capacity feedback highlights the pallet', () => {
+  const state = reduceAction(startLevel(1), { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 9 });
+  assert.equal(state.feedback?.code, 'over-capacity');
+  assert.equal(warehouseViewFor(state).highlightObject, 'pallet');
+});
+
+test('vehicle-capacity feedback highlights the truck', () => {
+  let state = reduceAction(startLevel(1), { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 8 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  assert.equal(state.feedback?.code, 'over-capacity');
+  assert.equal(warehouseViewFor(state).highlightObject, 'truck');
+});

@@ -6,9 +6,10 @@ const engine = require('../game-engine.js');
 const appState = require('../app-state.js');
 const sceneView = require('../scene-view.js');
 const tsdView = require('../tsd-view.js');
+const tsdSignal = require('../tsd-signal.js');
 const levels = require('../levels.js');
 
-function loadUiWithClicks() {
+function loadUiWithClicks(options = {}) {
   const elements = new Map();
   const elementFor = (id) => {
     if (!elements.has(id)) elements.set(id, {
@@ -43,8 +44,10 @@ function loadUiWithClicks() {
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: sceneView,
     RyabinovayaTsdView: tsdView,
+    RyabinovayaTsdSignal: tsdSignal,
     setTimeout() {},
   };
+  if (options.AudioContext) window.AudioContext = options.AudioContext;
   const pageHtml = fs.readFileSync('index.html', 'utf8');
   const tsdScreenHtml = pageHtml.match(/<div class="tsd-screen"[\s\S]*?<\/div>\s*<\/section>/)?.[0] || '';
   const controlFor = (action, source) => {
@@ -200,4 +203,36 @@ test('scene object image errors reveal a fallback without changing the button ac
   assert.equal(image.hidden, true);
   assert.equal(fallback.hidden, false);
   assert.equal(button.dataset.action, 'OPEN_BUILDER');
+});
+
+test('a rejected AudioContext resume promise is handled silently', () => {
+  const tracker = { catches: 0 };
+  function AudioContext() {
+    this.currentTime = 0;
+    this.destination = {};
+    this.resume = () => ({
+      catch(handler) {
+        tracker.catches += 1;
+        handler(new Error('autoplay blocked'));
+      },
+    });
+    this.createOscillator = () => ({
+      frequency: { value: 0 },
+      connect() {},
+      start() {},
+      stop() {},
+    });
+    this.createGain = () => ({
+      gain: {
+        setValueAtTime() {},
+        exponentialRampToValueAtTime() {},
+      },
+      connect() {},
+    });
+  }
+  const { click } = loadUiWithClicks({ AudioContext });
+  click({ dataset: { action: 'CONTINUE_STORY' }, disabled: false });
+  click({ dataset: { action: 'ACCEPT_TASK' }, disabled: false });
+  click({ dataset: { action: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weight: '10', quantity: '1' }, disabled: false });
+  assert.equal(tracker.catches, 1);
 });

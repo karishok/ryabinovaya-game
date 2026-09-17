@@ -155,6 +155,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 }
 .tsd-handheld { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.5)); pointer-events: none; }
 .tsd-indicator, .tsd-compact-copy { display: none; }
+.tsd-indicator { pointer-events: none; }
 .tsd-device[data-signal="new"] .tsd-indicator {
   position: absolute;
   z-index: 1;
@@ -256,6 +257,7 @@ button:disabled { cursor: default; opacity: 0.42; }
   transform: translateZ(0);
   transition: transform 720ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
 }
+.scene-travel-group .scene-pallet { pointer-events: auto; }
 .agv {
   position: absolute;
   z-index: 2;
@@ -484,9 +486,49 @@ button:disabled { cursor: default; opacity: 0.42; }
     animation: none !important;
     transition-duration: 0.01ms !important;
   }
+  [data-highlight="pallet"] .scene-pallet,
+  [data-highlight="truck"] .truck-bay {
+    outline: 3px solid var(--danger) !important;
+    outline-offset: 4px;
+  }
   .tsd-device,
   .tsd-device[data-open="false"] {
     transform: translateX(-50%);
+    transition: opacity 80ms ease !important;
+  }
+  .tsd-device[data-open="false"] .tsd-screen {
+    display: block;
+    position: absolute;
+    right: 12px;
+    bottom: 0;
+    left: 12px;
+    width: auto;
+    margin: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 80ms ease, visibility 0s linear 80ms !important;
+  }
+  .tsd-device[data-open="true"] .tsd-screen {
+    display: block;
+    position: relative;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: opacity 80ms ease, visibility 0s linear 0s !important;
+  }
+  .tsd-device[data-open="false"] .tsd-hardware {
+    opacity: 1;
+    transition: opacity 80ms ease !important;
+  }
+  .tsd-device[data-open="true"] .tsd-hardware {
+    display: block !important;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    opacity: 0;
+    pointer-events: none;
     transition: opacity 80ms ease !important;
   }
   .scene-travel-group,

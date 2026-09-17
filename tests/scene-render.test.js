@@ -109,3 +109,29 @@ test('renderTsd shows exactly one panel and marks inactive panels hidden', () =>
     assert.equal(panel.attributes['aria-hidden'], String(panel.hidden));
   }
 });
+
+test('the real pallet hit target opts back into pointer input inside the travel wrapper', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /\.scene-travel-group \.scene-pallet\s*\{[^}]*pointer-events:\s*auto;/s);
+});
+
+test('reduced motion keeps an active error outline visible without animation', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  const reducedMotion = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reducedMotion, /\[data-highlight="pallet"\][\s\S]*outline:\s*3px solid var\(--danger\)/);
+  assert.match(reducedMotion, /animation:\s*none\s*!important/);
+});
+
+test('the TSD indicator is decorative and cannot intercept pointer input', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /\.tsd-indicator\s*\{[^}]*pointer-events:\s*none;/s);
+});
+
+test('reduced motion uses a bounded opacity state for TSD open and close', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  const reducedMotion = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce)'));
+  assert.match(reducedMotion, /opacity:\s*0/);
+  assert.match(reducedMotion, /opacity:\s*1/);
+  assert.match(reducedMotion, /transition:\s*opacity\s+80ms/);
+  assert.match(reducedMotion, /\.tsd-device\[data-open="true"\] \.tsd-hardware[\s\S]*display:\s*block !important/);
+});

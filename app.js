@@ -58,7 +58,8 @@ function playWarehouseBeep(kind) {
   if (!AudioContextCtor) return;
   try {
     audioContext ||= new AudioContextCtor();
-    audioContext.resume?.();
+    const resumeResult = audioContext.resume?.();
+    if (resumeResult && typeof resumeResult.catch === 'function') resumeResult.catch(() => {});
     const now = audioContext.currentTime;
     const oscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
