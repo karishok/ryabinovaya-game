@@ -187,11 +187,15 @@ test('everything the removed tabs hosted has a new home', () => {
   // Счётчик паллет — на самой машине.
   const truck = html.slice(html.indexOf('id="sceneTruckBay"'));
   assert.match(truck.slice(0, truck.indexOf('</button>')), /id="mapPallets"/);
-  // Список заявок и завершение смены — на экране «Текущая работа» терминала.
-  const current = html.slice(html.indexOf('data-tsd-panel="current"'));
-  const panel = current.slice(0, current.indexOf('</section>'));
+  /* Список заявок и завершение смены — в сводке под фотографией, а не за
+     нажатием на ТСД: под сценой всё равно оставалась пустая полоса, а на
+     терминале это была лишняя остановка. */
+  const board = html.slice(html.indexOf('class="shift-board"'));
+  const panel = board.slice(0, board.indexOf('</section>'));
   assert.match(panel, /id="ordersList"/);
   assert.match(panel, /data-action="END_SHIFT"/);
+  assert.match(panel, /data-action="OPEN_GUIDE"/);
+  assert.match(panel, /id="boardStatus"/);
 });
 
 test('the TSD panel is rendered as the screen of a device body', () => {

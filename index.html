@@ -30,10 +30,24 @@
         <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled"><span>Охлаждёнка</span></button>
         <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
 
+        <button class="scene-dock scene-object" id="sceneDock" data-action="OPEN_TSD" type="button" hidden aria-label="Открыть задание приёмки"><span class="dock-badge" id="dockBadge">1</span><span class="scene-object-hint" aria-hidden="true">Приёмка</span></button>
         <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
         <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
+      </section>
+
+      <!-- Сводка смены живёт на странице, а не внутри терминала: раньше под
+           фотографией оставалось 235 px пустоты, а список заявок и завершение
+           смены были спрятаны за отдельным нажатием на ТСД. -->
+      <section class="shift-board" id="shiftBoard" aria-label="Сводка смены">
+        <div class="toast" id="toast" role="status"></div>
+        <p class="board-status" id="boardStatus">Выберите заявку и начните сборку.</p>
+        <div class="orders-list" id="ordersList"></div>
+        <div class="board-actions">
+          <button class="btn secondary" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">📖 Как играть?</button>
+          <button class="btn secondary" data-action="END_SHIFT">Завершить смену</button>
+        </div>
       </section>
     </section>
 
@@ -61,6 +75,7 @@
         <p id="tsdReportSummary" hidden></p>
         <button class="tsd-primary" id="tsdContinueStory" data-action="CONTINUE_STORY" type="button" hidden>Начать смену</button>
         <button class="tsd-primary" id="tsdAccept" data-action="ACCEPT_TASK" type="button">Принять</button>
+        <button class="tsd-primary" id="tsdReceive" data-action="RECEIVE_PALLET" type="button" hidden>Принять паллету</button>
         <button class="tsd-primary" id="tsdContinue" data-action="SHOW_STORY_AFTER" type="button" hidden>Следующая смена</button>
         <div class="tsd-content-slot" id="tsdContentSlot">
           <section id="tsdBriefing" data-tsd-panel="briefing" hidden>
@@ -70,23 +85,26 @@
               </section>
             </section>
           </section>
+          <section id="tsdInbound" data-tsd-panel="inbound" hidden>
+            <div class="tsd-task-card"><span class="tsd-task-label">Поставщик</span><strong id="tsdInboundSupplier"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label">В паллете</span><strong id="tsdInboundGoods"></strong></div>
+            <div class="tsd-task-card is-target"><span class="tsd-task-label">Разместить в зоне</span><strong id="tsdInboundZone"></strong></div>
+            <p class="tsd-hint" id="tsdInboundHint"></p>
+          </section>
           <section id="tsdTask" data-tsd-panel="task" hidden>
             <div class="tsd-task-card"><span class="tsd-task-label">Куда</span><strong id="tsdTaskStore"></strong></div>
             <div class="tsd-task-card"><span class="tsd-task-label">Что собрать</span><strong id="tsdTaskOrder"></strong></div>
             <div class="tsd-task-card"><span class="tsd-task-label">Зона хранения</span><strong id="tsdTaskZone"></strong></div>
           </section>
           <section id="tsdCurrent" data-tsd-panel="current" hidden>
-            <div class="select-label">Заявки смены</div>
-            <div class="orders-list" id="ordersList"></div>
-            <p class="transport-summary" id="transportSummary">Выберите машину для отгрузки.</p>
-            <button class="btn secondary full-width" data-action="END_SHIFT">Завершить смену</button>
+            <p class="tsd-hint">Задания приходят сюда. Сводка смены и список заявок — под фотографией склада.</p>
             <section class="tsd-panel story-card" id="endlessMode" aria-hidden="true">
               <span class="story-kicker">Кампания завершена</span><h2 id="endlessTitle">Бесконечный режим</h2><p>Скоро здесь появятся новые смены. Пока режим находится в разработке.</p>
             </section>
           </section>
           <section id="builderModal" data-tsd-panel="builder" hidden aria-hidden="true">
             <div class="tsd-panel" id="tsdBuilder" role="dialog" aria-modal="true" aria-labelledby="builderTitle">
-              <div class="modal-head"><h2 id="builderTitle">Сборка паллеты</h2><button class="close" data-action="CLOSE_BUILDER" aria-label="Закрыть">×</button></div>
+              <div class="modal-head"><h2 class="sr-only" id="builderTitle">Сборка паллеты</h2><p class="panel-task" id="builderTask"></p><button class="close" data-action="CLOSE_BUILDER" aria-label="Закрыть">×</button></div>
               <p class="builder-feedback" id="builderFeedback"></p>
               <div class="select-label">Даркстор</div>
               <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Северный</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Центральный</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Западный</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Восточный</button></div>
@@ -99,7 +117,7 @@
           </section>
           <section id="vehicleModal" data-tsd-panel="vehicles" hidden aria-hidden="true">
             <div class="tsd-panel" id="tsdVehicles" role="dialog" aria-modal="true" aria-labelledby="vehicleTitle">
-              <div class="modal-head"><h2 id="vehicleTitle">Машины</h2><button class="close" data-action="CLOSE_VEHICLES" aria-label="Закрыть">×</button></div>
+              <div class="modal-head"><h2 class="sr-only" id="vehicleTitle">Машины и маршрут</h2><p class="panel-task" id="vehicleTask"></p><button class="close" data-action="CLOSE_VEHICLES" aria-label="Закрыть">×</button></div>
               <div id="vehicleRows"></div>
               <div class="select-label">Карта доставки</div>
               <div class="route-map" id="routeMap"></div>
@@ -138,13 +156,7 @@
       </div>
     </section>
 
-    <button class="guide-trigger" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">
-      <span>📖 Как играть?</span><small>Порядок сборки и отправки заказа →</small>
-    </button>
-
   </main>
-
-  <div class="toast" id="toast" role="status"></div>
 
   <script src="game-engine.js"></script>
   <script src="levels.js"></script>

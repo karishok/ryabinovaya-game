@@ -39,10 +39,24 @@
       .filter((vehicle) => loadedVehicleIds.has(vehicle.id) && !(routeFor(state, vehicle.id)?.stops.length > 0))
       .map((vehicle) => vehicle.id);
   };
+  /* Сколько по этой строке заявки уже уехало. Считать «магазин закрыт, если
+     на него есть хоть одна паллета» нельзя: заявка может вырасти в середине
+     смены или не влезть в одну паллету, и тогда остаток станет недостижимым. */
+  const loadedQuantityFor = (state, order) => (state.loadedPallets || [])
+    .filter((pallet) => pallet.storeId === order.storeId && pallet.zone === order.zone)
+    .reduce((total, pallet) => total + (pallet.items || [])
+      .filter((item) => item.sku === order.sku)
+      .reduce((sum, item) => sum + item.quantity, 0), 0);
+
+  const remainingFor = (state, order) => Math.max(0, order.quantity - loadedQuantityFor(state, order));
+
   const activeOrderFor = (state) => {
     const active = (state.orders || []).filter((order) => !order.cancelled);
-    return active.find((order) => !(state.loadedPallets || []).some((pallet) => pallet.storeId === order.storeId)) || active[0] || null;
+    return active.find((order) => remainingFor(state, order) > 0) || null;
   };
+
+  const pendingInboundFor = (state) => (state.inbound || [])
+    .find((pallet) => pallet.status === 'arrived' || pallet.status === 'received') || null;
   const initialTsdState = () => ({
     open: true,
     screen: 'briefing',
@@ -91,27 +105,43 @@
   function eventFeedback(event) {
     if (event.type === 'demand-increase') return feedback('info', 'demand-increase', `Заявка обновлена: ${event.quantity} шт. нужно добавить.`);
     if (event.type === 'vehicle-ready') return feedback('info', 'vehicle-ready', 'Дополнительная машина готова к загрузке.');
+    if (event.type === 'pallet-arrived') return feedback('info', 'pallet-arrived', 'На приёмку пришла новая паллета.');
     if (event.type === 'store-reception-change') return feedback('info', 'store-reception-change', 'Даркстор изменил окно приёмки.');
     if (event.type === 'order-cancelled') return feedback('info', 'order-cancelled', 'Заявка отменена диспетчером.');
     return feedback('info', 'scenario-event', 'План смены обновлён.');
+  }
+
+  /* Событие смены срабатывает либо по секундам, либо по прогрессу игрока.
+     Прогресс надёжнее: смену можно закрыть за пятнадцать секунд, и событие,
+     назначенное на 120-ю секунду, не наступало никогда. */
+  const eventIsDue = (event, state) => {
+    if (typeof event.afterLoadedPallets === 'number') return (state.loadedPallets || []).length >= event.afterLoadedPallets;
+    if (typeof event.afterPlacedPallets === 'number') return (state.inbound || []).filter((pallet) => pallet.status === 'placed').length >= event.afterPlacedPallets;
+    if (typeof event.atSecond === 'number') return (state.elapsedSeconds || 0) >= event.atSecond;
+    return false;
+  };
+
+  function applyScheduledEvents(state) {
+    let next = state;
+    const pending = (state.scheduledEvents || [])
+      .map((event, index) => ({ event, index }))
+      .filter(({ index }) => !(state.appliedEventIndexes || []).includes(index));
+
+    for (const { event, index } of pending) {
+      if (!eventIsDue(event, next)) continue;
+      next = engine.advanceScenario(next, event);
+      next = { ...next, appliedEventIndexes: [...(next.appliedEventIndexes || []), index], feedback: eventFeedback(event) };
+    }
+    return next;
   }
 
   function tick(state, seconds = 1) {
     if (state.paused) return state;
     const requestedSeconds = Math.max(0, Number(seconds) || 0);
     const consumedSeconds = Math.min(requestedSeconds, state.secondsRemaining || 0);
-    const previousElapsed = state.elapsedSeconds || 0;
-    const elapsedSeconds = previousElapsed + consumedSeconds;
-    let next = { ...state, secondsRemaining: Math.max(0, (state.secondsRemaining || 0) - consumedSeconds), elapsedSeconds };
-    const triggeredIndexes = (state.scheduledEvents || [])
-      .map((event, index) => ({ event, index }))
-      .filter(({ event, index }) => !(state.appliedEventIndexes || []).includes(index) && event.atSecond > previousElapsed && event.atSecond <= elapsedSeconds);
-
-    for (const { event, index } of triggeredIndexes) {
-      next = engine.advanceScenario(next, event);
-      next = { ...next, appliedEventIndexes: [...(next.appliedEventIndexes || []), index], feedback: eventFeedback(event) };
-    }
-    return next;
+    const elapsedSeconds = (state.elapsedSeconds || 0) + consumedSeconds;
+    const next = { ...state, secondsRemaining: Math.max(0, (state.secondsRemaining || 0) - consumedSeconds), elapsedSeconds };
+    return applyScheduledEvents(next);
   }
 
   function shiftOutcome(state) {
@@ -155,6 +185,7 @@
         return { vehicleId: vehicle.id, stops, minutes: route?.minutes || 0, bestStops: best.stops, bestMinutes: best.minutes };
       });
 
+    const inbound = state.inbound || [];
     return {
       demand: activeOrders.map((order) => ({
         storeId: order.storeId, zone: order.zone, sku: order.sku, quantity: order.quantity,
@@ -166,6 +197,11 @@
       usefulWeight,
       routes,
       vehiclesWithoutRoute: missingRouteVehicles(state),
+      inboundTotal: inbound.length,
+      inboundPlaced: inbound.filter((pallet) => pallet.status === 'placed').length,
+      inboundLeftOnDock: inbound
+        .filter((pallet) => pallet.status === 'arrived' || pallet.status === 'received')
+        .map((pallet) => ({ itemName: engine.itemBySku(pallet.sku)?.name || pallet.sku, zoneName: levelData.ZONE_NAMES[pallet.zone] || pallet.zone })),
       spoiledPallets: state.metrics?.spoiledPallets || 0,
       spoilageReasons: state.spoilageReasons || [],
       storeNames: STORE_NAMES,
@@ -251,6 +287,43 @@
       };
     }
 
+    /* Приёмка: кладовщик отмечает в ТСД, что паллета от поставщика принята.
+       Пока она не размещена в зоне, товара на складе нет и отбирать нечего. */
+    if (action.type === 'RECEIVE_PALLET') {
+      const pending = pendingInboundFor(state);
+      if (!pending) return withFeedback(state, feedback('info', 'no-inbound', 'На приёмке пусто.'));
+      const result = engine.receiveInbound(pending);
+      if (!result.ok) return withFeedback(state, feedback('info', 'already-received', 'Эта паллета уже принята — разместите её в зоне.'));
+      return withFeedback({
+        ...state,
+        inbound: state.inbound.map((pallet) => pallet.id === pending.id ? result.pallet : pallet),
+        tsd: { ...state.tsd, open: false, screen: 'current', signal: 'idle' },
+      }, feedback('info', 'pallet-received', `Принято. Отвезите паллету в зону «${levelData.ZONE_NAMES[pending.zone] || pending.zone}».`));
+    }
+
+    /* Размещение: игрок жмёт вывеску зоны на схеме склада. Ошибка портит
+       паллету по тому же правилу, что и погрузка в неподходящий фургон. */
+    if (action.type === 'PLACE_PALLET') {
+      const pending = pendingInboundFor(state);
+      if (!pending) return withFeedback(state, feedback('info', 'no-inbound', 'Размещать нечего.'));
+      if (pending.status === 'arrived') return withFeedback(state, feedback('error', 'not-received', 'Сначала примите паллету в ТСД.'));
+      const result = engine.placeInbound(pending, action.zone);
+      const inbound = state.inbound.map((pallet) => pallet.id === pending.id ? result.pallet : pallet);
+      if (!result.ok) {
+        return withFeedback({
+          ...state,
+          inbound,
+          metrics: { ...state.metrics, spoiledPallets: (state.metrics?.spoiledPallets || 0) + 1 },
+          spoilageReasons: [...(state.spoilageReasons || []), result.spoilageReason],
+        }, feedback('error', 'wrong-placement', `Не та зона: ${engine.itemBySku(pending.sku)?.name || pending.sku} испорчен.`));
+      }
+      return withFeedback({
+        ...state,
+        inbound,
+        stock: engine.addToStock(state.stock, pending.zone, pending.sku, pending.quantity),
+      }, feedback('success', 'pallet-placed', `${engine.itemBySku(pending.sku)?.name || pending.sku} на месте: ${pending.quantity} шт. в зоне «${levelData.ZONE_NAMES[pending.zone] || pending.zone}».`));
+    }
+
     if (action.type === 'SELECT_VEHICLE') {
       const vehicle = (state.vehicles || []).find((entry) => entry.id === action.vehicleId);
       if (!vehicle) return withFeedback(state, feedback('error', 'unknown-vehicle', 'Машина для отгрузки не найдена.'));
@@ -264,10 +337,13 @@
       const index = Number(action.index);
       const target = index + Number(action.direction);
       if (routeStops[target]) [routeStops[index], routeStops[target]] = [routeStops[target], routeStops[index]];
+      const reordered = engine.buildRoute(null, routeStops);
       return withFeedback({
         ...state,
+        route: reordered,
         routeStops,
         routeStopsByVehicle: { ...(state.routeStopsByVehicle || {}), [vehicleId]: routeStops },
+        routesByVehicle: { ...(state.routesByVehicle || {}), [vehicleId]: reordered },
       }, null);
     }
 
@@ -286,14 +362,26 @@
         const nextQuantity = current.quantity + quantity;
         if (nextQuantity < 0) return withFeedback(state, feedback('error', 'invalid-quantity', 'Нельзя убрать больше товара, чем собрано.'));
         const items = pallet.items.map((entry, index) => index === currentIndex ? { ...entry, quantity: nextQuantity } : entry).filter((entry) => entry.quantity > 0);
-        return withFeedback({ ...state, pallet: { ...pallet, items, weight: pallet.weight + item.weightPerUnit * quantity } }, null);
+        return withFeedback({
+          ...state,
+          pallet: { ...pallet, items, weight: pallet.weight + item.weightPerUnit * quantity },
+          stock: engine.addToStock(state.stock, item.zone, item.sku, -quantity),
+        }, null);
+      }
+      const taken = engine.takeFromStock(state.stock, item.zone, item.sku, quantity);
+      if (!taken.ok) {
+        const onDock = (state.inbound || []).find((entry) => entry.sku === item.sku && entry.status !== 'placed' && entry.status !== 'spoiled');
+        const message = onDock
+          ? 'В зоне не осталось товара — сначала примите и разместите привоз.'
+          : 'В зоне не осталось этого товара.';
+        return withFeedback(state, feedback('error', 'no-stock', message));
       }
       const result = engine.addItemToPallet(pallet, item, quantity);
       if (!result.ok) {
-        const messages = { 'wrong-zone': 'Этот товар нужно собирать в другой зоне.', 'over-capacity': 'Паллета не выдержит такой вес.' };
+        const messages = { 'wrong-zone': 'Этот товар нужно собирать в другой зоне.', 'over-capacity': 'Паллета не выдержит такой вес — отправьте её и начните новую.' };
         return withFeedback(state, feedback('error', result.reason, messages[result.reason]));
       }
-      return withFeedback({ ...state, pallet: normalizedPallet(result.pallet) }, null);
+      return withFeedback({ ...state, pallet: normalizedPallet(result.pallet), stock: taken.stock }, null);
     }
 
     if (action.type === 'LOAD_PALLET') {
@@ -316,20 +404,31 @@
       }
       const vehicleRouteStops = routeStopsFor(state, vehicle.id);
       const nextRouteStops = vehicleRouteStops.includes(pallet.storeId) ? vehicleRouteStops : [...vehicleRouteStops, pallet.storeId];
-      return withFeedback({
+      /* Маршрут строится сам в порядке погрузки. Раньше кнопку «Построить
+         маршрут» можно было не нажать, и тогда смена молча обнулялась: все
+         паллеты уезжали без рейса и не засчитывались. Порядок остановок
+         по-прежнему решает игрок — он меняется стрелками и влияет на «Вовремя». */
+      const loaded = {
         ...state,
         vehicles: state.vehicles.map((entry) => entry.id === vehicle.id ? result.vehicle : entry),
         loadedPallets: [...(state.loadedPallets || []), result.pallet],
         routeStops: state.selectedVehicleId === vehicle.id ? nextRouteStops : state.routeStops || [],
         routeStopsByVehicle: { ...(state.routeStopsByVehicle || {}), [vehicle.id]: nextRouteStops },
-        pallet: palletFor({ ...state, pallet }),
+        routesByVehicle: { ...(state.routesByVehicle || {}), [vehicle.id]: engine.buildRoute(vehicle, nextRouteStops) },
         tsd: {
           open: false,
           screen: 'current',
           acceptedOrderId: null,
           signal: 'success',
         },
-      }, feedback('success', 'pallet-loaded', 'Паллета собрана и готова к отгрузке.'));
+      };
+      /* Следующая паллета сразу нацелена на следующую незакрытую заявку:
+         переспрашивать адрес и зону, которые уже написаны в задании, незачем. */
+      const nextOrder = activeOrderFor(loaded);
+      return withFeedback({
+        ...loaded,
+        pallet: palletFor(loaded, nextOrder ? { storeId: nextOrder.storeId, zone: nextOrder.zone } : { storeId: pallet.storeId, zone: pallet.zone }),
+      }, feedback('success', 'pallet-loaded', 'Паллета в кузове, адрес добавлен в маршрут.'));
     }
 
     if (action.type === 'SET_ROUTE') {
@@ -352,5 +451,8 @@
     return withFeedback(state, feedback('error', 'unknown-action', 'Команда не поддерживается.'));
   }
 
-  return { reduceAction, startLevel, tick, finishShift, shiftOutcome, liveMetrics, fulfillmentFor, missingRouteVehicles };
+  return {
+    reduceAction, startLevel, tick, finishShift, shiftOutcome, liveMetrics, fulfillmentFor,
+    missingRouteVehicles, activeOrderFor, pendingInboundFor, remainingFor,
+  };
 });

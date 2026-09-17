@@ -7,10 +7,19 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData) {
   const ZONE_NAMES = levelData.ZONE_NAMES;
 
+  const loadedQuantityFor = (state, order) => (state.loadedPallets || [])
+    .filter((pallet) => pallet.storeId === order.storeId && pallet.zone === order.zone)
+    .reduce((total, pallet) => total + (pallet.items || [])
+      .filter((item) => item.sku === order.sku)
+      .reduce((sum, item) => sum + item.quantity, 0), 0);
+
   const activeOrderFor = (state) => {
     const active = (state.orders || []).filter((order) => !order.cancelled);
-    return active.find((order) => !(state.loadedPallets || []).some((pallet) => pallet.storeId === order.storeId)) || active[0] || null;
+    return active.find((order) => order.quantity - loadedQuantityFor(state, order) > 0) || null;
   };
+
+  const pendingInboundFor = (state) => (state.inbound || [])
+    .find((pallet) => pallet.status === 'arrived' || pallet.status === 'received') || null;
 
   const capacityTargetFor = (state) => {
     const message = String(state.feedback?.message || '');
@@ -21,6 +30,8 @@
 
   function warehouseViewFor(state) {
     const order = activeOrderFor(state);
+    const inbound = pendingInboundFor(state);
+    const awaitingPlacement = Boolean(inbound && inbound.status === 'received');
     const selectedVehicle = (state.vehicles || []).find((vehicle) => vehicle.id === state.selectedVehicleId) || state.vehicles?.[0] || null;
     const route = state.routesByVehicle?.[selectedVehicle?.id] || null;
     const hasLoadedVehicle = Boolean(selectedVehicle?.pallets?.length);
@@ -28,8 +39,10 @@
     const code = state.feedback?.code;
     let mode = 'idle';
 
-    if (code === 'wrong-zone') mode = 'spoiled';
+    if (code === 'wrong-zone' || code === 'wrong-placement') mode = 'spoiled';
     else if (code === 'over-capacity') mode = 'blocked';
+    else if (awaitingPlacement) mode = 'placing';
+    else if (inbound) mode = 'receiving';
     else if (code === 'pallet-loaded') mode = 'to-dispatch';
     else if (hasLoadedVehicle && !routeReady) mode = 'awaiting-route';
     else if (routeReady) mode = 'route-ready';
@@ -37,6 +50,8 @@
 
     const statusByMode = {
       idle: order ? `Зона ${ZONE_NAMES[order.zone] || order.zone}: можно начинать сборку.` : 'Все заявки собраны. Проверьте транспорт.',
+      receiving: 'На приёмке стоит паллета — примите её в ТСД.',
+      placing: inbound ? `Отвезите паллету в зону «${ZONE_NAMES[inbound.zone] || inbound.zone}».` : '',
       collecting: 'Тележка готовит текущую паллету.',
       'to-dispatch': state.feedback?.message || 'Тележка везёт паллету к воротам.',
       'awaiting-route': 'Машина загружена и ждёт маршрут.',
@@ -46,11 +61,18 @@
     };
 
     return {
+      /* Во время размещения подсвечивается зона из накладной, а не зона
+         заявки: игрок должен попасть именно в неё. */
+      placementZone: awaitingPlacement ? inbound.zone : null,
+      inboundCount: (state.inbound || []).filter((pallet) => pallet.status === 'arrived' || pallet.status === 'received').length,
       // Подсвечивать зону имеет смысл только там, где есть из чего выбирать.
       // На уровнях с одной открытой зоной подсказка повторяет ТСД и схему.
-      activeZone: (state.unlockedZones || []).length > 1
-        ? (order?.zone || state.pallet?.zone || 'dry')
-        : null,
+      // Исключение — размещение: там зона и есть само задание.
+      activeZone: awaitingPlacement
+        ? inbound.zone
+        : (state.unlockedZones || []).length > 1
+          ? (order?.zone || state.pallet?.zone || 'dry')
+          : null,
       selectedZone: state.pallet?.zone || 'dry',
       selectedVehicleZone: selectedVehicle?.zone || null,
       highlightObject: code === 'wrong-zone' ? 'pallet' : code === 'over-capacity' ? capacityTargetFor(state) : code === 'demand-increase' ? 'zone' : '',

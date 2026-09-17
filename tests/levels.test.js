@@ -4,13 +4,27 @@ const assert = require('node:assert/strict');
 const { LEVELS } = require('../levels.js');
 const { createShiftState, advanceScenario } = require('../game-engine.js');
 
-test('campaign has eight levels in order', () => {
-  assert.deepEqual(LEVELS.map(level => level.id), [1, 2, 3, 4, 5, 6, 7, 8]);
+test('campaign has nine levels in order', () => {
+  assert.deepEqual(LEVELS.map(level => level.id), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
 });
 
 test('each level adds at most one primary mechanic', () => {
   const newMechanics = LEVELS.map(level => level.newMechanic);
-  assert.deepEqual(newMechanics, ['one-order', 'two-stores', 'multi-pallet', 'three-zones', 'multi-vehicle', 'route', 'dynamic-demand', 'exam']);
+  assert.deepEqual(newMechanics, [
+    'one-order', 'inbound-receive', 'two-stores', 'three-zones', 'inbound-sorting',
+    'route', 'capacity', 'dynamic-demand', 'exam',
+  ]);
+});
+
+/* Приёмка стоит до правила зон, а сортировка привоза — сразу после него:
+   одно и то же правило сначала объясняется, потом применяется там, где
+   ошибка стоит испорченной паллеты. */
+test('receiving is taught before zones, and zone sorting right after them', () => {
+  const positionOf = (mechanic) => LEVELS.findIndex(level => level.newMechanic === mechanic);
+  assert.ok(positionOf('inbound-receive') < positionOf('three-zones'));
+  assert.equal(positionOf('inbound-sorting'), positionOf('three-zones') + 1);
+  assert.ok(positionOf('route') < positionOf('capacity'), 'маршрут — свойство одной машины, вместимость заставляет брать вторую');
+  assert.equal(positionOf('exam'), LEVELS.length - 1);
 });
 
 test('level 4 is the first level with all three zones', () => {
@@ -47,11 +61,13 @@ test('level 4 teaches zone compatibility without a spoilage timer', () => {
   assert.deepEqual(level.vehicles.map(vehicle => vehicle.zone), ['dry', 'frozen', 'chilled']);
 });
 
-test('level 7 expresses its changed request as one explicit event', () => {
-  const events = LEVELS[6].events.filter(event => event.type === 'demand-increase');
+test('the changing-plan shift expresses its changed request as one progress event', () => {
+  const level = LEVELS.find(entry => entry.newMechanic === 'dynamic-demand');
+  const events = level.events.filter(event => event.type === 'demand-increase');
   assert.equal(events.length, 1);
   assert.equal(events[0].orderId, 'order-west');
   assert.equal(events[0].quantity, 2);
+  assert.equal(events[0].afterLoadedPallets, 2);
 });
 
 test('createShiftState copies the level into a fresh shift state', () => {
@@ -62,6 +78,8 @@ test('createShiftState copies the level into a fresh shift state', () => {
     orders: LEVELS[0].initialOrders,
     pallets: [],
     vehicles: LEVELS[0].vehicles,
+    inbound: [],
+    stock: null,
     events: [],
     metrics: {
       deliveredOrders: 0,
@@ -73,8 +91,17 @@ test('createShiftState copies the level into a fresh shift state', () => {
   assert.notEqual(state.vehicles, LEVELS[0].vehicles);
 });
 
+test('a receiving level starts with pallets on the dock and the goods missing from the zone', () => {
+  const state = createShiftState(LEVELS.find(level => level.newMechanic === 'inbound-receive'));
+  assert.equal(state.inbound.length, 1);
+  assert.equal(state.inbound[0].status, 'arrived');
+  assert.equal(state.inbound[0].zone, 'dry');
+  assert.equal(state.inbound[0].weight, 48);
+  assert.equal(state.stock.dry.water, 0);
+});
+
 test('advanceScenario applies each explicit event immutably', () => {
-  const source = createShiftState(LEVELS[6]);
+  const source = createShiftState(LEVELS.find(level => level.newMechanic === 'dynamic-demand'));
   const increased = advanceScenario(source, { type: 'demand-increase', orderId: 'order-west', quantity: 2 });
   assert.equal(increased.orders.find(order => order.id === 'order-west').quantity, 4);
   const ready = advanceScenario(increased, { type: 'vehicle-ready', vehicleId: 'dry-1' });

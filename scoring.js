@@ -31,7 +31,8 @@
   const isPerfect = (metrics, outcome) => metrics.deliveredPercent === 100
     && metrics.onTimePercent === 100
     && metrics.precisionPercent === 100
-    && (outcome.spoiledPallets || 0) === 0;
+    && (outcome.spoiledPallets || 0) === 0
+    && (outcome.inboundLeftOnDock || []).length === 0;
 
   function starsFor(metrics, outcome) {
     if (isPerfect(metrics, outcome)) return 3;
@@ -77,6 +78,10 @@
     }
     if ((outcome.spoiledPallets || 0) > 0) {
       reasons.push(...(outcome.spoilageReasons || []).map((entry) => entry.message));
+    }
+    const onDock = outcome.inboundLeftOnDock || [];
+    if (onDock.length > 0) {
+      reasons.push(`На приёмке осталось паллет: ${onDock.length} — ${onDock[0].itemName} так и не попал в зону «${onDock[0].zoneName}»`);
     }
     if (metrics.deliveredPercent < 100) {
       const shortfalls = shortfallLines(outcome);

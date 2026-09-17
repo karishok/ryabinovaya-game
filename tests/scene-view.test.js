@@ -39,11 +39,13 @@ test('successful loading sends the AGV toward dispatch', () => {
   assert.equal(view.loadedPalletCount, 1);
 });
 
-test('loaded vehicle without a built route waits at the gate', () => {
+test('loading a pallet builds its route at once, so the truck never waits without one', () => {
   let state = reduceAction(startLevel(1), { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
   state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
   state = { ...state, feedback: null };
-  assert.equal(warehouseViewFor(state).mode, 'awaiting-route');
+  assert.deepEqual(state.routesByVehicle['dry-1'].stops, ['north']);
+  assert.equal(warehouseViewFor(state).mode, 'route-ready');
+  assert.equal(warehouseViewFor(state).routeReady, true);
 });
 
 test('wrong-zone loading stops the AGV and names the spoilage', () => {

@@ -1,7 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { reduceAction, startLevel, tick, finishShift, liveMetrics } = require('../app-state.js');
+const { reduceAction, startLevel, tick, finishShift, liveMetrics, activeOrderFor } = require('../app-state.js');
+const { LEVELS } = require('../levels.js');
+
+const levelWith = (mechanic) => LEVELS.find((level) => level.newMechanic === mechanic).id;
+
+const ship = (state, storeId, zone, sku, weightPerUnit, quantity, vehicleId) => {
+  let next = reduceAction(state, { type: 'SELECT_STORE', storeId });
+  next = reduceAction(next, { type: 'SELECT_ZONE', zone });
+  next = reduceAction(next, { type: 'ADD_ITEM', sku, zone, weightPerUnit, quantity });
+  return reduceAction(next, { type: 'LOAD_PALLET', vehicleId });
+};
 
 test('level 1 starts with one dry store and one vehicle', () => {
   const state = startLevel(1);
@@ -68,12 +78,20 @@ test('successfully loading a pallet marks the next task on the TSD', () => {
   });
 });
 
-test('tick applies a scheduled demand change once and exposes short feedback', () => {
-  const state = startLevel(7);
-  const next = tick(state, 120);
+test('a progress-triggered demand change lands once and puts the order back in the queue', () => {
+  let state = { ...startLevel(levelWith('dynamic-demand')), phase: 'shift' };
+  state = ship(state, 'north', 'dry', 'water', 12, 2, 'dry-1');
+  state = ship(state, 'west', 'dry', 'bread', 6, 2, 'dry-1');
+  const next = tick(state, 1);
+
   assert.equal(next.orders.find((order) => order.id === 'order-west').quantity, 4);
   assert.deepEqual(next.events.map((event) => event.type), ['demand-increase']);
   assert.equal(next.feedback.code, 'demand-increase');
+  /* Главное: выросшая заявка снова становится текущим заданием. Раньше
+     магазин считался закрытым по факту первой паллеты, и добрать остаток
+     штатным путём было нельзя. */
+  assert.equal(activeOrderFor(next).id, 'order-west');
+  assert.deepEqual(next.events.map((event) => event.type), tick(next, 1).events.map((event) => event.type));
 });
 
 test('end-shift action keeps all report metrics available at the top level', () => {
@@ -100,16 +118,16 @@ test('dismiss-feedback removes an operational notification without changing shif
   assert.equal(next.levelId, 1);
 });
 
-test('wrong West pallet after the level 7 demand change does not fulfil demand or count as on time without a route', () => {
-  let state = tick(startLevel(7), 120);
-  state = reduceAction(state, { type: 'SELECT_STORE', storeId: 'west' });
-  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
-  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+test('a pallet with the wrong goods for the store fulfils nothing and shows up as dead weight', () => {
+  let state = { ...startLevel(levelWith('dynamic-demand')), phase: 'shift' };
+  // Западный заказывал хлеб, а уехала вода.
+  state = ship(state, 'west', 'dry', 'water', 12, 2, 'dry-1');
 
   const report = finishShift(state).report;
   assert.equal(report.deliveredPercent, 0);
-  assert.equal(report.onTimePercent, 0);
+  assert.equal(report.precisionPercent, 0);
   assert.notEqual(report.stars, 3);
+  assert.ok(report.reasons.some((reason) => /сверх заявки/.test(reason)));
 });
 
 test('matching SKU and quantity count as delivered only when their store is on the route', () => {

@@ -257,6 +257,12 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-task-card { display: grid; gap: 3px; padding: 11px 13px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: rgba(9, 18, 14, 0.55); }
 .tsd-task-label { color: #b4e7ca; font-size: 9px; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
 .tsd-task-card strong { color: var(--cream); font-size: 15px; }
+/* Целевая зона в накладной — единственное, что игрок должен здесь запомнить. */
+.tsd-task-card.is-target { border-color: rgba(240, 170, 56, 0.6); background: rgba(240, 170, 56, 0.12); }
+.tsd-task-card.is-target strong { color: #ffd98a; }
+.tsd-hint { margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+/* Задание в шапке панели вместо повторного заголовка. */
+.panel-task { flex: 1; margin: 0; color: #d9f0de; font-size: 12px; font-weight: 750; line-height: 1.35; }
 
 /* Карта доставки: депо и дарксторы стоят на тех же координатах, по которым
    движок считает минуты рейса. */
@@ -334,6 +340,14 @@ button:disabled { cursor: default; opacity: 0.42; }
 
 /* Тележка с паллетой в ближнем проходе кадра. */
 .scene-pallet { top: 76.4%; left: 28%; width: 21%; height: 20.8%; }
+/* Ворота приёмки: появляются только когда во входящем потоке что-то есть. */
+.scene-dock { top: 74%; left: 2%; width: 22%; height: 22%; }
+.scene-dock[data-awaiting="true"] { border-color: var(--amber); box-shadow: 0 0 0 2px rgba(240, 170, 56, 0.5), inset 0 0 24px rgba(240, 170, 56, 0.24); animation: dock-pulse 1.5s ease-in-out infinite; }
+.dock-badge { position: absolute; top: -10px; right: -6px; min-width: 22px; padding: 2px 6px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: var(--terracotta); color: #fffaf0; font-size: 10px; font-weight: 900; text-align: center; pointer-events: none; }
+@keyframes dock-pulse { 50% { box-shadow: 0 0 0 4px rgba(240, 170, 56, 0.28), inset 0 0 30px rgba(240, 170, 56, 0.32); } }
+/* Зона-цель при размещении: подсказка должна читаться без ТСД. */
+.scene-zone-sign.is-target { border-color: rgba(240, 170, 56, 0.75); background: rgba(240, 170, 56, 0.14); }
+.scene-zone-sign.is-target.is-active span { border-color: var(--amber); background: rgba(40, 24, 8, 0.94); color: #ffd98a; }
 /* Фуры у погрузочных доков в глубине кадра. */
 .truck-bay { top: 56.9%; left: 73%; width: 27%; height: 15.3%; }
 
@@ -350,7 +364,7 @@ button:disabled { cursor: default; opacity: 0.42; }
   content: "";
 }
 /* Сколько паллет уже в кузове — на самой машине, а не на отдельном экране. */
-.truck-badge { position: absolute; top: -11px; right: -6px; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; pointer-events: none; }
+.truck-badge { position: absolute; top: -11px; right: 0; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; pointer-events: none; }
 .transport-summary { margin: 10px 0; color: var(--muted); font-size: 12px; }
 .truck-light { position: absolute; top: -10px; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px var(--amber); opacity: 0.6; pointer-events: none; transform: translateX(-50%); }
 .scene-object-hint { position: absolute; top: calc(100% + 6px); left: 50%; padding: 3px 6px; border-radius: 999px; background: rgba(10, 22, 16, 0.78); box-shadow: 0 3px 7px rgba(0, 0, 0, 0.24); color: #fff3d1; font-size: 8px; font-weight: 850; letter-spacing: 0.04em; text-transform: uppercase; transform: translateX(-50%); white-space: nowrap; opacity: 0.92; pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
@@ -401,10 +415,13 @@ button:disabled { cursor: default; opacity: 0.42; }
 [data-highlight="truck"] .truck-bay { animation: error-highlight 720ms ease-out 1; }
 
 /* Secondary screens and navigation */
-.guide-trigger, .event-banner, .detail-card { margin: 12px; }
-.guide-trigger { display: flex; width: calc(100% - 24px); align-items: center; justify-content: space-between; gap: 10px; padding: 10px 13px; border: 1px solid rgba(240, 170, 56, 0.36); border-radius: 14px; background: #1c3128; text-align: left; }
-.guide-trigger span { color: #f4d991; font-weight: 850; }
-.guide-trigger small { color: var(--muted); font-size: 10px; text-align: right; }
+.event-banner, .detail-card { margin: 12px; }
+/* Сводка смены под фотографией: занимает то место, которое раньше было
+   пустым, и держит заявки и завершение смены на виду без лишних нажатий. */
+.shift-board { display: grid; gap: 9px; padding: 13px 12px 0; }
+.board-status { margin: 0; color: #d9f0de; font-size: 13px; font-weight: 750; line-height: 1.35; }
+.board-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.board-actions .btn.secondary { margin-top: 0; font-size: 13px; }
 .event-banner { display: none; padding: 10px 12px; border: 1px solid rgba(81, 185, 173, 0.62); border-radius: 12px; background: #183b33; color: #d8fff3; font-size: 12px; font-weight: 700; }
 .event-banner.show { display: block; animation: banner-in 180ms ease-out; }
 
@@ -459,8 +476,10 @@ button:disabled { cursor: default; opacity: 0.42; }
 .report-reasons { margin: 0 0 16px; padding-left: 19px; color: var(--muted); text-align: left; font-size: 12px; }
 .report-reasons li + li { margin-top: 5px; }
 
-.toast { position: fixed; z-index: 30; bottom: 78px; left: 50%; max-width: calc(100% - 30px); padding: 11px 14px; transform: translate(-50%, 20px); border-radius: 13px; background: #ecf9f0; color: #163426; box-shadow: var(--shadow); font-weight: 750; opacity: 0; pointer-events: none; transition: transform 200ms ease, opacity 200ms ease; }
-.toast.show { transform: translate(-50%, 0); opacity: 1; }
+/* Уведомление — строка в сводке смены, а не плавающая плашка: плавающая
+   ложилась поверх кнопок сводки, и оба текста становились нечитаемыми. */
+.toast { display: none; padding: 11px 14px; border-radius: 13px; background: #ecf9f0; color: #163426; box-shadow: var(--shadow); font-weight: 750; }
+.toast.show { display: block; animation: banner-in 180ms ease-out; }
 .toast.error { background: #ffe1dc; color: #5a231b; }
 .toast.info { background: #e9eee2; color: #29352a; }
 
@@ -476,10 +495,18 @@ button:disabled { cursor: default; opacity: 0.42; }
 .guide-example { margin: 15px 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #13241b; }
 .guide-example h3 { margin: 0 0 8px; color: var(--cream); font-size: 13px; }
 .guide-tip { margin: 12px 0; padding: 10px; border-radius: 11px; background: #42391f; color: #ffe5a7; font-size: 12px; }
-.orders-list { display: grid; gap: 8px; margin: 12px 0; }
+.orders-list { display: grid; gap: 6px; margin: 0; }
 .order-row { padding: 10px; border: 1px solid rgba(244, 234, 216, 0.12); border-radius: 12px; background: #24362c; }
 .order-row strong, .order-row span { display: block; }
 .order-row span { margin-top: 3px; color: var(--muted); font-size: 12px; }
+/* Сводка обязана уместиться между фотографией и полосой ТСД, поэтому в ней
+   заявка — одна строка, а длинный список прокручивается внутри себя. */
+.shift-board .orders-list { max-height: 104px; overflow-y: auto; }
+.shift-board .order-row { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px; }
+.shift-board .order-row strong { flex: none; font-size: 13px; }
+.shift-board .order-row span { overflow: hidden; margin-top: 0; text-overflow: ellipsis; white-space: nowrap; }
+.shift-board .order-row.is-done { opacity: 0.5; }
+.shift-board .order-row.is-done strong::after { content: " ✓"; color: #8ce0ad; }
 
 @keyframes signal-wait { 50% { opacity: 0.22; } }
 @keyframes ready-beacon { 50% { transform: translateX(-50%) scale(1.45); } }

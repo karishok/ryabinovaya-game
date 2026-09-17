@@ -9,14 +9,23 @@
   const STORE_NAMES = levelData.STORE_NAMES;
   const ZONE_NAMES = levelData.ZONE_NAMES;
 
+  const loadedQuantityFor = (state, order) => (state.loadedPallets || [])
+    .filter((pallet) => pallet.storeId === order.storeId && pallet.zone === order.zone)
+    .reduce((total, pallet) => total + (pallet.items || [])
+      .filter((item) => item.sku === order.sku)
+      .reduce((sum, item) => sum + item.quantity, 0), 0);
+
   const activeOrderFor = (state) => {
     const active = (state.orders || []).filter((order) => !order.cancelled);
-    return active.find((order) => !(state.loadedPallets || []).some((pallet) => pallet.storeId === order.storeId)) || active[0] || null;
+    return active.find((order) => order.quantity - loadedQuantityFor(state, order) > 0) || null;
   };
 
   const acceptedOrderFor = (state) => (state.orders || [])
     .find((order) => order.id === state.tsd?.acceptedOrderId && !order.cancelled)
     || null;
+
+  const pendingInboundFor = (state) => (state.inbound || [])
+    .find((pallet) => pallet.status === 'arrived' || pallet.status === 'received') || null;
 
   function terminalViewFor(state) {
     const reportScreen = Boolean(state.report) || state.phase === 'report';
@@ -24,6 +33,9 @@
     const errorScreen = state.feedback?.kind === 'error';
     const briefingScreen = state.phase === 'briefing' || state.tsd?.screen === 'briefing';
     const taskScreen = state.tsd?.screen === 'task';
+    /* Приёмка блокирует склад: пока паллета стоит в воротах, отбирать из
+       зоны нечего, поэтому ТСД показывает её раньше заявки на отгрузку. */
+    const inbound = state.phase === 'shift' || taskScreen ? pendingInboundFor(state) : null;
     const screen = reportScreen
       ? 'report'
       : storyScreen
@@ -32,18 +44,24 @@
           ? 'feedback'
           : briefingScreen
             ? 'briefing'
-            : taskScreen
-              ? 'task'
-              : 'current';
+            : inbound
+              ? 'inbound'
+              : taskScreen
+                ? 'task'
+                : 'current';
 
     const order = acceptedOrderFor(state) || activeOrderFor(state);
     const item = order ? engine.itemBySku(order.sku) : null;
+    const inboundItem = inbound ? engine.itemBySku(inbound.sku) : null;
+    const inboundZoneName = inbound ? ZONE_NAMES[inbound.zone] || inbound.zone : '';
+    const awaitingPlacement = Boolean(inbound && inbound.status === 'received');
     const progressText = `${state.pallet?.weight || 0} / ${state.pallet?.capacity || 100} кг`;
     const signal = state.feedback?.kind === 'error' ? 'error' : (state.tsd?.signal || 'idle');
     const titleByScreen = {
       report: 'Итоги смены',
       feedback: 'Ошибка',
       briefing: state.story?.kind === 'after' ? 'Смена завершена' : 'Новая смена',
+      inbound: awaitingPlacement ? 'Размещение' : 'Приёмка',
       task: 'Новое задание',
       current: 'Текущая работа',
     };
@@ -51,6 +69,9 @@
       report: state.report?.reasons?.[0] || 'Смена завершена.',
       feedback: state.feedback?.message || '',
       briefing: state.story?.text || '',
+      inbound: awaitingPlacement
+        ? `Паллета принята. Нажмите зону «${inboundZoneName}» на схеме склада.`
+        : 'Проверьте накладную и примите паллету.',
       task: state.feedback?.message || (order ? 'Проверьте заявку и примите её.' : 'Активных заявок нет.'),
       current: state.feedback?.message || '',
     };
@@ -59,30 +80,47 @@
       : '';
     const mandatoryOpen = ['feedback', 'briefing', 'report'].includes(screen);
     const accepted = Boolean(state.tsd?.acceptedOrderId);
+    const remaining = order ? order.quantity - loadedQuantityFor(state, order) : 0;
     // Закрытый ТСД обязан показывать текущее задание: игрок смотрит на
     // железку, чтобы вспомнить, что собирает, не открывая терминал.
     const compactKicker = screen === 'report'
       ? 'Итоги'
-      : accepted ? 'В работе' : 'Новое задание';
-    const compactTask = order
-      ? `${STORE_NAMES[order.storeId] || order.storeId} · ${item?.name || order.sku} · ${order.quantity} шт.`
-      : 'Активных заявок нет';
-    const compactMeta = order
-      ? `${ZONE_NAMES[order.zone] || order.zone} · паллета ${progressText}`
-      : '';
+      : inbound ? (awaitingPlacement ? 'Разместить' : 'Приёмка')
+        : accepted ? 'В работе' : 'Новое задание';
+    const compactTask = inbound
+      ? `${inboundItem?.name || inbound.sku} · ${inbound.quantity} шт. → ${inboundZoneName}`
+      : order
+        ? `${STORE_NAMES[order.storeId] || order.storeId} · ${item?.name || order.sku} · ${remaining} шт.`
+        : 'Все заявки собраны';
+    const compactMeta = inbound
+      ? (awaitingPlacement ? `Нажмите зону «${inboundZoneName}» на схеме` : `Поставщик: ${inbound.supplier}`)
+      : order
+        ? `${ZONE_NAMES[order.zone] || order.zone} · паллета ${progressText}`
+        : 'Проверьте маршруты и завершите смену';
 
     return {
       open: mandatoryOpen || Boolean(state.tsd?.open),
+      /* Затемнение перехватывает нажатия, поэтому ставить его на каждый
+         открытый экран нельзя: размещение требует нажать зону на схеме
+         склада, а задание — паллету. Блокируют только экраны, из которых
+         действительно нет другого выхода. */
+      blocking: mandatoryOpen,
       screen,
       signal,
       title: titleByScreen[screen],
-      storeName: order ? STORE_NAMES[order.storeId] || order.storeId : '',
-      orderText: order ? `${item?.name || order.sku} · ${order.quantity} шт.` : '',
-      zoneName: order ? ZONE_NAMES[order.zone] || order.zone : '',
-      progressText,
+      showOrderBlock: ['task', 'current', 'inbound'].includes(screen),
+      storeName: inbound ? `Привоз: ${inbound.supplier}` : order ? STORE_NAMES[order.storeId] || order.storeId : '',
+      orderText: inbound
+        ? `${inboundItem?.name || inbound.sku} · ${inbound.quantity} шт.`
+        : order ? `${item?.name || order.sku} · ${remaining} шт.` : '',
+      zoneName: inbound ? inboundZoneName : order ? ZONE_NAMES[order.zone] || order.zone : '',
+      progressText: inbound ? '' : progressText,
       message: messageByScreen[screen],
       reportSummary,
       canAccept: screen === 'task' && !accepted && Boolean(order),
+      canReceive: screen === 'inbound' && !awaitingPlacement,
+      awaitingPlacement,
+      placementZone: awaitingPlacement ? inbound.zone : null,
       // Брифинг, ошибка и отчёт держат терминал открытым принудительно, поэтому
       // CLOSE_TSD на них не даёт эффекта. Рисовать там крестик — обещать
       // действие, которого не будет: из этих экранов выходят кнопкой внизу.

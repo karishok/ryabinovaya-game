@@ -71,14 +71,16 @@ function loadUiWithClicks(options = {}) {
   };
 }
 
-test('closed TSD leaves pallet and truck actions reachable', () => {
+test('tapping the pallet opens the builder instead of detouring through the task card', () => {
   const { click, elements } = loadUiWithClicks();
 
+  // Раньше первое нажатие уводило на экран задания, и «Принять» приходилось
+  // жать только чтобы вернуться туда, куда игрок и нажимал.
   click({ dataset: { action: 'OPEN_BUILDER' }, disabled: false });
-  assert.equal(elements.get('tsdDevice').dataset.screen, 'task');
-  click({ dataset: { action: 'ACCEPT_TASK' }, disabled: false });
-  click({ dataset: { action: 'OPEN_BUILDER' }, disabled: false });
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'builder');
   assert.equal(elements.get('builderModal').attributes['aria-hidden'], 'false');
+  // Задание видно там, где собирают, а не на отдельном экране.
+  assert.match(elements.get('builderTask').textContent, /Северный/);
 
   click({ dataset: { action: 'CLOSE_BUILDER' }, disabled: false });
   click({ dataset: { action: 'OPEN_VEHICLES' }, disabled: false });
@@ -124,25 +126,34 @@ test('report continues through the visible TSD shell control', () => {
   assert.equal(elements.get('tsdDevice').dataset.screen, 'briefing');
 });
 
-test('successful load feedback can be dismissed before the next warehouse interaction', () => {
-  const { click, elements, pageControlFor } = loadUiWithClicks();
+test('a successful load reports through the toast and never takes over the terminal', () => {
+  const { click, elements } = loadUiWithClicks();
 
   click({ dataset: { action: 'CONTINUE_STORY' }, disabled: false });
   click({ dataset: { action: 'ACCEPT_TASK' }, disabled: false });
   click({ dataset: { action: 'ADD_ITEM', sku: 'water', zone: 'dry', weight: '12', quantity: '2' }, disabled: false });
   click({ dataset: { action: 'LOAD_PALLET' }, disabled: false });
 
-  assert.equal(elements.get('tsdDevice').dataset.screen, 'feedback');
-  assert.equal(elements.get('tsdFeedbackContinue').hidden, false);
-
-  const dismiss = pageControlFor('DISMISS_FEEDBACK');
-  assert.ok(dismiss, 'successful load feedback must expose DISMISS_FEEDBACK');
-  dismiss.click();
-
+  /* Успех не забирает экран: раньше каждая собранная паллета открывала
+     полноэкранное сообщение с обязательным «Продолжить». */
   assert.equal(elements.get('tsdDevice').dataset.open, 'false');
-  assert.equal(elements.get('tsdDevice').dataset.screen, 'current');
+  assert.notEqual(elements.get('tsdDevice').dataset.screen, 'feedback');
+  assert.match(elements.get('toast').textContent, /в кузове/i);
+  assert.match(elements.get('toast').className, /show success/);
+
   click({ dataset: { action: 'OPEN_VEHICLES' }, disabled: false });
   assert.equal(elements.get('vehicleModal').attributes['aria-hidden'], 'false');
+});
+
+test('an error still takes over the terminal, because it has to be read and fixed', () => {
+  const { click, elements } = loadUiWithClicks();
+
+  click({ dataset: { action: 'CONTINUE_STORY' }, disabled: false });
+  click({ dataset: { action: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weight: '10', quantity: '1' }, disabled: false });
+
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'feedback');
+  assert.equal(elements.get('tsdBackdrop').attributes['aria-hidden'], 'false');
+  assert.equal(elements.get('tsdFeedbackContinue').hidden, false);
 });
 
 test('TSD owns briefing and report presentation while legacy dialogs stay hidden', () => {

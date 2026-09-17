@@ -1,0 +1,149 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const engine = require('../game-engine.js');
+const { LEVELS } = require('../levels.js');
+const { startLevel, reduceAction, finishShift, shiftOutcome, activeOrderFor } = require('../app-state.js');
+const { terminalViewFor } = require('../tsd-view.js');
+const { warehouseViewFor } = require('../scene-view.js');
+
+const receiveLevel = LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
+const sortingLevel = LEVELS.find((level) => level.newMechanic === 'inbound-sorting').id;
+// Смена начинается так же, как у игрока: брифинг закрывается кнопкой.
+const shift = (levelId) => reduceAction(startLevel(levelId), { type: 'CONTINUE_STORY' });
+
+test('an arrived pallet is received once and only once', () => {
+  const pallet = engine.createInboundPallet({ id: 'in-1', zone: 'chilled', sku: 'milk', quantity: 3 });
+  assert.equal(pallet.status, 'arrived');
+  assert.equal(pallet.weight, 30);
+
+  const received = engine.receiveInbound(pallet);
+  assert.equal(received.ok, true);
+  assert.equal(received.pallet.status, 'received');
+  assert.equal(pallet.status, 'arrived', 'приёмка не мутирует исходную паллету');
+  assert.deepEqual(engine.receiveInbound(received.pallet), { ok: false, reason: 'already-received' });
+});
+
+test('putaway into the wrong zone spoils the pallet and names the mistake', () => {
+  const received = engine.receiveInbound(engine.createInboundPallet({ id: 'in-1', zone: 'frozen', sku: 'ice-cream', quantity: 2 })).pallet;
+
+  const placed = engine.placeInbound(received, 'frozen');
+  assert.equal(placed.ok, true);
+  assert.equal(placed.pallet.status, 'placed');
+
+  const misplaced = engine.placeInbound(received, 'dry');
+  assert.equal(misplaced.ok, false);
+  assert.equal(misplaced.reason, 'wrong-zone');
+  assert.equal(misplaced.pallet.status, 'spoiled');
+  assert.equal(misplaced.spoilageReason.type, 'wrong-placement');
+  assert.match(misplaced.spoilageReason.message, /размещени/i);
+});
+
+test('a pallet cannot be put away before it is received', () => {
+  const arrived = engine.createInboundPallet({ id: 'in-1', zone: 'dry', sku: 'water', quantity: 1 });
+  assert.deepEqual(engine.placeInbound(arrived, 'dry'), { ok: false, reason: 'not-received' });
+});
+
+test('a level lists only what is scarce: undeclared goods stay in stock', () => {
+  const stock = engine.stockFrom({ dry: { water: 0 } });
+  assert.equal(engine.availableStock(stock, 'dry', 'water'), 0);
+  assert.equal(engine.availableStock(stock, 'dry', 'bread'), Infinity);
+  assert.equal(engine.availableStock(stock, 'chilled', 'milk'), Infinity);
+  assert.deepEqual(engine.takeFromStock(stock, 'dry', 'water', 1), { ok: false, reason: 'no-stock', available: 0 });
+  assert.equal(engine.takeFromStock(stock, 'chilled', 'milk', 5).ok, true);
+  assert.equal(engine.addToStock(stock, 'dry', 'water', 4).dry.water, 4);
+});
+
+test('the terminal shows the dock before the delivery order, because receiving blocks the racks', () => {
+  const state = shift(receiveLevel);
+  const view = terminalViewFor(state);
+  assert.equal(view.screen, 'inbound');
+  assert.equal(view.title, 'Приёмка');
+  assert.equal(view.canReceive, true);
+  assert.equal(view.awaitingPlacement, false);
+  assert.match(view.storeName, /Аквалайн/);
+  assert.equal(view.zoneName, 'Сухач');
+  // Закрытый ТСД тоже обязан говорить, что стоит на приёмке.
+  assert.match(view.compactTask, /Вода 1,5 л · 4 шт\. → Сухач/);
+});
+
+test('receiving hands the shift over to putaway and points at the rack', () => {
+  const received = reduceAction(shift(receiveLevel), { type: 'RECEIVE_PALLET' });
+  const view = terminalViewFor(received);
+
+  assert.equal(view.screen, 'inbound');
+  assert.equal(view.title, 'Размещение');
+  assert.equal(view.awaitingPlacement, true);
+  assert.equal(view.placementZone, 'dry');
+  assert.equal(view.canReceive, false);
+  // Затемнение не должно перехватывать нажатие по вывеске зоны на схеме.
+  assert.equal(view.blocking, false);
+  assert.equal(warehouseViewFor(received).mode, 'placing');
+  assert.equal(warehouseViewFor(received).placementZone, 'dry');
+});
+
+test('goods reach the racks only after putaway, and then the order can be picked', () => {
+  let state = shift(receiveLevel);
+  const pick = (next) => reduceAction(next, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 4 });
+
+  const blocked = pick(state);
+  assert.equal(blocked.feedback.code, 'no-stock');
+  assert.match(blocked.feedback.message, /примите и разместите привоз/i);
+  assert.equal(blocked.pallet.weight, 0);
+
+  state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+  state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'dry' });
+  assert.equal(state.feedback.kind, 'success');
+  assert.equal(state.stock.dry.water, 4);
+
+  state = pick(state);
+  assert.equal(state.pallet.weight, 48);
+  assert.equal(state.stock.dry.water, 0, 'отбор списывает товар из зоны');
+});
+
+test('putting a pallet on the wrong rack costs a spoiled pallet and the order behind it', () => {
+  let state = shift(receiveLevel);
+  state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+  state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'chilled' });
+
+  assert.equal(state.feedback.kind, 'error');
+  assert.equal(state.metrics.spoiledPallets, 1);
+  assert.equal(state.inbound[0].status, 'spoiled');
+  assert.equal(engine.availableStock(state.stock, 'dry', 'water'), 0, 'испорченный товар не попадает в зону');
+
+  const report = finishShift(state).report;
+  assert.equal(report.spoiledPallets, 1);
+  assert.equal(report.deliveredPercent, 0);
+  assert.notEqual(report.stars, 3);
+  assert.ok(report.reasons.some((reason) => /размещени/i.test(reason)));
+});
+
+test('a pallet abandoned on the dock is named in the report', () => {
+  const outcome = shiftOutcome(shift(receiveLevel));
+  assert.equal(outcome.inboundTotal, 1);
+  assert.equal(outcome.inboundPlaced, 0);
+  assert.deepEqual(outcome.inboundLeftOnDock, [{ itemName: 'Вода 1,5 л', zoneName: 'Сухач' }]);
+
+  const report = finishShift(shift(receiveLevel)).report;
+  assert.ok(report.reasons.some((reason) => /На приёмке осталось паллет/.test(reason)));
+});
+
+test('the sorting shift queues every dock pallet and keeps the delivery order waiting', () => {
+  let state = shift(sortingLevel);
+  assert.equal(warehouseViewFor(state).inboundCount, 3);
+
+  const zones = [];
+  for (let guard = 0; guard < 3; guard += 1) {
+    const view = terminalViewFor(state);
+    assert.equal(view.screen, 'inbound', 'пока приёмка не разобрана, заявки ждут');
+    state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+    zones.push(terminalViewFor(state).placementZone);
+    state = reduceAction(state, { type: 'PLACE_PALLET', zone: zones.at(-1) });
+  }
+
+  assert.deepEqual(zones, ['chilled', 'frozen', 'dry'], 'паллеты разбираются в порядке прибытия');
+  assert.equal(warehouseViewFor(state).inboundCount, 0);
+  assert.equal(terminalViewFor(state).screen, 'current');
+  // Только теперь появляется обычное задание на отгрузку.
+  assert.ok(activeOrderFor(state));
+  assert.equal(state.metrics.spoiledPallets, 0);
+});

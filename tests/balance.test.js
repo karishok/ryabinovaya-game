@@ -2,53 +2,73 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const engine = require('../game-engine.js');
 const { LEVELS } = require('../levels.js');
-const { startLevel, tick, reduceAction, finishShift } = require('../app-state.js');
+const { startLevel, tick, reduceAction, finishShift, remainingFor } = require('../app-state.js');
 
-// Доводит смену до состояния, где все сценарные события уже случились:
-// спрос окончательный, отложенные машины готовы.
-function settled(levelId) {
-  const level = LEVELS.find((entry) => entry.id === levelId);
-  return tick({ ...startLevel(levelId), phase: 'shift' }, level.durationSeconds - 1);
+// Приёмка: принять каждую входящую паллету и убрать её в зону из накладной.
+function receiveAll(state) {
+  let next = state;
+  for (let guard = 0; guard < 12; guard += 1) {
+    const pending = (next.inbound || []).find((pallet) => pallet.status === 'arrived' || pallet.status === 'received');
+    if (!pending) break;
+    if (pending.status === 'arrived') next = reduceAction(next, { type: 'RECEIVE_PALLET' });
+    next = reduceAction(next, { type: 'PLACE_PALLET', zone: pending.zone });
+  }
+  return next;
 }
 
-// Раскладывает магазины по машинам их зоны по кругу.
-function assignStores(state) {
-  const byZone = new Map();
-  for (const order of state.orders.filter((entry) => !entry.cancelled)) {
-    if (!byZone.has(order.zone)) byZone.set(order.zone, new Set());
-    byZone.get(order.zone).add(order.storeId);
+const usedCapacity = (vehicle) => vehicle.pallets.reduce((total, pallet) => total + pallet.weight, 0);
+
+// Машина своей зоны, в которой осталось место хотя бы под одну единицу товара.
+const vehicleWithRoom = (state, zone, weightPerUnit) => state.vehicles
+  .find((vehicle) => vehicle.zone === zone && vehicle.ready !== false && vehicle.capacity - usedCapacity(vehicle) >= weightPerUnit);
+
+// Закрывает остаток по каждой строке заявки, разбивая её на паллеты по
+// вместимости паллеты и свободному месту в кузове.
+function fillOrders(state, extraQuantityPerLine, stopsByVehicle) {
+  let next = state;
+  for (const order of next.orders.filter((entry) => !entry.cancelled)) {
+    const item = engine.itemBySku(order.sku);
+    let remaining = remainingFor(next, order) + extraQuantityPerLine;
+    for (let guard = 0; remaining > 0 && guard < 20; guard += 1) {
+      const vehicle = vehicleWithRoom(next, order.zone, item.weightPerUnit);
+      if (!vehicle) break;
+      const room = Math.min(next.pallet.capacity, vehicle.capacity - usedCapacity(vehicle));
+      const units = Math.min(remaining, Math.floor(room / item.weightPerUnit));
+      if (units <= 0) break;
+      next = reduceAction(next, { type: 'SELECT_STORE', storeId: order.storeId });
+      next = reduceAction(next, { type: 'SELECT_ZONE', zone: order.zone });
+      next = reduceAction(next, {
+        type: 'ADD_ITEM', sku: order.sku, zone: order.zone,
+        weightPerUnit: item.weightPerUnit, quantity: units,
+      });
+      next = reduceAction(next, { type: 'LOAD_PALLET', vehicleId: vehicle.id });
+      if (!stopsByVehicle.has(vehicle.id)) stopsByVehicle.set(vehicle.id, new Set());
+      stopsByVehicle.get(vehicle.id).add(order.storeId);
+      remaining -= units;
+    }
   }
-  const assignment = [];
-  for (const [zone, storeSet] of byZone) {
-    const vehicles = state.vehicles.filter((vehicle) => vehicle.zone === zone);
-    const buckets = vehicles.map(() => []);
-    [...storeSet].forEach((storeId, index) => buckets[index % vehicles.length].push(storeId));
-    vehicles.forEach((vehicle, index) => {
-      if (buckets[index].length > 0) assignment.push({ vehicleId: vehicle.id, stops: buckets[index] });
-    });
-  }
-  return assignment;
+  return next;
 }
+
+const openDemand = (state) => state.orders
+  .filter((order) => !order.cancelled)
+  .reduce((total, order) => total + remainingFor(state, order), 0);
 
 function play(levelId, extraQuantityPerLine = 0) {
-  let state = settled(levelId);
-  const orders = state.orders.filter((entry) => !entry.cancelled);
+  let state = { ...startLevel(levelId), phase: 'shift' };
+  const stopsByVehicle = new Map();
 
-  for (const { vehicleId, stops } of assignStores(state)) {
-    for (const storeId of stops) {
-      const lines = orders.filter((order) => order.storeId === storeId);
-      state = reduceAction(state, { type: 'SELECT_STORE', storeId });
-      state = reduceAction(state, { type: 'SELECT_ZONE', zone: lines[0].zone });
-      for (const line of lines) {
-        const item = engine.itemBySku(line.sku);
-        state = reduceAction(state, {
-          type: 'ADD_ITEM', sku: line.sku, zone: line.zone,
-          weightPerUnit: item.weightPerUnit, quantity: line.quantity + extraQuantityPerLine,
-        });
-      }
-      state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId });
-    }
-    const best = engine.bestRoute(stops);
+  /* Несколько проходов, потому что часть событий смены привязана к прогрессу:
+     заявка вырастает после погрузки, и остаток надо добрать вторым заходом. */
+  for (let pass = 0; pass < 4; pass += 1) {
+    state = receiveAll(state);
+    state = fillOrders(state, extraQuantityPerLine, stopsByVehicle);
+    state = tick(state, 1);
+    if (openDemand(state) === 0) break;
+  }
+
+  for (const [vehicleId, stops] of stopsByVehicle) {
+    const best = engine.bestRoute([...stops]);
     state = reduceAction(state, { type: 'SET_ROUTE', vehicleId, stops: best.stops });
   }
   return finishShift(state).report;
@@ -73,4 +93,42 @@ test('stuffing pallets beyond the order costs both stars and money', () => {
   assert.ok(stuffed.stars < 3, 'набивка не должна давать три звезды');
   assert.ok(stuffed.profit < honest.profit, `набивка ${stuffed.profit} должна быть невыгоднее честной игры ${honest.profit}`);
   assert.ok(stuffed.reasons.some((reason) => /сверх заявки/.test(reason)), 'отчёт должен назвать лишний груз');
+});
+
+// Уровень объявлен «одно новое правило за смену» — проверяем, что правило
+// действительно включается, а не остаётся в описании.
+test('every declared mechanic is actually exercised by its level data', () => {
+  const byId = new Map(LEVELS.map((level) => [level.id, level]));
+  const weightOf = (sku) => engine.itemBySku(sku).weightPerUnit;
+
+  const inboundLevels = LEVELS.filter((level) => (level.inbound || []).length > 0);
+  assert.deepEqual(inboundLevels.map((level) => level.newMechanic), ['inbound-receive', 'inbound-sorting', 'exam']);
+  for (const level of inboundLevels) {
+    for (const pallet of level.inbound) {
+      assert.equal(engine.availableStock(engine.stockFrom(level.stock), pallet.zone, pallet.sku), 0,
+        `уровень ${level.id}: привоз ${pallet.sku} бессмыслен, если товар и так лежит в зоне`);
+    }
+  }
+  // Сортировка по зонам требует выбора: одной зоны для этого мало.
+  assert.ok(new Set(byId.get(5).inbound.map((pallet) => pallet.zone)).size >= 3);
+
+  // «Полный кузов» обязан не влезать ни в паллету, ни в одну машину.
+  const capacity = byId.get(7);
+  const dryWeight = capacity.initialOrders
+    .filter((order) => order.zone === 'dry')
+    .reduce((total, order) => total + order.quantity * weightOf(order.sku), 0);
+  const dryFleet = capacity.vehicles.filter((vehicle) => vehicle.zone === 'dry');
+  assert.ok(dryWeight > 100, `вместимость паллеты должна быть препятствием, а не формальностью: ${dryWeight} кг`);
+  assert.ok(dryWeight > dryFleet[0].capacity, 'одной машины должно не хватать');
+  assert.ok(dryWeight <= dryFleet.reduce((total, vehicle) => total + vehicle.capacity, 0), 'парка должно хватать');
+
+  // События смены привязаны к прогрессу: расписание по секундам не наступало.
+  for (const level of LEVELS) {
+    for (const event of level.events) {
+      assert.equal(typeof event.atSecond, 'undefined',
+        `уровень ${level.id}: событие по таймеру не срабатывает, смену закрывают за 15 секунд`);
+      assert.ok(typeof event.afterLoadedPallets === 'number' || typeof event.afterPlacedPallets === 'number',
+        `уровень ${level.id}: у события нет условия по прогрессу`);
+    }
+  }
 });

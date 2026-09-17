@@ -40,6 +40,79 @@
     return { id, zone, capacity, pallets: [] };
   }
 
+  /* Входящая паллета живёт на приёмке в три шага: приехала → принята в ТСД →
+     размещена в зоне хранения. Зона у неё своя, и ошибка размещения портит
+     товар по тому же правилу, что и погрузка в неподходящий фургон. */
+  function createInboundPallet({ id, zone, sku, quantity, supplier }) {
+    const item = itemBySku(sku);
+    return {
+      id,
+      zone,
+      sku,
+      quantity,
+      supplier: supplier || 'Поставщик',
+      weight: (item?.weightPerUnit || 0) * quantity,
+      status: 'arrived',
+    };
+  }
+
+  function receiveInbound(pallet) {
+    if (!pallet) return { ok: false, reason: 'unknown-pallet' };
+    if (pallet.status !== 'arrived') return { ok: false, reason: 'already-received' };
+    return { ok: true, pallet: { ...pallet, status: 'received' } };
+  }
+
+  function placeInbound(pallet, zone) {
+    if (!pallet) return { ok: false, reason: 'unknown-pallet' };
+    if (pallet.status !== 'received') return { ok: false, reason: 'not-received' };
+    if (pallet.zone !== zone) {
+      return {
+        ok: false,
+        reason: 'wrong-zone',
+        pallet: { ...pallet, status: 'spoiled', placedZone: zone },
+        spoilageReason: {
+          type: 'wrong-placement',
+          palletZone: pallet.zone,
+          placedZone: zone,
+          message: `паллета испорчена при размещении: товар из зоны ${pallet.zone} убрали в зону ${zone}`,
+        },
+      };
+    }
+    return { ok: true, pallet: { ...pallet, status: 'placed', placedZone: zone } };
+  }
+
+  /* Запас по зонам. Уровень без поля stock не ограничивает отбор — так
+     старые смены остаются про отгрузку, а новые заставляют сначала принять
+     привоз. */
+  function stockFrom(stock) {
+    if (!stock) return null;
+    const result = {};
+    for (const [zone, skus] of Object.entries(stock)) result[zone] = { ...skus };
+    return result;
+  }
+
+  /* Уровень перечисляет только дефицит. Неупомянутый товар считается
+     запасённым: иначе объявление нехватки в одной зоне молча обнуляло бы
+     все остальные зоны смены. */
+  function availableStock(stock, zone, sku) {
+    if (!stock) return Infinity;
+    const declared = stock[zone]?.[sku];
+    return typeof declared === 'number' ? declared : Infinity;
+  }
+
+  function takeFromStock(stock, zone, sku, quantity) {
+    const available = availableStock(stock, zone, sku);
+    if (available < quantity) return { ok: false, reason: 'no-stock', available };
+    if (!Number.isFinite(available)) return { ok: true, stock };
+    return { ok: true, stock: { ...stock, [zone]: { ...stock[zone], [sku]: available - quantity } } };
+  }
+
+  function addToStock(stock, zone, sku, quantity) {
+    const available = availableStock(stock, zone, sku);
+    if (!Number.isFinite(available)) return stock;
+    return { ...stock, [zone]: { ...(stock[zone] || {}), [sku]: available + quantity } };
+  }
+
   function loadPallet(vehicle, pallet) {
     if (pallet.zone !== vehicle.zone) {
       return {
@@ -144,6 +217,8 @@
       orders: copy(level.initialOrders),
       pallets: [],
       vehicles: copy(level.vehicles),
+      inbound: (level.inbound || []).map(createInboundPallet),
+      stock: stockFrom(level.stock),
       events: [],
       metrics: {
         deliveredOrders: 0,
@@ -169,6 +244,8 @@
       next.orders = next.orders.map((order) => order.storeId === event.storeId
         ? { ...order, acceptsFromSecond: event.acceptsFromSecond }
         : order);
+    } else if (event.type === 'pallet-arrived') {
+      next.inbound = [...(next.inbound || []), createInboundPallet(event.pallet)];
     } else if (event.type === 'order-cancelled') {
       let cancelled = false;
       next.orders = next.orders.map((order) => {
@@ -191,6 +268,13 @@
     addItemToPallet,
     createVehicle,
     loadPallet,
+    createInboundPallet,
+    receiveInbound,
+    placeInbound,
+    stockFrom,
+    availableStock,
+    takeFromStock,
+    addToStock,
     buildRoute,
     bestRoute,
     itemBySku,

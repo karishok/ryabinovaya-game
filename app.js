@@ -1,6 +1,6 @@
 const engine = window.RyabinovayaEngine;
 const { LEVELS, ZONE_NAMES: zones } = window.RyabinovayaLevels;
-const { reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles } = window.RyabinovayaAppState;
+const { reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles, activeOrderFor, remainingFor } = window.RyabinovayaAppState;
 const { warehouseViewFor } = window.RyabinovayaSceneView;
 const { terminalViewFor } = window.RyabinovayaTsdView;
 const { signalTsd } = window.RyabinovayaTsdSignal || { signalTsd: () => {} };
@@ -24,9 +24,13 @@ const screenForTsd = (nextState, baseScreen) => {
   if (nextState.builderOpen) return 'builder';
   if (nextState.vehicleDrawerOpen) return 'vehicles';
   if (nextState.guideOpen) return 'guide';
-  if (nextState.tsd?.screen === 'task') return 'task';
   if (nextState.phase === 'briefing' || nextState.phase === 'story-after') return 'briefing';
-  if (nextState.feedback) return 'feedback';
+  /* Только ошибка забирает экран терминала. Успех и рабочие уведомления
+     уходят в тост: раньше каждая собранная паллета требовала лишнего
+     нажатия «Продолжить» на полноэкранном сообщении. */
+  if (nextState.feedback?.kind === 'error') return 'feedback';
+  if (baseScreen === 'inbound') return 'inbound';
+  if (nextState.tsd?.screen === 'task') return 'task';
   return nextState.tsd?.screen || baseScreen;
 };
 const tsdViewFor = (nextState) => {
@@ -34,14 +38,21 @@ const tsdViewFor = (nextState) => {
   const screen = screenForTsd(nextState, baseView.screen);
   const titleByScreen = {
     builder: 'Сборка паллеты',
-    vehicles: 'Машины',
+    vehicles: 'Машины и маршрут',
     guide: 'Как играть?',
-    feedback: 'Оперативное обновление',
+    feedback: 'Ошибка',
   };
+  const panelScreen = ['builder', 'vehicles', 'guide'].includes(screen);
   return {
     ...baseView,
-    open: baseView.open || !['current', 'task'].includes(screen),
+    open: baseView.open || !['current', 'task', 'inbound'].includes(screen),
     screen,
+    // Панели сборки и транспорта — модальные диалоги, их затемнение нужно.
+    blocking: baseView.blocking || panelScreen || screen === 'feedback',
+    showOrderBlock: baseView.showOrderBlock && !panelScreen,
+    // У панелей есть собственный крестик; второй, ничего не закрывающий,
+    // только путал — CLOSE_TSD на открытой панели не давал эффекта.
+    canClose: baseView.canClose && !panelScreen,
     title: titleByScreen[screen] || baseView.title,
     message: screen === 'feedback' ? nextState.feedback?.message || baseView.message : baseView.message,
   };
@@ -51,6 +62,12 @@ const orderLabel = (order) => {
   return `${item.emoji} ${item.name} · ${order.quantity} шт.`;
 };
 const orderMarkup = (order) => `<div class="order-row"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel(order)} · ${zones[order.zone]}</span></div>`;
+/* В сводке заявка занимает одну строку и показывает остаток, а не исходное
+   количество: после частичной отгрузки важно, сколько ещё собирать. */
+const boardOrderMarkup = (state, order) => {
+  const left = remainingFor(state, order);
+  return `<div class="order-row${left === 0 ? ' is-done' : ''}"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel({ ...order, quantity: left })}</span></div>`;
+};
 
 function playWarehouseBeep(kind) {
   if (!audioUnlocked) return;
@@ -86,6 +103,7 @@ function renderScene(view, document) {
   scene.dataset.event = view.eventCode || '';
   scene.dataset.highlight = view.highlightObject || '';
   byId(document, 'sceneStatus').textContent = view.statusText;
+  byId(document, 'boardStatus').textContent = view.statusText;
   byId(document, 'sceneOperatorName').textContent = view.operatorName;
   const scenePallet = byId(document, 'scenePallet');
   scenePallet.style.setProperty('--pallet-fill', `${view.palletFillPercent}%`);
@@ -93,11 +111,16 @@ function renderScene(view, document) {
   const truckBay = byId(document, 'sceneTruckBay');
   truckBay.dataset.routeReady = String(view.routeReady);
   truckBay.dataset.loadedPallets = String(view.loadedPalletCount);
+  const dock = byId(document, 'sceneDock');
+  dock.hidden = view.inboundCount === 0;
+  dock.dataset.awaiting = String(Boolean(view.placementZone));
+  byId(document, 'dockBadge').textContent = String(view.inboundCount);
   document.querySelectorAll('[data-scene-zone]').forEach((zone) => {
     const active = zone.dataset.sceneZone === view.activeZone;
     const selected = zone.dataset.sceneZone === view.selectedZone;
     zone.classList.toggle('is-active', active);
-    zone.classList.toggle('is-selected', selected);
+    zone.classList.toggle('is-selected', selected && !view.placementZone);
+    zone.classList.toggle('is-target', Boolean(view.placementZone));
     zone.setAttribute('aria-current', String(active));
   });
 }
@@ -110,9 +133,15 @@ function renderTsd(view, document) {
   const hardware = byId(document, 'tsdHardware');
   hardware.setAttribute('aria-hidden', String(view.open));
   hardware.setAttribute('tabindex', view.open ? '-1' : '0');
-  byId(document, 'tsdBackdrop').setAttribute('aria-hidden', String(!view.open));
+  byId(document, 'tsdBackdrop').setAttribute('aria-hidden', String(!view.blocking));
   byId(document, 'tsdScreen').setAttribute('aria-hidden', String(!view.open));
   byId(document, 'tsdTitle').textContent = view.title;
+  /* Одни и те же строки заявки раньше печатались и в шапке терминала, и в
+     карточках экрана. Шапку показываем только там, где она и есть задание. */
+  byId(document, 'tsdStore').hidden = !view.showOrderBlock;
+  byId(document, 'tsdOrder').hidden = !view.showOrderBlock;
+  byId(document, 'tsdZone').hidden = !view.showOrderBlock || !view.zoneName;
+  byId(document, 'tsdProgress').hidden = !view.showOrderBlock || !view.progressText;
   byId(document, 'tsdStore').textContent = view.storeName;
   byId(document, 'tsdOrder').textContent = view.orderText;
   byId(document, 'tsdZone').textContent = view.zoneName ? `Зона: ${view.zoneName}` : '';
@@ -130,7 +159,14 @@ function renderTsd(view, document) {
   continueStory.hidden = view.screen !== 'briefing';
   continueStory.textContent = view.title === 'Смена завершена' ? 'Продолжить' : 'Начать смену';
   byId(document, 'tsdAccept').hidden = !view.canAccept;
+  byId(document, 'tsdReceive').hidden = !view.canReceive;
   byId(document, 'tsdClose').hidden = !view.canClose;
+  byId(document, 'tsdInboundSupplier').textContent = view.storeName;
+  byId(document, 'tsdInboundGoods').textContent = view.orderText;
+  byId(document, 'tsdInboundZone').textContent = view.zoneName;
+  byId(document, 'tsdInboundHint').textContent = view.awaitingPlacement
+    ? `Паллета на тележке. Нажмите вывеску «${view.zoneName}» на схеме склада.`
+    : 'Сверьте накладную с паллетой и примите её.';
   byId(document, 'tsdContinue').hidden = view.screen !== 'report';
   byId(document, 'tsdFeedbackContinue').hidden = view.screen !== 'feedback';
   const panels = document.querySelectorAll ? document.querySelectorAll('[data-tsd-panel]') : [];
@@ -169,13 +205,16 @@ function routeMapSvg(state, routeStops) {
     + '</svg>';
 }
 
+/* Подсказка говорит, есть ли запас, но не диктует порядок: раньше здесь
+   печатался готовый оптимум, и единственное решение в игре решалось за
+   игрока. Точный лучший маршрут показывается в отчёте — после смены. */
 function routeSummaryHtml(routeStops) {
   if (!routeStops.length) return 'Загрузите паллеты — их адреса появятся на карте.';
   const current = engine.buildRoute(null, routeStops).minutes;
   const best = engine.bestRoute(routeStops);
-  if (current <= best.minutes) return `Ваш порядок — <b>${current} мин</b>. Это лучший возможный.`;
-  const order = best.stops.map((storeId) => stores[storeId] || storeId).join(' → ');
-  return `Ваш порядок — <b>${current} мин</b>, лучший — <b>${best.minutes} мин</b>: ${order}.`;
+  if (current <= best.minutes) return `Ваш порядок — <b>${current} мин</b>. Короче не выйдет.`;
+  const gap = current - best.minutes;
+  return `Ваш порядок — <b>${current} мин</b>. Можно быстрее на <b>${gap} мин</b> — переставьте остановки по карте.`;
 }
 
 function render(nextState, document) {
@@ -200,12 +239,14 @@ function render(nextState, document) {
   const fulfillment = fulfillmentFor(nextState);
   byId(document, 'orders').textContent = `${fulfillment.fulfilledQuantity} / ${fulfillment.demandQuantity}`;
   const metrics = liveMetrics(nextState);
-  byId(document, 'ontime').textContent = `${metrics.onTimePercent}%`;
-  byId(document, 'precision').textContent = `${metrics.precisionPercent}%`;
-  byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} паллет`;
+  /* До первой погрузки считать нечего. Ноль вместо прочерка читался как
+     «ты уже всё испортил», хотя смена ещё не начиналась. */
+  const hasShipped = nextState.loadedPallets.length > 0;
+  byId(document, 'ontime').textContent = hasShipped ? `${metrics.onTimePercent}%` : '—';
+  byId(document, 'precision').textContent = hasShipped ? `${metrics.precisionPercent}%` : '—';
+  byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} палл.`;
   byId(document, 'vehicleName').textContent = selectedVehicle ? vehicleLabel(selectedVehicle) : 'Выберите машину';
-  byId(document, 'transportSummary').textContent = selectedVehicle ? `${vehicleLabel(selectedVehicle)}: ${selectedVehicle.pallets.length} паллет в кузове.` : 'Выберите машину для отгрузки.';
-  byId(document, 'ordersList').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Активных заявок нет.</p>';
+  byId(document, 'ordersList').innerHTML = nextState.orders.filter((order) => !order.cancelled).map((order) => boardOrderMarkup(nextState, order)).join('') || '<p>Активных заявок нет.</p>';
   byId(document, 'guideOrders').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Все заявки закрыты.</p>';
 
   const pause = document.querySelector('[data-action="PAUSE"]');
@@ -233,22 +274,38 @@ function render(nextState, document) {
     <div class="qty"><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="-1" aria-label="Убрать ${item.name}">−</button><b>${quantityFor(nextState.pallet, item.sku)}</b><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="1" aria-label="Добавить ${item.name}">+</button></div>
   </div>`).join('');
   byId(document, 'capacity').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
+  /* Задание в шапке панели: экран задания мы больше не показываем
+     принудительно, значит адрес и товар должны быть видны там, где собирают. */
+  const activeOrder = activeOrderFor(nextState);
+  byId(document, 'builderTask').textContent = activeOrder
+    ? `Задание: ${stores[activeOrder.storeId]} · ${orderLabel({ ...activeOrder, quantity: remainingFor(nextState, activeOrder) })} · ${zones[activeOrder.zone]}`
+    : 'Все заявки закрыты — можно завершать смену.';
+  byId(document, 'vehicleTask').textContent = selectedVehicle
+    ? `${vehicleLabel(selectedVehicle)} · ${selectedVehicle.pallets.length} палл.`
+    : 'Машина не выбрана';
   const routelessVehicles = new Set(missingRouteVehicles(nextState));
   byId(document, 'vehicleRows').innerHTML = nextState.vehicles.map((vehicle) => {
+    /* Статус описывает машину, а не совпадение с текущей пустой паллетой:
+       загруженный фургон, который как раз маршрутизируют, раньше подписывался
+       «другая зона». */
+    const loadedKg = vehicle.pallets.reduce((total, pallet) => total + pallet.weight, 0);
+    const stops = nextState.routeStopsByVehicle?.[vehicle.id]?.length || 0;
     const status = !vehicle.ready
       ? 'ожидаем'
       : routelessVehicles.has(vehicle.id)
         ? 'нет маршрута'
-        : (vehicle.zone === nextState.pallet.zone ? 'подходит' : 'другая зона');
-    return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span class="vehicle-glyph" aria-hidden="true"></span><span><strong>${vehicleLabel(vehicle)}</strong><small>${vehicle.pallets.length} паллет · ${vehicle.capacity} кг</small></span><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
+        : stops > 0
+          ? `${stops} ост. · ${loadedKg} кг`
+          : 'свободна';
+    return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span class="vehicle-glyph" aria-hidden="true"></span><span><strong>${vehicleLabel(vehicle)}</strong><small>${vehicle.pallets.length} паллет · до ${vehicle.capacity} кг</small></span><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
   }).join('');
   const routeStops = nextState.routeStops || [];
   byId(document, 'routeMap').innerHTML = routeMapSvg(nextState, routeStops);
   byId(document, 'routeSummary').innerHTML = routeSummaryHtml(routeStops);
   byId(document, 'routeStops').innerHTML = routeStops.length ? routeStops.map((storeId, index) => `<div class="route-stop"><span>${index + 1}. ${stores[storeId] || storeId} <b class="leg">${engine.legMinutes(index === 0 ? 'depot' : routeStops[index - 1], storeId)} мин</b></span><span><button data-action="MOVE_STOP" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Выше">↑</button><button data-action="MOVE_STOP" data-index="${index}" data-direction="1" ${index === routeStops.length - 1 ? 'disabled' : ''} aria-label="Ниже">↓</button></span></div>`).join('') : '<p class="empty-route">Загрузите паллеты для добавления остановок.</p>';
   byId(document, 'routeButton').textContent = routeStops.length
-    ? `Построить маршрут · ${engine.buildRoute(null, routeStops).minutes} мин`
-    : 'Маршрут пока пуст';
+    ? `Готово · рейс ${engine.buildRoute(null, routeStops).minutes} мин`
+    : 'Остановок пока нет';
 
   const builder = byId(document, 'builderModal');
   builder.classList.toggle('open', nextState.builderOpen);
@@ -300,21 +357,36 @@ function render(nextState, document) {
   endless.setAttribute('aria-hidden', String(nextState.phase !== 'endless'));
 
   const eventBanner = byId(document, 'eventBanner');
-  const eventCodes = ['demand-increase', 'vehicle-ready', 'store-reception-change', 'order-cancelled'];
-  const isEvent = nextState.phase === 'shift' && eventCodes.includes(nextState.feedback?.code);
-  const showTsdFeedback = tsdViewFor(nextState).screen === 'feedback';
+  const showTsdFeedback = view.screen === 'feedback';
   eventBanner.textContent = showTsdFeedback ? nextState.feedback?.message || '' : '';
   eventBanner.classList.toggle('show', showTsdFeedback);
+  /* Успех и рабочие уведомления живут в тосте и гаснут сами; экран терминала
+     забирает только ошибка, которую нужно прочитать и исправить. */
   const toast = byId(document, 'toast');
-  const showToast = nextState.feedback && !isBuilderError && !isEvent && !showTsdFeedback;
+  const showToast = Boolean(nextState.feedback) && !isBuilderError && !showTsdFeedback;
   toast.textContent = showToast ? nextState.feedback.message : '';
   toast.className = `toast ${showToast ? `show ${nextState.feedback.kind}` : ''}`;
+  scheduleToastDismiss(showToast ? nextState.feedback.message : null);
+}
+
+let toastMessage = null;
+let toastTimer = null;
+function scheduleToastDismiss(message) {
+  if (message === toastMessage) return;
+  toastMessage = message;
+  if (typeof window.clearTimeout === 'function') window.clearTimeout(toastTimer);
+  if (!message || typeof window.setTimeout !== 'function') return;
+  toastTimer = window.setTimeout(() => {
+    if (state.feedback?.message === message) dispatch({ type: 'DISMISS_FEEDBACK' });
+  }, 3200);
 }
 
 function dispatch(action) {
   if (action.type === 'OPEN_BUILDER') {
-    if (!state.tsd?.acceptedOrderId) state = reduceAction(state, { type: 'SHOW_TSD_TASK' });
-    else state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } };
+    /* Нажатие на паллету открывает сборку сразу. Раньше оно уводило на
+       экран задания, и «Принять» приходилось жать только чтобы вернуться. */
+    if (!state.tsd?.acceptedOrderId) state = reduceAction(state, { type: 'ACCEPT_TASK' });
+    state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } };
   } else if (action.type === 'CLOSE_BUILDER') state = { ...state, builderOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
   else if (action.type === 'OPEN_VEHICLES') state = { ...state, vehicleDrawerOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'vehicles' } };
   else if (action.type === 'CLOSE_VEHICLES') state = { ...state, vehicleDrawerOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
@@ -332,14 +404,11 @@ function dispatch(action) {
       if (compatibleVehicle) state = { ...state, selectedVehicleId: compatibleVehicle.id };
     }
     if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success') state = { ...state, builderOpen: false };
+    /* Маршрут уже построен при погрузке, поэтому кнопка просто подтверждает
+       порядок и закрывает панель — отдельное нажатие на крестик не нужно. */
+    if (action.type === 'SET_ROUTE') state = { ...state, vehicleDrawerOpen: false, tsd: { ...state.tsd, open: false, screen: 'current' } };
   }
   render(state, document);
-  if (action.type === 'TICK' && ['demand-increase', 'vehicle-ready', 'store-reception-change', 'order-cancelled'].includes(state.feedback?.code)) {
-    const eventCode = state.feedback.code;
-    window.setTimeout(() => {
-      if (state.feedback?.code === eventCode) dispatch({ type: 'DISMISS_FEEDBACK' });
-    }, 3500);
-  }
   return state;
 }
 
@@ -351,7 +420,13 @@ document.addEventListener('click', (event) => {
   if (action === 'OPEN_TSD') tsdReturnFocus = button;
   if (action === 'ADD_ITEM') return dispatch({ type: action, sku: button.dataset.sku, zone: button.dataset.zone, weightPerUnit: Number(button.dataset.weight), quantity: Number(button.dataset.quantity) });
   if (action === 'SELECT_STORE') return dispatch({ type: action, storeId: button.dataset.store });
-  if (action === 'SELECT_ZONE') return dispatch({ type: action, zone: button.dataset.zone });
+  if (action === 'SELECT_ZONE') {
+    /* Вывеска зоны на схеме — это и есть размещение: пока принятая паллета
+       стоит на тележке, нажатие на зону убирает её туда, а не переключает
+       фильтр товаров в сборке. */
+    const placing = Boolean(button.dataset.sceneZone) && terminalViewFor(state).awaitingPlacement;
+    return dispatch(placing ? { type: 'PLACE_PALLET', zone: button.dataset.zone } : { type: action, zone: button.dataset.zone });
+  }
   if (action === 'LOAD_PALLET') return dispatch({ type: action, vehicleId: state.selectedVehicleId });
   if (action === 'SET_ROUTE') return dispatch({ type: action, vehicleId: state.selectedVehicleId, stops: state.routeStops });
   if (action === 'SELECT_VEHICLE') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
