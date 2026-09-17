@@ -19,9 +19,24 @@
           <div class="shift"><div class="clock" id="clock">03:00</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
         </div>
 
-        <section class="mission-ribbon" aria-labelledby="missionTitle">
-          <div><small id="missionHint">Текущая заявка</small><strong id="missionTitle">Северный ждёт заказ</strong><span id="missionOrder">Вода · 2 шт.</span></div>
-          <div class="ribbon-pallet"><span>Паллета</span><b id="capacityCompact">0 / 100 кг</b><i><span id="scenePalletFill"></span></i></div>
+        <div class="tsd-backdrop" id="tsdBackdrop" aria-hidden="true"></div>
+        <section class="tsd-device" id="tsdDevice" data-open="true" data-screen="briefing" data-signal="new" aria-label="Терминал сбора данных">
+          <button class="tsd-hardware" data-action="OPEN_TSD" type="button" aria-label="Открыть ТСД">
+            <span class="tsd-indicator" aria-hidden="true"></span>
+            <span class="tsd-compact-copy" id="tsdCompactCopy">Новое задание</span>
+          </button>
+          <div class="tsd-screen" id="tsdScreen" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
+            <button class="tsd-close" data-action="CLOSE_TSD" type="button" aria-label="Убрать ТСД">×</button>
+            <small class="tsd-kicker">Рябиновая · ТСД</small>
+            <h2 id="tsdTitle">Новая смена</h2>
+            <strong id="tsdStore"></strong>
+            <p id="tsdOrder"></p>
+            <p id="tsdZone"></p>
+            <p id="tsdProgress"></p>
+            <p id="tsdMessage" role="status"></p>
+            <button class="tsd-primary" id="tsdAccept" data-action="ACCEPT_TASK" type="button">Принять</button>
+            <div class="tsd-content-slot" id="tsdContentSlot"></div>
+          </div>
         </section>
 
         <button class="scene-zone scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry"><span>Сухач</span></button>

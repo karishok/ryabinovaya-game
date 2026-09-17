@@ -2,12 +2,14 @@ const engine = window.RyabinovayaEngine;
 const { LEVELS, ZONE_NAMES: zones } = window.RyabinovayaLevels;
 const { reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles } = window.RyabinovayaAppState;
 const { warehouseViewFor } = window.RyabinovayaSceneView;
+const { terminalViewFor } = window.RyabinovayaTsdView;
 const stores = { north: 'Северный', central: 'Центральный', west: 'Западный', east: 'Восточный' };
 const itemDetails = {
   water: { emoji: '💧', name: 'Вода 1,5 л' }, milk: { emoji: '🥛', name: 'Молоко' }, banana: { emoji: '🍌', name: 'Бананы' }, bread: { emoji: '🍞', name: 'Хлеб' }, 'ice-cream': { emoji: '🍨', name: 'Мороженое' },
 };
 const items = Object.values(engine.ITEMS).map((item) => ({ ...item, ...itemDetails[item.sku] }));
 let state = startLevel(1);
+let tsdReturnFocus = null;
 
 const byId = (document, id) => document.getElementById(id);
 const quantityFor = (pallet, sku) => pallet.items.filter((item) => item.sku === sku).reduce((total, item) => total + item.quantity, 0);
@@ -28,8 +30,9 @@ function renderScene(view, document) {
   scene.dataset.event = view.eventCode || '';
   byId(document, 'sceneStatus').textContent = view.statusText;
   byId(document, 'sceneOperatorName').textContent = view.operatorName;
-  byId(document, 'scenePalletFill').style.setProperty('--pallet-fill', `${view.palletFillPercent}%`);
-  byId(document, 'scenePallet').setAttribute('aria-label', `Текущая паллета заполнена на ${view.palletFillPercent}%`);
+  const scenePallet = byId(document, 'scenePallet');
+  scenePallet.style.setProperty('--pallet-fill', `${view.palletFillPercent}%`);
+  scenePallet.setAttribute('aria-label', `Текущая паллета заполнена на ${view.palletFillPercent}%`);
   const truckBay = byId(document, 'sceneTruckBay');
   truckBay.dataset.routeReady = String(view.routeReady);
   truckBay.dataset.loadedPallets = String(view.loadedPalletCount);
@@ -42,15 +45,30 @@ function renderScene(view, document) {
   });
 }
 
+function renderTsd(view, document) {
+  const device = byId(document, 'tsdDevice');
+  device.dataset.open = String(view.open);
+  device.dataset.screen = view.screen;
+  device.dataset.signal = view.signal;
+  byId(document, 'tsdBackdrop').setAttribute('aria-hidden', String(!view.open));
+  byId(document, 'tsdScreen').setAttribute('aria-hidden', String(!view.open));
+  byId(document, 'tsdTitle').textContent = view.title;
+  byId(document, 'tsdStore').textContent = view.storeName;
+  byId(document, 'tsdOrder').textContent = view.orderText;
+  byId(document, 'tsdZone').textContent = view.zoneName ? `Зона: ${view.zoneName}` : '';
+  byId(document, 'tsdProgress').textContent = view.progressText;
+  byId(document, 'tsdMessage').textContent = view.message;
+  byId(document, 'tsdAccept').hidden = !view.canAccept;
+  byId(document, 'warehouseScene').setAttribute('aria-hidden', 'false');
+}
+
 function render(nextState, document) {
   renderScene(warehouseViewFor(nextState), document);
+  renderTsd(terminalViewFor(nextState), document);
   const level = levelFor(nextState.levelId);
   const selectedVehicle = nextState.vehicles.find((vehicle) => vehicle.id === nextState.selectedVehicleId) || nextState.vehicles[0];
   const minutes = String(Math.floor(nextState.secondsRemaining / 60)).padStart(2, '0');
   const seconds = String(nextState.secondsRemaining % 60).padStart(2, '0');
-  const activeOrders = nextState.orders.filter((order) => !order.cancelled);
-  const mission = activeOrders.find((order) => !nextState.loadedPallets.some((pallet) => pallet.storeId === order.storeId)) || activeOrders[0];
-
   byId(document, 'levelTitle').textContent = `Уровень ${nextState.levelId} · ${level.title}`;
   byId(document, 'clock').textContent = `${minutes}:${seconds}`;
   const fulfillment = fulfillmentFor(nextState);
@@ -59,9 +77,6 @@ function render(nextState, document) {
   byId(document, 'ontime').textContent = `${metrics.onTimePercent}%`;
   byId(document, 'precision').textContent = `${metrics.precisionPercent}%`;
   byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} паллет`;
-  byId(document, 'missionTitle').textContent = mission ? `${stores[mission.storeId] || mission.storeId} ждёт заказ` : 'Все заявки собраны';
-  byId(document, 'missionHint').textContent = level.goal;
-  byId(document, 'missionOrder').textContent = mission ? orderLabel(mission) : 'Проверьте маршрут и завершите смену.';
   byId(document, 'vehicleName').textContent = selectedVehicle ? vehicleLabel(selectedVehicle) : 'Выберите машину';
   byId(document, 'transportSummary').textContent = selectedVehicle ? `${vehicleLabel(selectedVehicle)}: ${selectedVehicle.pallets.length} паллет в кузове.` : 'Выберите машину для отгрузки.';
   byId(document, 'ordersList').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Активных заявок нет.</p>';
@@ -94,7 +109,6 @@ function render(nextState, document) {
     <div class="qty"><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="-1" aria-label="Убрать ${item.name}">−</button><b>${quantityFor(nextState.pallet, item.sku)}</b><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="1" aria-label="Добавить ${item.name}">+</button></div>
   </div>`).join('');
   byId(document, 'capacity').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
-  byId(document, 'capacityCompact').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
   const routelessVehicles = new Set(missingRouteVehicles(nextState));
   byId(document, 'vehicleRows').innerHTML = nextState.vehicles.map((vehicle) => {
     const status = !vehicle.ready
@@ -194,6 +208,7 @@ document.addEventListener('click', (event) => {
   const button = event.target.closest('[data-action]');
   if (!button || button.disabled) return;
   const { action } = button.dataset;
+  if (action === 'OPEN_TSD') tsdReturnFocus = button;
   if (action === 'ADD_ITEM') return dispatch({ type: action, sku: button.dataset.sku, zone: button.dataset.zone, weightPerUnit: Number(button.dataset.weight), quantity: Number(button.dataset.quantity) });
   if (action === 'SELECT_STORE') return dispatch({ type: action, storeId: button.dataset.store });
   if (action === 'SELECT_ZONE') return dispatch({ type: action, zone: button.dataset.zone });
@@ -202,12 +217,18 @@ document.addEventListener('click', (event) => {
   if (action === 'NAVIGATE') return dispatch({ type: action, screen: button.dataset.screenTarget });
   if (action === 'SELECT_VEHICLE') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
   if (action === 'MOVE_STOP') return dispatch({ type: action, index: button.dataset.index, direction: button.dataset.direction });
-  dispatch({ type: action });
+  const nextState = dispatch({ type: action });
+  if (action === 'CLOSE_TSD' || action === 'ACCEPT_TASK') {
+    tsdReturnFocus?.focus();
+    tsdReturnFocus = null;
+  }
+  return nextState;
 });
 
 window.dispatch = dispatch;
 window.render = render;
 window.renderScene = renderScene;
+window.renderTsd = renderTsd;
 render(state, document);
 setInterval(() => {
   if (state.phase !== 'shift' || state.paused || state.report) return;

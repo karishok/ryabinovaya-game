@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const engine = require('../game-engine.js');
 const appState = require('../app-state.js');
 const sceneView = require('../scene-view.js');
+const tsdView = require('../tsd-view.js');
 const levels = require('../levels.js');
 const { LEVELS } = levels;
 
@@ -32,6 +33,7 @@ function loadUi() {
     RyabinovayaLevels: levels,
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: sceneView,
+    RyabinovayaTsdView: tsdView,
     setTimeout() {},
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
@@ -53,7 +55,24 @@ test('renderScene mirrors scene state into the warehouse layers', () => {
   assert.equal(elements.get('warehouseScene').dataset.activeZone, 'chilled');
   assert.equal(elements.get('sceneStatus').textContent, 'Тележка едет.');
   assert.equal(elements.get('sceneOperatorName').textContent, 'Миша');
-  assert.equal(elements.get('scenePalletFill').style.values['--pallet-fill'], '42%');
+  assert.equal(elements.get('scenePallet').style.values['--pallet-fill'], '42%');
   assert.equal(elements.get('sceneTruckBay').dataset.loadedPallets, '2');
   assert.equal(zones.find((zone) => zone.dataset.sceneZone === 'chilled').attributes['aria-current'], 'true');
+});
+
+test('renderTsd mirrors terminal state into semantic visibility and content', () => {
+  const { window, elements } = loadUi();
+  window.renderTsd({
+    open: false, screen: 'current', signal: 'idle', title: 'Текущая работа',
+    storeName: 'Северный', orderText: 'Вода · 2 шт.', zoneName: 'Сухач',
+    progressText: '24 / 100 кг', message: 'Готово.', canAccept: false,
+  }, { getElementById: (id) => elements.get(id) });
+
+  assert.equal(elements.get('tsdDevice').dataset.open, 'false');
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'current');
+  assert.equal(elements.get('tsdBackdrop').attributes['aria-hidden'], 'true');
+  assert.equal(elements.get('tsdScreen').attributes['aria-hidden'], 'true');
+  assert.equal(elements.get('tsdTitle').textContent, 'Текущая работа');
+  assert.equal(elements.get('tsdZone').textContent, 'Зона: Сухач');
+  assert.equal(elements.get('tsdAccept').hidden, true);
 });

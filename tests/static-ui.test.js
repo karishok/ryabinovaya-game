@@ -7,7 +7,7 @@ test('living warehouse shell keeps product vocabulary and scene layers', () => {
   for (const label of ['Рябиновая', 'Сухач', 'Заморозка', 'Охлаждёнка', 'Собрать паллету', 'reportModal']) {
     assert.match(html, new RegExp(label));
   }
-  for (const id of ['warehouseScene', 'sceneStatus', 'sceneOperator', 'sceneOperatorName', 'sceneAgv', 'scenePallet', 'scenePalletFill', 'sceneTruckBay']) {
+  for (const id of ['warehouseScene', 'sceneStatus', 'sceneOperator', 'sceneOperatorName', 'sceneAgv', 'scenePallet', 'sceneTruckBay', 'tsdDevice', 'tsdBackdrop', 'tsdScreen']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   for (const zone of ['dry', 'chilled', 'frozen']) {
@@ -67,6 +67,6 @@ test('warehouse actions are attached to the pallet and truck instead of a bottom
   const html = fs.readFileSync('index.html', 'utf8');
   assert.match(html, /<button class="scene-pallet" id="scenePallet"[^>]*data-action="OPEN_BUILDER"/);
   assert.match(html, /<button class="truck-bay" id="sceneTruckBay"[^>]*data-action="OPEN_VEHICLES"/);
-  assert.match(html, /class="mission-ribbon"/);
+  assert.doesNotMatch(html, /class="mission-ribbon"/);
   assert.doesNotMatch(html, /class="mission-dock"/);
 });

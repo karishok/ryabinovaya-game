@@ -10,6 +10,9 @@ test('redesign keeps every established gameplay command reachable', () => {
 
   for (const action of staticActions) assert.match(html, new RegExp(`data-action="${action}"`));
   for (const action of delegatedActions) assert.match(app, new RegExp(`action === '${action}'`));
+  for (const action of ['OPEN_TSD', 'CLOSE_TSD', 'ACCEPT_TASK', 'OPEN_BUILDER', 'OPEN_VEHICLES']) {
+    assert.match(html, new RegExp(`data-action="${action}"`));
+  }
 });
 
 test('mobile shell keeps builder, transport, pause and report reachable', () => {
