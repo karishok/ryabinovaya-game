@@ -217,3 +217,17 @@ test('a rejected AudioContext resume promise is handled silently', () => {
   click({ dataset: { action: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weight: '10', quantity: '1' }, disabled: false });
   assert.equal(tracker.catches, 1);
 });
+
+test('the close button only appears on screens the player can actually leave', () => {
+  const { elements, window, document } = loadUiWithClicks();
+  // Брифинг держит терминал открытым принудительно: крестик там не сработал бы.
+  assert.equal(elements.get('tsdClose').hidden, true);
+
+  const task = appState.reduceAction(appState.startLevel(1), { type: 'CONTINUE_STORY' });
+  window.render(task, document);
+  assert.equal(elements.get('tsdClose').hidden, false);
+
+  const report = appState.reduceAction(task, { type: 'END_SHIFT' });
+  window.render(report, document);
+  assert.equal(elements.get('tsdClose').hidden, true);
+});

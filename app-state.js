@@ -70,7 +70,6 @@
       paused: false,
       phase: 'briefing',
       story: { kind: 'before', text: level.storyBefore },
-      activeScreen: 'warehouse',
       tsd: initialTsdState(),
       builderOpen: false,
       vehicleDrawerOpen: false,

@@ -10,7 +10,7 @@ test('redesign keeps every established gameplay command reachable', () => {
     'OPEN_TSD', 'CLOSE_TSD', 'ACCEPT_TASK',
     'SELECT_ZONE', 'SELECT_STORE', 'ADD_ITEM', 'LOAD_PALLET',
     'OPEN_BUILDER', 'OPEN_VEHICLES', 'SELECT_VEHICLE',
-    'MOVE_STOP', 'SET_ROUTE', 'PAUSE', 'END_SHIFT', 'NAVIGATE',
+    'MOVE_STOP', 'SET_ROUTE', 'PAUSE', 'END_SHIFT',
   ];
 
   for (const action of actions) {

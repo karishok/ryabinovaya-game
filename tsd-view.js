@@ -83,6 +83,10 @@
       message: messageByScreen[screen],
       reportSummary,
       canAccept: screen === 'task' && !accepted && Boolean(order),
+      // Брифинг, ошибка и отчёт держат терминал открытым принудительно, поэтому
+      // CLOSE_TSD на них не даёт эффекта. Рисовать там крестик — обещать
+      // действие, которого не будет: из этих экранов выходят кнопкой внизу.
+      canClose: !mandatoryOpen,
       compactKicker,
       compactTask,
       compactMeta,

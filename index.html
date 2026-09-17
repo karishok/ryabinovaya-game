@@ -15,8 +15,15 @@
         <div class="scene-shade" aria-hidden="true"></div>
 
         <div class="scene-hud">
-          <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">●</span><span><strong>Рябиновая</strong><small id="levelTitle">Уровень 1 · Один заказ</small></span></div>
-          <div class="shift"><div class="clock" id="clock">03:00</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
+          <div class="scene-hud-top">
+            <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">●</span><span><strong>Рябиновая</strong><small id="levelTitle">Уровень 1 · Один заказ</small></span></div>
+            <div class="shift"><div class="clock" id="clock">03:00</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
+          </div>
+          <div class="scene-kpis" aria-label="Показатели смены">
+            <div class="kpi"><span>Заказы</span><b id="orders">0 / 1</b></div>
+            <div class="kpi"><span>Вовремя</span><b id="ontime">0%</b></div>
+            <div class="kpi"><span>Точность</span><b id="precision">100%</b></div>
+          </div>
         </div>
 
         <button class="scene-zone-sign scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry"><span>Сухач</span></button>
@@ -24,7 +31,7 @@
         <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
 
         <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
-        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
+        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
       </section>
@@ -42,7 +49,7 @@
         </span>
       </button>
       <div class="tsd-screen" id="tsdScreen" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
-        <button class="tsd-close" data-action="CLOSE_TSD" type="button" aria-label="Убрать ТСД">×</button>
+        <button class="tsd-close" id="tsdClose" data-action="CLOSE_TSD" type="button" aria-label="Убрать ТСД">×</button>
         <div class="tsd-display" id="tsdDisplay">
         <small class="tsd-kicker">Рябиновая · ТСД</small>
         <h2 id="tsdTitle">Новая смена</h2>
@@ -69,6 +76,10 @@
             <div class="tsd-task-card"><span class="tsd-task-label">Зона хранения</span><strong id="tsdTaskZone"></strong></div>
           </section>
           <section id="tsdCurrent" data-tsd-panel="current" hidden>
+            <div class="select-label">Заявки смены</div>
+            <div class="orders-list" id="ordersList"></div>
+            <p class="transport-summary" id="transportSummary">Выберите машину для отгрузки.</p>
+            <button class="btn secondary full-width" data-action="END_SHIFT">Завершить смену</button>
             <section class="tsd-panel story-card" id="endlessMode" aria-hidden="true">
               <span class="story-kicker">Кампания завершена</span><h2 id="endlessTitle">Бесконечный режим</h2><p>Скоро здесь появятся новые смены. Пока режим находится в разработке.</p>
             </section>
@@ -131,27 +142,6 @@
       <span>📖 Как играть?</span><small>Порядок сборки и отправки заказа →</small>
     </button>
 
-    <section class="screen" data-screen="orders">
-      <section class="card detail-card">
-        <h2>Заявки</h2>
-        <div class="compact-stats" aria-label="Показатели смены">
-          <div class="compact-stat"><span class="label">Заказы</span><div class="value" id="orders">0 / 1</div></div>
-          <div class="compact-stat"><span class="label">Вовремя</span><div class="value" id="ontime">0%</div></div>
-          <div class="compact-stat"><span class="label">Точность</span><div class="value" id="precision">100%</div></div>
-          <div class="compact-stat"><span class="label">Паллет в отгрузке</span><div class="value" id="mapPallets">0 паллет</div></div>
-        </div>
-        <div class="orders-list" id="ordersList"></div><button class="btn" data-action="OPEN_BUILDER">Собрать паллету</button></section>
-    </section>
-
-    <section class="screen" data-screen="transport">
-      <section class="card detail-card"><h2>Транспорт</h2><p id="transportSummary">Выберите машину для отгрузки.</p><button class="btn" data-action="OPEN_VEHICLES">Открыть машины</button><button class="btn secondary" data-action="END_SHIFT">Завершить смену</button></section>
-    </section>
-
-    <nav class="bottom-nav" aria-label="Навигация">
-      <button class="nav-item active" data-action="NAVIGATE" data-screen-target="warehouse"><span>🏭</span>Склад</button>
-      <button class="nav-item" data-action="NAVIGATE" data-screen-target="orders"><span>📋</span>Заявки</button>
-      <button class="nav-item" data-action="NAVIGATE" data-screen-target="transport"><span>🚚</span>Транспорт</button>
-    </nav>
   </main>
 
   <div class="toast" id="toast" role="status"></div>

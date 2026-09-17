@@ -130,6 +130,7 @@ function renderTsd(view, document) {
   continueStory.hidden = view.screen !== 'briefing';
   continueStory.textContent = view.title === 'Смена завершена' ? 'Продолжить' : 'Начать смену';
   byId(document, 'tsdAccept').hidden = !view.canAccept;
+  byId(document, 'tsdClose').hidden = !view.canClose;
   byId(document, 'tsdContinue').hidden = view.screen !== 'report';
   byId(document, 'tsdFeedbackContinue').hidden = view.screen !== 'feedback';
   const panels = document.querySelectorAll ? document.querySelectorAll('[data-tsd-panel]') : [];
@@ -211,8 +212,6 @@ function render(nextState, document) {
   pause.disabled = nextState.phase !== 'shift';
   pause.classList.toggle('active', nextState.paused);
   pause.textContent = nextState.paused ? '▶' : 'Ⅱ';
-  document.querySelectorAll('.screen').forEach((screen) => screen.classList.toggle('active', screen.dataset.screen === nextState.activeScreen));
-  document.querySelectorAll('.nav-item').forEach((button) => button.classList.toggle('active', button.dataset.screenTarget === nextState.activeScreen));
   document.querySelectorAll('.store-select').forEach((button) => {
     const available = nextState.stores.some((store) => store.id === button.dataset.store);
     button.hidden = !available;
@@ -326,7 +325,6 @@ function dispatch(action) {
     state = reduceAction(state, action);
     state = { ...state, tsd: { ...state.tsd, open: false, screen: 'current' } };
   }
-  else if (action.type === 'NAVIGATE') state = { ...state, activeScreen: action.screen, feedback: null };
   else {
     state = reduceAction(state, action);
     if (action.type === 'SELECT_ZONE') {
@@ -356,7 +354,6 @@ document.addEventListener('click', (event) => {
   if (action === 'SELECT_ZONE') return dispatch({ type: action, zone: button.dataset.zone });
   if (action === 'LOAD_PALLET') return dispatch({ type: action, vehicleId: state.selectedVehicleId });
   if (action === 'SET_ROUTE') return dispatch({ type: action, vehicleId: state.selectedVehicleId, stops: state.routeStops });
-  if (action === 'NAVIGATE') return dispatch({ type: action, screen: button.dataset.screenTarget });
   if (action === 'SELECT_VEHICLE') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
   if (action === 'MOVE_STOP') return dispatch({ type: action, index: button.dataset.index, direction: button.dataset.direction });
   const nextState = dispatch({ type: action });

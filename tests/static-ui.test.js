@@ -164,16 +164,34 @@ test('the vehicles panel shows where darkstores are and how long the route takes
   assert.match(app, /лучший/);
 });
 
-test('the closed TSD strip never covers the bottom navigation', () => {
+test('the game is one screen: no bottom navigation, nothing hidden under the TSD', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
   const css = fs.readFileSync('styles.css', 'utf8');
-  const device = css.slice(css.indexOf('.tsd-device {'));
-  const closed = device.slice(0, device.indexOf('}'));
-  // Полоса стоит выше навигации по z-index, поэтому любое наложение делает
-  // «Склад/Заявки/Транспорт» некликабельными.
-  assert.match(closed, /bottom:\s*calc\(68px \+/);
-  assert.doesNotMatch(css, /\.tsd-device\[data-open="false"\]\s*\{\s*transform:\s*translate\(-50%,\s*68%\)/);
+  // Две из трёх вкладок дублировали хотспоты сцены, а полоса ТСД ложилась
+  // поверх навигации и делала её некликабельной.
+  assert.doesNotMatch(html, /class="bottom-nav"/);
+  assert.doesNotMatch(html, /data-action="NAVIGATE"/);
+  assert.doesNotMatch(css, /\.nav-item/);
+  assert.doesNotMatch(css, /\.compact-stat/);
+  // Сдвиг вниз был рассчитан на арт высотой 300px и резал полосу пополам.
+  assert.doesNotMatch(css, /translate\(-50%,\s*68%\)/);
   // Контент не должен уезжать под плавающую полосу.
-  assert.match(css, /\.app\s*\{[^}]*padding:\s*0 0 196px/s);
+  assert.match(css, /\.app\s*\{[^}]*padding:\s*0 0 128px/s);
+});
+
+test('everything the removed tabs hosted has a new home', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  // Показатели — в панели над фотографией.
+  const hud = html.slice(html.indexOf('class="scene-hud"'), html.indexOf('scene-zone-sign'));
+  for (const id of ['orders', 'ontime', 'precision']) assert.match(hud, new RegExp(`id="${id}"`));
+  // Счётчик паллет — на самой машине.
+  const truck = html.slice(html.indexOf('id="sceneTruckBay"'));
+  assert.match(truck.slice(0, truck.indexOf('</button>')), /id="mapPallets"/);
+  // Список заявок и завершение смены — на экране «Текущая работа» терминала.
+  const current = html.slice(html.indexOf('data-tsd-panel="current"'));
+  const panel = current.slice(0, current.indexOf('</section>'));
+  assert.match(panel, /id="ordersList"/);
+  assert.match(panel, /data-action="END_SHIFT"/);
 });
 
 test('the TSD panel is rendered as the screen of a device body', () => {

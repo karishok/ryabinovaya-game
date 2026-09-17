@@ -43,8 +43,8 @@ button:disabled { cursor: default; opacity: 0.42; }
   width: min(430px, 100%);
   min-height: 100svh;
   margin: 0 auto;
-  /* 86px под навигацию плюс высота плавающей полосы ТСД над ней. */
-  padding: 0 0 196px;
+  /* Место под плавающую полосу ТСД: нижней навигации больше нет. */
+  padding: 0 0 128px;
   background: #111b16;
 }
 
@@ -94,11 +94,16 @@ button:disabled { cursor: default; opacity: 0.42; }
   top: max(12px, env(safe-area-inset-top));
   right: 12px;
   left: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  gap: 8px;
 }
+.scene-hud-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+/* Показатели смены живут в панели над фотографией: отдельной вкладки под них
+   больше нет, а смотреть на них нужно не отрываясь от склада. */
+.scene-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.kpi { display: grid; gap: 1px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 12px; background: rgba(13, 24, 19, 0.82); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.22); text-align: center; }
+.kpi span { color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: 0.04em; text-transform: uppercase; }
+.kpi b { color: var(--cream); font-size: 14px; font-variant-numeric: tabular-nums; }
 
 .brand-lockup { display: flex; align-items: center; gap: 8px; text-shadow: 0 2px 14px #000; }
 .brand-lockup strong { display: block; color: var(--cream); font-size: 18px; letter-spacing: -0.04em; }
@@ -136,17 +141,13 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-device {
   position: fixed;
   z-index: 19;
-  /* Закрытая полоса стоит НАД нижней навигацией: она перекрывает её по
-     z-index, и любое наложение делает «Склад/Заявки/Транспорт» некликабельными. */
-  bottom: calc(68px + max(12px, env(safe-area-inset-bottom)));
+  bottom: max(12px, env(safe-area-inset-bottom));
   left: 50%;
   width: min(430px, 100%);
   pointer-events: none;
   transform: translateX(-50%);
   transition: bottom 260ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
 }
-/* Открытый терминал занимает экран целиком и навигацию закрывает намеренно. */
-.tsd-device[data-open="true"] { bottom: max(12px, env(safe-area-inset-bottom)); }
 /* Закрытый ТСД — это не просто фотография сканера: на нём должно быть
    видно текущее задание. Экран самой железки занимает ~56px по ширине,
    туда текст не влезает, поэтому арт стоит слева, а задание читается рядом. */
@@ -348,6 +349,9 @@ button:disabled { cursor: default; opacity: 0.42; }
   box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
   content: "";
 }
+/* Сколько паллет уже в кузове — на самой машине, а не на отдельном экране. */
+.truck-badge { position: absolute; top: -11px; right: -6px; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; pointer-events: none; }
+.transport-summary { margin: 10px 0; color: var(--muted); font-size: 12px; }
 .truck-light { position: absolute; top: -10px; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px var(--amber); opacity: 0.6; pointer-events: none; transform: translateX(-50%); }
 .scene-object-hint { position: absolute; top: calc(100% + 6px); left: 50%; padding: 3px 6px; border-radius: 999px; background: rgba(10, 22, 16, 0.78); box-shadow: 0 3px 7px rgba(0, 0, 0, 0.24); color: #fff3d1; font-size: 8px; font-weight: 850; letter-spacing: 0.04em; text-transform: uppercase; transform: translateX(-50%); white-space: nowrap; opacity: 0.92; pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
 .scene-pallet:focus-visible, .truck-bay:focus-visible { outline: 3px solid #fff3d1; outline-offset: 4px; }
@@ -408,15 +412,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .detail-card { padding: 16px; }
 .detail-card h2 { margin: 0; color: var(--cream); font-size: 18px; letter-spacing: -0.03em; }
 .detail-card p, .empty-route { color: var(--muted); }
-.compact-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 13px 0; }
-.compact-stat { min-height: 64px; padding: 9px; border: 1px solid rgba(244, 234, 216, 0.11); border-radius: 12px; background: #21352b; }
-.compact-stat .label { display: block; color: var(--muted); font-size: 9px; letter-spacing: 0.05em; text-transform: uppercase; }
-.compact-stat .value { margin-top: 4px; color: var(--cream); font-size: 15px; font-weight: 850; }
 
-.bottom-nav { position: fixed; z-index: 8; bottom: 0; left: 50%; display: grid; width: min(430px, 100%); grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 7px 13px max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); border-top: 1px solid var(--line); background: rgba(15, 26, 20, 0.96); backdrop-filter: blur(16px); }
-.nav-item { min-height: 51px; padding: 4px; background: transparent; color: var(--muted); font-size: 10px; }
-.nav-item span { display: block; margin-bottom: 2px; font-size: 17px; }
-.nav-item.active { border-radius: 12px; background: rgba(81, 185, 173, 0.13); color: #9ae5ca; }
 
 /* TSD panels */
 .tsd-panel { width: 100%; padding: 18px; border: 1px solid var(--line); border-radius: 24px; background: #17261f; box-shadow: 0 -20px 70px rgba(0, 0, 0, 0.44); }
@@ -526,7 +522,6 @@ button:disabled { cursor: default; opacity: 0.42; }
     transform: translateX(-50%);
     transition: opacity 80ms ease !important;
   }
-  .tsd-device[data-open="true"] { bottom: max(12px, env(safe-area-inset-bottom)); }
   .tsd-device[data-open="false"] .tsd-screen {
     display: block;
     position: absolute;
