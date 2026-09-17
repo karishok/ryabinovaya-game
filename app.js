@@ -280,6 +280,16 @@ window.dispatch = dispatch;
 window.render = render;
 window.renderScene = renderScene;
 window.renderTsd = renderTsd;
+
+document.addEventListener('error', (event) => {
+  const image = event.target;
+  const sceneObject = image?.tagName === 'IMG' ? image.closest?.('.scene-object') : null;
+  if (!sceneObject) return;
+  image.hidden = true;
+  const fallback = sceneObject.querySelector?.('.scene-object-fallback');
+  if (fallback) fallback.hidden = false;
+}, true);
+
 render(state, document);
 setInterval(() => {
   if (state.phase !== 'shift' || state.paused || state.report) return;

@@ -22,6 +22,21 @@ test('warehouse backdrop is an optimized mobile asset', () => {
   assert.ok(fs.statSync(asset).size < 900_000, 'warehouse backdrop must stay below 900 KB');
 });
 
+test('interactive warehouse objects use optimized realistic assets', () => {
+  for (const asset of ['tsd-handheld.webp', 'pallet-active.webp', 'agv-active.webp', 'truck-active.webp']) {
+    const path = `assets/${asset}`;
+    assert.equal(fs.existsSync(path), true, `${path} must exist`);
+    assert.ok(fs.statSync(path).size < 900_000, `${path} must stay below 900 KB`);
+  }
+});
+
+test('zone names are rack-mounted scene controls and not a floating mission banner', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  for (const label of ['Сухач', 'Охлаждёнка', 'Заморозка']) assert.match(html, new RegExp(label));
+  assert.match(html, /class="scene-zone-sign/);
+  assert.doesNotMatch(html, /mission-ribbon/);
+});
+
 test('metric labels describe precision and never promise an unreachable target', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   assert.match(html, /id="precision"/);
@@ -65,8 +80,8 @@ test('warehouse styles define mobile motion and accessible fallbacks', () => {
 
 test('warehouse actions are attached to the pallet and truck instead of a bottom control panel', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  assert.match(html, /<button class="scene-pallet" id="scenePallet"[^>]*data-action="OPEN_BUILDER"/);
-  assert.match(html, /<button class="truck-bay" id="sceneTruckBay"[^>]*data-action="OPEN_VEHICLES"/);
+  assert.match(html, /<button class="scene-pallet(?: scene-object)?" id="scenePallet"[^>]*data-action="OPEN_BUILDER"/);
+  assert.match(html, /<button class="truck-bay(?: scene-object)?" id="sceneTruckBay"[^>]*data-action="OPEN_VEHICLES"/);
   assert.doesNotMatch(html, /class="mission-ribbon"/);
   assert.doesNotMatch(html, /class="mission-dock"/);
 });

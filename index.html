@@ -19,15 +19,15 @@
           <div class="shift"><div class="clock" id="clock">03:00</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
         </div>
 
-        <button class="scene-zone scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry"><span>Сухач</span></button>
-        <button class="scene-zone scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled"><span>Охлаждёнка</span></button>
-        <button class="scene-zone scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
+        <button class="scene-zone-sign scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry"><span>Сухач</span></button>
+        <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled"><span>Охлаждёнка</span></button>
+        <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
 
         <div class="scene-route" aria-hidden="true"></div>
         <div class="ambient-traffic" aria-hidden="true"><span class="ambient-agv ambient-agv--one"></span><span class="ambient-agv ambient-agv--two"></span><span class="warehouse-worker warehouse-worker--one"></span><span class="warehouse-worker warehouse-worker--two"></span></div>
-        <div class="agv" id="sceneAgv" aria-hidden="true"><span class="agv-light"></span></div>
-        <button class="scene-pallet" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="pallet-load"></span><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
-        <button class="truck-bay" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light"></span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
+        <div class="scene-object agv" id="sceneAgv" aria-hidden="true"><img src="assets/agv-active.webp" alt="" aria-hidden="true"></div>
+        <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><img src="assets/pallet-active.webp" alt="" aria-hidden="true"><span class="scene-object-fallback" hidden>Паллета</span><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
+        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><img src="assets/truck-active.webp" alt="" aria-hidden="true"><span class="scene-object-fallback" hidden>Машина</span><span class="truck-light" aria-hidden="true"></span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
       </section>
@@ -36,6 +36,7 @@
     <div class="tsd-backdrop" id="tsdBackdrop" aria-hidden="true"></div>
     <section class="tsd-device" id="tsdDevice" data-open="true" data-screen="briefing" data-signal="new" aria-label="Терминал сбора данных">
       <button class="tsd-hardware" data-action="OPEN_TSD" type="button" aria-label="Открыть ТСД">
+        <img class="tsd-handheld" src="assets/tsd-handheld.webp" alt="" aria-hidden="true">
         <span class="tsd-indicator" aria-hidden="true"></span>
         <span class="tsd-compact-copy" id="tsdCompactCopy">Новое задание</span>
       </button>
