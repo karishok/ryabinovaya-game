@@ -53,8 +53,11 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Living warehouse */
 .warehouse-scene {
   position: relative;
-  height: clamp(590px, 82svh, 760px);
-  min-height: 590px;
+  /* Пропорции строго как у assets/warehouse-center.webp (780x1386).
+     Пока они совпадают, object-fit не обрезает кадр, и проценты в
+     координатах хотспотов указывают на те же точки, что на фотографии. */
+  aspect-ratio: 780 / 1386;
+  width: 100%;
   overflow: hidden;
   isolation: isolate;
   background: var(--ink);
@@ -113,9 +116,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .pause.active { color: #8ce0ad; border-color: #8ce0ad; }
 
 .scene-backdrop,
-.scene-shade,
-.ambient-traffic,
-.scene-route { pointer-events: none; }
+.scene-shade { pointer-events: none; }
 
 /* The backdrop precedes the device in the DOM, so visibility is driven by its
    own state attribute and both layers have explicit stacking order. */
@@ -198,121 +199,84 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-content-slot { display: grid; gap: 10px; margin-top: 15px; }
 
 .scene-zone-sign {
+  /* Область поверх самого стеллажа на фотографии, а не табличка рядом с ним. */
   position: absolute;
   z-index: 3;
-  display: grid;
-  min-width: 86px;
-  min-height: 44px;
-  place-items: center;
-  padding: 8px 10px;
-  border: 2px solid #e5b34b;
-  border-radius: 4px;
-  background: #17251f;
-  box-shadow: 0 0 0 2px rgba(8, 15, 12, 0.76), 0 8px 16px rgba(0, 0, 0, 0.34);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 0 6px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+.scene-zone-sign span {
+  padding: 5px 9px;
+  border: 1px solid rgba(244, 234, 216, 0.34);
+  border-radius: 999px;
+  background: rgba(10, 20, 15, 0.82);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.42);
   color: #fff6d9;
   font-size: 10px;
   font-weight: 900;
-  letter-spacing: 0.02em;
-  text-transform: none;
   white-space: nowrap;
-  transition: transform 180ms ease, background 180ms ease, opacity 180ms ease;
-}
-.scene-zone-sign span { pointer-events: none; }
-.scene-zone--dry { top: 23%; left: 5%; border-color: var(--amber); }
-.scene-zone--chilled { top: 26%; left: 34%; border-color: var(--chilled); }
-.scene-zone--frozen { top: 24%; right: 5%; border-color: var(--frozen); }
-.scene-zone-sign.is-selected { background: #33483b; transform: translateY(-2px); }
-.scene-zone-sign.is-active { box-shadow: 0 0 0 2px currentColor, 0 0 22px currentColor; }
-.scene-zone-sign.locked { display: none; }
-
-.scene-route {
-  position: absolute;
-  z-index: 1;
-  bottom: 24%;
-  left: 19%;
-  width: 62%;
-  height: 5px;
-  border-radius: 50%;
-  background: repeating-linear-gradient(90deg, rgba(244, 234, 216, 0.82) 0 9px, transparent 9px 17px);
-  opacity: 0.15;
-  transform: rotate(-9deg);
-  transition: opacity 200ms ease;
-  animation: route-glow 3.8s ease-in-out infinite;
-}
-
-.ambient-traffic { position: absolute; z-index: 0; inset: 0; pointer-events: none; overflow: hidden; }
-.ambient-agv { position: absolute; width: 26px; height: 12px; border: 1px solid rgba(12, 22, 17, 0.86); border-radius: 4px; background: linear-gradient(180deg, #798178, #3a423c); box-shadow: 0 4px 7px rgba(0, 0, 0, 0.3); opacity: 0.78; }
-.ambient-agv::after { position: absolute; top: 3px; right: 3px; width: 3px; height: 3px; border-radius: 50%; background: #8ff5b8; box-shadow: 0 0 6px #8ff5b8; content: ""; }
-.ambient-agv--one { bottom: 43%; left: -12%; animation: ambient-run-one 15s linear infinite; }
-.ambient-agv--two { right: -12%; bottom: 52%; animation: ambient-run-two 18s linear infinite 3s; }
-.warehouse-worker { position: absolute; width: 7px; height: 17px; border-radius: 6px 6px 3px 3px; background: #315e58; box-shadow: 0 -5px 0 -1px #ead5a5, 0 2px 7px rgba(0, 0, 0, 0.28); opacity: 0.78; }
-.warehouse-worker--one { bottom: 45%; left: 37%; animation: worker-shift 5.6s ease-in-out infinite; }
-.warehouse-worker--two { right: 24%; bottom: 38%; background: #945c3e; animation: worker-shift 6.8s ease-in-out infinite reverse; }
-
-.scene-travel-group {
-  position: absolute;
-  z-index: 2;
-  inset: 0;
   pointer-events: none;
-  transform: translateZ(0);
-  transition: transform 720ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
 }
-.scene-travel-group .scene-pallet { pointer-events: auto; }
-.agv {
-  position: absolute;
-  z-index: 2;
-  bottom: 27%;
-  left: 22%;
-  width: 94px;
-  height: 62px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.38));
-  pointer-events: none;
-  transition: opacity 180ms ease;
-}
-.agv img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+/* Границы совпадают с тремя подсвеченными рядами на фотографии. */
+.scene-zone--dry { top: 7%; left: 1%; width: 23%; height: 45%; }
+.scene-zone--chilled { top: 11%; left: 26%; width: 19%; height: 41%; }
+.scene-zone--frozen { top: 14%; left: 53%; width: 19%; height: 37%; }
+/* Все три зоны оформлены одинаково: различает их только состояние, не цвет. */
+.scene-zone-sign.is-selected { border-color: rgba(244, 234, 216, 0.5); background: rgba(244, 234, 216, 0.07); }
+.scene-zone-sign.is-active { border-color: var(--cream); background: rgba(244, 234, 216, 0.12); box-shadow: inset 0 0 26px rgba(244, 234, 216, 0.16); }
+.scene-zone-sign.is-active span { border-color: var(--cream); background: rgba(10, 20, 15, 0.94); }
+.scene-zone-sign.locked { opacity: 0.4; }
+.scene-zone-sign.locked span { color: #b8c1b5; }
 
-.scene-pallet {
-  position: absolute;
-  z-index: 2;
-  bottom: 31.5%;
-  left: calc(22% + 42px);
-  width: 116px;
-  height: 108px;
-  padding: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.35));
-  color: inherit;
-  cursor: pointer;
-  transition: opacity 180ms ease, filter 180ms ease;
-}
-.scene-pallet img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-
+/* Хотспоты поверх объектов, которые уже нарисованы на фотографии.
+   Ничего не дорисовываем: область только помечает объект и делает его
+   кликабельным, поэтому висеть в воздухе тут нечему. */
+.scene-pallet,
 .truck-bay {
   position: absolute;
   z-index: 2;
-  right: 8%;
-  bottom: 20.5%;
-  width: 138px;
-  min-height: 88px;
-  height: 88px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
   padding: 0;
-  border: 0;
-  border-radius: 0;
+  border: 2px solid rgba(244, 234, 216, 0.28);
+  border-radius: 12px;
   background: transparent;
-  filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.38));
   cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
-.truck-bay img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
-.truck-light { position: absolute; top: -10px; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px var(--amber); opacity: 0.6; pointer-events: none; transform: translateX(-50%); }
-.scene-object-fallback:not([hidden]) { position: absolute; z-index: 2; inset: 12px; display: grid; place-items: center; border: 2px solid var(--amber); border-radius: 4px; background: #17251f; color: #fff6d9; font-size: 10px; font-weight: 900; line-height: 1.1; text-align: center; }
-.scene-object > img { pointer-events: none; }
+.scene-pallet:hover, .truck-bay:hover,
+.scene-pallet:focus-visible, .truck-bay:focus-visible {
+  border-color: var(--cream);
+  background: rgba(244, 234, 216, 0.1);
+  box-shadow: inset 0 0 22px rgba(244, 234, 216, 0.14);
+}
 
-.scene-object-hint { position: absolute; top: calc(100% + 6px); left: 50%; padding: 3px 6px; border-radius: 999px; background: rgba(10, 22, 16, 0.78); box-shadow: 0 3px 7px rgba(0, 0, 0, 0.24); color: #fff3d1; font-size: 8px; font-weight: 850; letter-spacing: 0.04em; text-transform: uppercase; transform: translateX(-50%); white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
+/* Тележка с паллетой в ближнем проходе кадра. */
+.scene-pallet { top: 61%; left: 28%; width: 21%; height: 15%; }
+/* Фуры у погрузочных доков в глубине кадра. */
+.truck-bay { top: 47%; left: 73%; width: 27%; height: 11%; }
+
+/* Заполнение текущей паллеты — полоса по низу её хотспота. */
+.scene-pallet::after {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  left: 3px;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--amber) var(--pallet-fill, 0%), rgba(10, 20, 15, 0.66) var(--pallet-fill, 0%));
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.5);
+  content: "";
+}
+.truck-light { position: absolute; top: -10px; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px var(--amber); opacity: 0.6; pointer-events: none; transform: translateX(-50%); }
+.scene-object-hint { position: absolute; top: calc(100% + 6px); left: 50%; padding: 3px 6px; border-radius: 999px; background: rgba(10, 22, 16, 0.78); box-shadow: 0 3px 7px rgba(0, 0, 0, 0.24); color: #fff3d1; font-size: 8px; font-weight: 850; letter-spacing: 0.04em; text-transform: uppercase; transform: translateX(-50%); white-space: nowrap; opacity: 0.92; pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
 .scene-pallet:focus-visible, .truck-bay:focus-visible { outline: 3px solid #fff3d1; outline-offset: 4px; }
 .scene-pallet:hover .scene-object-hint, .scene-pallet:focus-visible .scene-object-hint, .truck-bay:hover .scene-object-hint, .truck-bay:focus-visible .scene-object-hint { opacity: 1; transform: translateX(-50%) translateY(1px); }
 @media (hover: none) { .scene-object-hint { opacity: 0.82; } }
@@ -346,16 +310,14 @@ button:disabled { cursor: default; opacity: 0.42; }
 .primary-cta { grid-column: 1 / -1; min-height: 52px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 16px; background: linear-gradient(135deg, #d65e40, #b94732); color: #fffaf0; box-shadow: 0 8px 18px rgba(178, 65, 45, 0.44); font-size: 15px; }
 .btn.secondary { margin-top: 9px; border: 1px solid var(--line); background: #293b31; color: var(--cream); }
 
-[data-mode="idle"] .agv img { animation: agv-patrol 8s ease-in-out infinite; }
-[data-mode="idle"] .scene-pallet img { animation: pallet-ready 2.6s ease-in-out infinite; }
-[data-mode="idle"] .truck-bay { animation: truck-idle 3.4s ease-in-out infinite; }
-[data-mode="collecting"] .scene-travel-group { transform: translate3d(32px, -36px, 0); }
-[data-mode="to-dispatch"] .scene-travel-group { transform: translate3d(170px, 38px, 0); }
+/* Режимы смены подсвечивают нужный объект, но не перемещают его:
+   хотспот обязан оставаться поверх того, что он помечает. */
+[data-mode="collecting"] .scene-pallet,
+[data-mode="to-dispatch"] .truck-bay { border-color: var(--amber); box-shadow: inset 0 0 26px rgba(240, 170, 56, 0.24); }
 [data-mode="awaiting-route"] .truck-light { opacity: 1; animation: signal-wait 1.2s ease-in-out infinite; }
 [data-mode="route-ready"] .truck-light { background: #73eba7; box-shadow: 0 0 14px #73eba7; opacity: 1; animation: ready-beacon 0.75s ease-in-out infinite; }
-[data-mode="route-ready"] .scene-route { opacity: 0.95; }
-[data-mode="spoiled"] .scene-pallet { filter: saturate(0.52); }
-[data-mode="spoiled"] .scene-travel-group { transform: translate3d(66px, -18px, 0); }
+[data-mode="route-ready"] .truck-bay { border-color: #8ce0ad; box-shadow: inset 0 0 26px rgba(140, 224, 173, 0.22); }
+[data-mode="spoiled"] .scene-pallet { border-color: var(--danger); box-shadow: inset 0 0 26px rgba(217, 74, 63, 0.26); }
 [data-event="demand-increase"] .scene-zone-sign.is-active,
 [data-highlight="zone"] .scene-zone-sign.is-active { animation: zone-pulse 0.7s ease-in-out 2; }
 [data-highlight="pallet"] .scene-pallet,
@@ -459,13 +421,6 @@ button:disabled { cursor: default; opacity: 0.42; }
 }
 @keyframes banner-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes sun-sweep { 0%, 18% { transform: translateX(-80%); opacity: 0; } 40%, 65% { opacity: 1; } 100% { transform: translateX(80%); opacity: 0; } }
-@keyframes route-glow { 50% { opacity: 0.34; } }
-@keyframes ambient-run-one { from { transform: translateX(0) translateY(0); } 45% { transform: translateX(185vw) translateY(-25px); } 46%, 100% { transform: translateX(185vw) translateY(-25px); } }
-@keyframes ambient-run-two { from { transform: translateX(0) translateY(0); } 48% { transform: translateX(-172vw) translateY(32px); } 49%, 100% { transform: translateX(-172vw) translateY(32px); } }
-@keyframes worker-shift { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(16px); } }
-@keyframes agv-patrol { 0%, 100% { transform: translate3d(0, 0, 0); } 45% { transform: translate3d(36px, -12px, 0); } 70% { transform: translate3d(74px, 6px, 0); } }
-@keyframes pallet-ready { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
-@keyframes truck-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
 @keyframes tsd-new-pulse { 0% { box-shadow: 0 0 0 0 rgba(217, 74, 63, 0.72); } 70% { box-shadow: 0 0 0 12px rgba(217, 74, 63, 0); } 100% { box-shadow: 0 0 0 0 rgba(217, 74, 63, 0); } }
 @keyframes tsd-slide-in { from { opacity: 0; transform: translateY(42px); } to { opacity: 1; transform: translateY(0); } }
 
@@ -531,15 +486,8 @@ button:disabled { cursor: default; opacity: 0.42; }
     pointer-events: none;
     transition: opacity 80ms ease !important;
   }
-  .scene-travel-group,
-  [data-mode="collecting"] .scene-travel-group,
-  [data-mode="to-dispatch"] .scene-travel-group,
-  [data-mode="spoiled"] .scene-travel-group {
-    transform: none !important;
-    transition: opacity 80ms ease !important;
-  }
-  [data-mode="collecting"] .scene-travel-group,
-  [data-mode="to-dispatch"] .scene-travel-group,
-  [data-mode="spoiled"] .scene-travel-group { opacity: 0.86; }
+  .scene-pallet,
+  .truck-bay,
+  .scene-zone-sign { transition: none !important; }
   .tsd-device[data-open="true"] .tsd-screen { animation: none !important; }
 }

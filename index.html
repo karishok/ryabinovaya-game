@@ -23,13 +23,8 @@
         <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled"><span>Охлаждёнка</span></button>
         <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
 
-        <div class="scene-route" aria-hidden="true"></div>
-        <div class="ambient-traffic" aria-hidden="true"><span class="ambient-agv ambient-agv--one"></span><span class="ambient-agv ambient-agv--two"></span><span class="warehouse-worker warehouse-worker--one"></span><span class="warehouse-worker warehouse-worker--two"></span></div>
-        <div class="scene-travel-group" id="sceneTravelGroup">
-          <div class="scene-object agv" id="sceneAgv" aria-hidden="true"><img src="assets/agv-active.webp" alt="" aria-hidden="true"></div>
-          <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><img src="assets/pallet-active.webp" alt="" aria-hidden="true"><span class="scene-object-fallback" hidden>Паллета</span><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
-        </div>
-        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><img src="assets/truck-active.webp" alt="" aria-hidden="true"><span class="scene-object-fallback" hidden>Машина</span><span class="truck-light" aria-hidden="true"></span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
+        <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
+        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
       </section>

@@ -7,7 +7,7 @@ test('living warehouse shell keeps product vocabulary and scene layers', () => {
   for (const label of ['Рябиновая', 'Сухач', 'Заморозка', 'Охлаждёнка', 'Собрать паллету', 'reportModal']) {
     assert.match(html, new RegExp(label));
   }
-  for (const id of ['warehouseScene', 'sceneStatus', 'sceneOperator', 'sceneOperatorName', 'sceneAgv', 'scenePallet', 'sceneTruckBay', 'tsdDevice', 'tsdBackdrop', 'tsdScreen']) {
+  for (const id of ['warehouseScene', 'sceneStatus', 'sceneOperator', 'sceneOperatorName', 'scenePallet', 'sceneTruckBay', 'tsdDevice', 'tsdBackdrop', 'tsdScreen']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   for (const zone of ['dry', 'chilled', 'frozen']) {
@@ -22,12 +22,45 @@ test('warehouse backdrop is an optimized mobile asset', () => {
   assert.ok(fs.statSync(asset).size < 900_000, 'warehouse backdrop must stay below 900 KB');
 });
 
-test('interactive warehouse objects use optimized realistic assets', () => {
-  for (const asset of ['tsd-handheld.webp', 'pallet-active.webp', 'agv-active.webp', 'truck-active.webp']) {
-    const path = `assets/${asset}`;
-    assert.equal(fs.existsSync(path), true, `${path} must exist`);
-    assert.ok(fs.statSync(path).size < 900_000, `${path} must stay below 900 KB`);
+test('the handheld terminal art stays an optimized asset', () => {
+  const path = 'assets/tsd-handheld.webp';
+  assert.equal(fs.existsSync(path), true, `${path} must exist`);
+  assert.ok(fs.statSync(path).size < 900_000, `${path} must stay below 900 KB`);
+});
+
+test('the scene never redraws objects the backdrop photo already contains', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  // Фотография уже содержит тележки, паллеты, фуры и рабочих. Любая
+  // дорисовка поверх неё неизбежно висит в воздухе, потому что никакие
+  // проценты не воспроизводят перспективу кадра.
+  for (const duplicate of ['pallet-active.webp', 'agv-active.webp', 'truck-active.webp']) {
+    assert.doesNotMatch(html, new RegExp(duplicate.replace('.', '\\.')), `${duplicate} duplicates the backdrop`);
   }
+  for (const faked of ['ambient-agv', 'warehouse-worker', 'scene-travel-group']) {
+    assert.doesNotMatch(css, new RegExp(faked), `${faked} draws a floating object over the photo`);
+  }
+});
+
+test('scene hotspots sit on photo coordinates and keep their warehouse actions', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(html, /id="scenePallet"[^>]*data-action="OPEN_BUILDER"/);
+  assert.match(html, /id="sceneTruckBay"[^>]*data-action="OPEN_VEHICLES"/);
+  // Хотспот описывается прямоугольником в процентах кадра, а не отступом
+  // от края контейнера — иначе он снова разъедется с фотографией.
+  assert.match(css, /\.scene-pallet\s*\{[^}]*top:[^}]*left:[^}]*width:[^}]*height:[^}]*\}/s);
+  assert.match(css, /\.truck-bay\s*\{[^}]*top:[^}]*left:[^}]*width:[^}]*height:[^}]*\}/s);
+});
+
+test('the scene keeps the backdrop aspect ratio so percentages stay on the photo', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  const scene = css.slice(css.indexOf('.warehouse-scene {'));
+  // 780x1386 — натуральный размер assets/warehouse-center.webp. Как только
+  // пропорции контейнера расходятся с фоном, object-fit: cover обрезает кадр
+  // и все координаты хотспотов уезжают вместе с полом.
+  assert.match(scene, /aspect-ratio:\s*780\s*\/\s*1386/);
+  assert.doesNotMatch(scene.slice(0, scene.indexOf('}')), /height:\s*clamp/);
 });
 
 test('zone names are rack-mounted scene controls and not a floating mission banner', () => {
@@ -105,11 +138,6 @@ test('TSD is outside the warehouse stacking context and layers above navigation'
   assert.match(html, /<\/section>\s*<\/section>\s*<div class="tsd-backdrop" id="tsdBackdrop"/);
   assert.match(css, /\.tsd-backdrop\s*\{[^}]*z-index:\s*18;/s);
   assert.match(css, /\.tsd-device\s*\{[^}]*z-index:\s*19;/s);
-});
-
-test('scene AGV is decorative and cannot intercept warehouse taps', () => {
-  const css = fs.readFileSync('styles.css', 'utf8');
-  assert.match(css, /\.agv\s*\{[^}]*pointer-events:\s*none;/s);
 });
 
 test('decorative truck lights and scene hints never intercept pointer input', () => {

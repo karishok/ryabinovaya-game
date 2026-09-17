@@ -133,9 +133,13 @@ test('renderTsd shows exactly one panel and marks inactive panels hidden', () =>
   }
 });
 
-test('the real pallet hit target opts back into pointer input inside the travel wrapper', () => {
+test('shift modes highlight a hotspot instead of moving it off the object it marks', () => {
   const css = fs.readFileSync('styles.css', 'utf8');
-  assert.match(css, /\.scene-travel-group \.scene-pallet\s*\{[^}]*pointer-events:\s*auto;/s);
+  // Хотспот обязан оставаться поверх своего объекта на фотографии, поэтому
+  // режимы смены меняют подсветку, а не положение.
+  assert.doesNotMatch(css, /\[data-mode="collecting"\][^{]*\{[^}]*translate3d/s);
+  assert.doesNotMatch(css, /\[data-mode="to-dispatch"\][^{]*\{[^}]*translate3d/s);
+  assert.match(css, /\[data-mode="collecting"\] \.scene-pallet[\s\S]*?border-color/);
 });
 
 test('reduced motion keeps an active error outline visible without animation', () => {

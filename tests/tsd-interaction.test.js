@@ -24,17 +24,14 @@ function loadUiWithClicks(options = {}) {
   };
   const zones = ['dry', 'chilled', 'frozen'].map((zone) => ({ ...elementFor(`zone-${zone}`), dataset: { sceneZone: zone } }));
   let clickHandler;
-  let errorHandler;
   const document = {
     getElementById: elementFor,
     querySelector: () => elementFor('pause'),
     querySelectorAll(selector) { return selector === '[data-scene-zone]' ? zones : []; },
     addEventListener(type, handler) {
       if (type === 'click') clickHandler = handler;
-      if (type === 'error') errorHandler = handler;
     },
     dispatchEvent(event) {
-      if (event.type === 'error') return errorHandler(event);
       clickHandler({ target: { closest: () => event.target } });
     },
   };
@@ -70,9 +67,6 @@ function loadUiWithClicks(options = {}) {
     pageControlFor: (action) => controlFor(action, pageHtml),
     click(target) {
       document.dispatchEvent({ target });
-    },
-    dispatchImageError(image) {
-      document.dispatchEvent({ type: 'error', target: image });
     },
   };
 }
@@ -181,28 +175,15 @@ test('closing a reopened TSD restores focus to its warehouse opener', () => {
   assert.equal(opener.focused, true);
 });
 
-test('scene object image errors reveal a fallback without changing the button action', () => {
-  const { dispatchImageError } = loadUiWithClicks();
-  const fallback = { hidden: true };
-  const button = {
-    dataset: { action: 'OPEN_BUILDER' },
-    querySelector(selector) {
-      return selector === '.scene-object-fallback' ? fallback : null;
-    },
-  };
-  const image = {
-    hidden: false,
-    tagName: 'IMG',
-    closest(selector) {
-      return selector === '.scene-object' ? button : null;
-    },
-  };
-
-  dispatchImageError(image);
-
-  assert.equal(image.hidden, true);
-  assert.equal(fallback.hidden, false);
-  assert.equal(button.dataset.action, 'OPEN_BUILDER');
+test('scene hotspots need no image fallback because they draw no image', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const palletButton = html.slice(html.indexOf('id="scenePallet"'));
+  const truckButton = html.slice(html.indexOf('id="sceneTruckBay"'));
+  // Хотспоты — пустые прозрачные области поверх фотографии. Картинок внутри
+  // них нет, поэтому и ломаться нечему: подстраховка на onerror не нужна.
+  assert.doesNotMatch(palletButton.slice(0, palletButton.indexOf('</button>')), /<img/);
+  assert.doesNotMatch(truckButton.slice(0, truckButton.indexOf('</button>')), /<img/);
+  assert.doesNotMatch(html, /scene-object-fallback/);
 });
 
 test('a rejected AudioContext resume promise is handled silently', () => {
