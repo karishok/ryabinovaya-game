@@ -140,6 +140,43 @@ function renderTsd(view, document) {
   byId(document, 'warehouseScene').setAttribute('aria-hidden', 'false');
 }
 
+/* Карта депо и дарксторов по тем же координатам, которыми движок считает
+   длину рейса. Без неё игрок не может судить, какой порядок остановок
+   короче, и «Вовремя» выглядит произвольной оценкой. */
+function routeMapSvg(state, routeStops) {
+  const pointOf = (id) => {
+    const [x, y] = engine.STORE_COORDINATES[id] || [0, 0];
+    return [x, -y];
+  };
+  const [depotX, depotY] = pointOf('depot');
+  const line = routeStops.length
+    ? `<polyline class="map-route" points="${['depot', ...routeStops].map((id) => pointOf(id).join(',')).join(' ')}" />`
+    : '';
+  const nodes = (state.stores || []).map((store) => {
+    const [x, y] = pointOf(store.id);
+    const order = routeStops.indexOf(store.id);
+    const visited = order >= 0;
+    return `<circle class="map-node${visited ? ' is-visited' : ''}" cx="${x}" cy="${y}" r="0.34" />`
+      + (visited ? `<text class="map-index" x="${x}" y="${y + 0.12}">${order + 1}</text>` : '')
+      + `<text class="map-label" x="${x}" y="${y - 0.52}">${stores[store.id] || store.id}</text>`;
+  }).join('');
+  return `<svg viewBox="-4.1 -4.1 9.2 5.2" role="img" aria-label="Карта дарксторов и текущего маршрута">`
+    + line
+    + `<rect class="map-depot" x="${depotX - 0.28}" y="${depotY - 0.28}" width="0.56" height="0.56" />`
+    + `<text class="map-label" x="${depotX}" y="${depotY + 0.78}">Депо</text>`
+    + nodes
+    + '</svg>';
+}
+
+function routeSummaryHtml(routeStops) {
+  if (!routeStops.length) return 'Загрузите паллеты — их адреса появятся на карте.';
+  const current = engine.buildRoute(null, routeStops).minutes;
+  const best = engine.bestRoute(routeStops);
+  if (current <= best.minutes) return `Ваш порядок — <b>${current} мин</b>. Это лучший возможный.`;
+  const order = best.stops.map((storeId) => stores[storeId] || storeId).join(' → ');
+  return `Ваш порядок — <b>${current} мин</b>, лучший — <b>${best.minutes} мин</b>: ${order}.`;
+}
+
 function render(nextState, document) {
   const sceneView = warehouseViewFor(nextState);
   const view = tsdViewFor(nextState);
@@ -207,8 +244,12 @@ function render(nextState, document) {
     return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span class="vehicle-glyph" aria-hidden="true"></span><span><strong>${vehicleLabel(vehicle)}</strong><small>${vehicle.pallets.length} паллет · ${vehicle.capacity} кг</small></span><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
   }).join('');
   const routeStops = nextState.routeStops || [];
-  byId(document, 'routeStops').innerHTML = routeStops.length ? routeStops.map((storeId, index) => `<div class="route-stop"><span>${index + 1}. ${stores[storeId] || storeId}</span><span><button data-action="MOVE_STOP" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Выше">↑</button><button data-action="MOVE_STOP" data-index="${index}" data-direction="1" ${index === routeStops.length - 1 ? 'disabled' : ''} aria-label="Ниже">↓</button></span></div>`).join('') : '<p class="empty-route">Загрузите паллеты для добавления остановок.</p>';
-  byId(document, 'routeButton').textContent = routeStops.length ? `Построить маршрут: ${routeStops.map((storeId) => stores[storeId] || storeId).join(' → ')}` : 'Маршрут пока пуст';
+  byId(document, 'routeMap').innerHTML = routeMapSvg(nextState, routeStops);
+  byId(document, 'routeSummary').innerHTML = routeSummaryHtml(routeStops);
+  byId(document, 'routeStops').innerHTML = routeStops.length ? routeStops.map((storeId, index) => `<div class="route-stop"><span>${index + 1}. ${stores[storeId] || storeId} <b class="leg">${engine.legMinutes(index === 0 ? 'depot' : routeStops[index - 1], storeId)} мин</b></span><span><button data-action="MOVE_STOP" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Выше">↑</button><button data-action="MOVE_STOP" data-index="${index}" data-direction="1" ${index === routeStops.length - 1 ? 'disabled' : ''} aria-label="Ниже">↓</button></span></div>`).join('') : '<p class="empty-route">Загрузите паллеты для добавления остановок.</p>';
+  byId(document, 'routeButton').textContent = routeStops.length
+    ? `Построить маршрут · ${engine.buildRoute(null, routeStops).minutes} мин`
+    : 'Маршрут пока пуст';
 
   const builder = byId(document, 'builderModal');
   builder.classList.toggle('open', nextState.builderOpen);

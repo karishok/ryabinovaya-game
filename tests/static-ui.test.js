@@ -148,3 +148,15 @@ test('decorative truck lights and scene hints never intercept pointer input', ()
   assert.match(css, /\.truck-light\s*\{[^}]*pointer-events:\s*none;/s);
   assert.match(css, /\.scene-object-hint\s*\{[^}]*pointer-events:\s*none;/s);
 });
+
+test('the vehicles panel shows where darkstores are and how long the route takes', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const app = fs.readFileSync('app.js', 'utf8');
+  // Без карты и минут игрок не может судить, какой порядок остановок короче,
+  // поэтому метрика «Вовремя» выглядит произвольной.
+  assert.match(html, /id="routeMap"/);
+  assert.match(html, /id="routeSummary"/);
+  assert.match(app, /engine\.STORE_COORDINATES/);
+  assert.match(app, /engine\.legMinutes\(/);
+  assert.match(app, /лучший/);
+});

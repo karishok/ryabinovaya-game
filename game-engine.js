@@ -63,32 +63,42 @@
     return { ok: true, vehicle: { ...vehicle, pallets: [...vehicle.pallets, loadedPallet] }, pallet: loadedPallet };
   }
 
+  /* Расположение депо и дарксторов. Интерфейс рисует по этим же числам
+     карту, иначе игрок не может судить, какой порядок остановок короче. */
+  const STORE_COORDINATES = Object.freeze({
+    depot: [0, 0],
+    north: [0, 3],
+    central: [2, 0],
+    west: [-3, 0],
+    east: [4, 1],
+  });
+
+  function hashPoint(stop) {
+    const text = String(stop);
+    let hash = 0;
+    for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+    const angle = (hash % 360) * (Math.PI / 180);
+    const radius = 2 + (hash % 5);
+    return [Math.cos(angle) * radius, Math.sin(angle) * radius];
+  }
+
+  const pointFor = (stop) => STORE_COORDINATES[stop] || hashPoint(stop);
+
+  function distanceBetween(from, to) {
+    const [fromX, fromY] = pointFor(from);
+    const [toX, toY] = pointFor(to);
+    return Math.hypot(toX - fromX, toY - fromY);
+  }
+
+  /* Минуты одного плеча. Тот же коэффициент, что и в buildRoute, поэтому
+     сумма плеч на карте совпадает с длительностью маршрута в отчёте. */
+  const legMinutes = (from, to) => Math.max(0, Math.round(distanceBetween(from, to) * 5));
+
   function buildRoute(vehicle, stops) {
     const routeStops = [...stops];
-    const coordinates = {
-      depot: [0, 0],
-      north: [0, 3],
-      central: [2, 0],
-      west: [-3, 0],
-      east: [4, 1],
-    };
-    const hashPoint = (stop) => {
-      const text = String(stop);
-      let hash = 0;
-      for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
-      const angle = (hash % 360) * (Math.PI / 180);
-      const radius = 2 + (hash % 5);
-      return [Math.cos(angle) * radius, Math.sin(angle) * radius];
-    };
-    const pointFor = (stop) => coordinates[stop] || hashPoint(stop);
-    const distance = (from, to) => {
-      const [fromX, fromY] = pointFor(from);
-      const [toX, toY] = pointFor(to);
-      return Math.hypot(toX - fromX, toY - fromY);
-    };
     const totalDistance = routeStops.reduce((total, stop, index) => {
       const previous = index === 0 ? 'depot' : routeStops[index - 1];
-      return total + distance(previous, stop);
+      return total + distanceBetween(previous, stop);
     }, 0);
     const minutes = Math.max(0, Math.round(totalDistance * 5));
     const distanceScore = Math.max(0, Math.round(100 - totalDistance));
@@ -175,6 +185,8 @@
   return {
     ZONES,
     ITEMS,
+    STORE_COORDINATES,
+    legMinutes,
     createPallet,
     addItemToPallet,
     createVehicle,

@@ -213,6 +213,20 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-task-label { color: #b4e7ca; font-size: 9px; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
 .tsd-task-card strong { color: var(--cream); font-size: 15px; }
 
+/* Карта доставки: депо и дарксторы стоят на тех же координатах, по которым
+   движок считает минуты рейса. */
+.route-map { padding: 8px 6px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: rgba(9, 18, 14, 0.55); }
+.route-map svg { display: block; width: 100%; height: auto; overflow: visible; }
+.map-route { fill: none; stroke: var(--amber); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 6 5; vector-effect: non-scaling-stroke; }
+.map-depot { fill: var(--cream); stroke: #0b1611; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.map-node { fill: #1d3026; stroke: rgba(244, 234, 216, 0.55); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.map-node.is-visited { fill: var(--amber); stroke: var(--cream); }
+.map-index { fill: #17251f; font-size: 0.34px; font-weight: 900; text-anchor: middle; }
+.map-label { fill: var(--muted); font-size: 0.36px; font-weight: 750; text-anchor: middle; }
+.route-summary { margin: 9px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.route-summary b { color: var(--cream); }
+.route-stop .leg { margin-left: 6px; color: #ffe0a0; font-size: 11px; font-weight: 800; }
+
 .scene-zone-sign {
   /* Область поверх самого стеллажа на фотографии, а не табличка рядом с ним. */
   position: absolute;
