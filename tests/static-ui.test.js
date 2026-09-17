@@ -111,3 +111,9 @@ test('scene AGV is decorative and cannot intercept warehouse taps', () => {
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.match(css, /\.agv\s*\{[^}]*pointer-events:\s*none;/s);
 });
+
+test('decorative truck lights and scene hints never intercept pointer input', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /\.truck-light\s*\{[^}]*pointer-events:\s*none;/s);
+  assert.match(css, /\.scene-object-hint\s*\{[^}]*pointer-events:\s*none;/s);
+});
