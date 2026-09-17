@@ -28,6 +28,7 @@ function loadUiWithClicks() {
     querySelector: () => elementFor('pause'),
     querySelectorAll(selector) { return selector === '[data-scene-zone]' ? zones : []; },
     addEventListener(type, handler) { if (type === 'click') clickHandler = handler; },
+    dispatchEvent(event) { clickHandler({ target: { closest: () => event.target } }); },
   };
   const window = {
     RyabinovayaEngine: engine,
@@ -37,14 +38,28 @@ function loadUiWithClicks() {
     RyabinovayaTsdView: tsdView,
     setTimeout() {},
   };
+  const pageHtml = fs.readFileSync('index.html', 'utf8');
+  const tsdScreenHtml = pageHtml.match(/<div class="tsd-screen"[\s\S]*?<\/div>\s*<\/section>/)?.[0] || '';
+  const controlFor = (action, source) => {
+    const tag = source.match(new RegExp(`<button\\b[^>]*data-action="${action}"[^>]*>`))?.[0];
+    if (!tag) return null;
+    const target = {
+      dataset: { action }, disabled: false, focused: false,
+      focus() { this.focused = true; },
+      click() { document.dispatchEvent({ target: this }); },
+    };
+    return target;
+  };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
 
   return {
     window,
     document,
     elements,
+    shellControlFor: (action) => controlFor(action, tsdScreenHtml),
+    pageControlFor: (action) => controlFor(action, pageHtml),
     click(target) {
-      clickHandler({ target: { closest: () => target } });
+      document.dispatchEvent({ target });
     },
   };
 }
@@ -68,6 +83,35 @@ test('TSD accept action closes the terminal and leaves the warehouse active', ()
 
   assert.equal(elements.get('tsdDevice').dataset.open, 'false');
   assert.equal(elements.get('warehouseScene').attributes['aria-hidden'], 'false');
+});
+
+test('briefing continues through the visible TSD shell control', () => {
+  const { elements, shellControlFor } = loadUiWithClicks();
+  const continueButton = shellControlFor('CONTINUE_STORY');
+
+  assert.ok(continueButton, 'briefing must expose CONTINUE_STORY in the TSD shell');
+  assert.equal(elements.get('tsdContinueStory').hidden, false);
+  continueButton.click();
+
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'task');
+  assert.equal(elements.get('tsdAccept').hidden, false);
+});
+
+test('report continues through the visible TSD shell control', () => {
+  const { elements, shellControlFor, pageControlFor } = loadUiWithClicks();
+  const endShiftButton = pageControlFor('END_SHIFT');
+  assert.ok(endShiftButton, 'test shell must expose the established END_SHIFT control');
+  endShiftButton.click();
+
+  const continueButton = shellControlFor('SHOW_STORY_AFTER');
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'report');
+  assert.ok(elements.get('tsdMessage').textContent.length > 0);
+  assert.match(elements.get('tsdReportSummary').textContent, /Доставлено:/);
+  assert.ok(continueButton, 'report must expose SHOW_STORY_AFTER in the TSD shell');
+  assert.equal(elements.get('tsdContinue').hidden, false);
+  continueButton.click();
+
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'briefing');
 });
 
 test('TSD owns briefing and report presentation while legacy dialogs stay hidden', () => {

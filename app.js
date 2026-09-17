@@ -58,7 +58,13 @@ function renderTsd(view, document) {
   byId(document, 'tsdZone').textContent = view.zoneName ? `Зона: ${view.zoneName}` : '';
   byId(document, 'tsdProgress').textContent = view.progressText;
   byId(document, 'tsdMessage').textContent = view.message;
+  byId(document, 'tsdReportSummary').textContent = view.reportSummary || '';
+  byId(document, 'tsdReportSummary').hidden = view.screen !== 'report';
+  const continueStory = byId(document, 'tsdContinueStory');
+  continueStory.hidden = view.screen !== 'briefing';
+  continueStory.textContent = view.title === 'Смена завершена' ? 'Продолжить' : 'Начать смену';
   byId(document, 'tsdAccept').hidden = !view.canAccept;
+  byId(document, 'tsdContinue').hidden = view.screen !== 'report';
   byId(document, 'warehouseScene').setAttribute('aria-hidden', 'false');
 }
 
