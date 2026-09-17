@@ -25,8 +25,10 @@
 
         <div class="scene-route" aria-hidden="true"></div>
         <div class="ambient-traffic" aria-hidden="true"><span class="ambient-agv ambient-agv--one"></span><span class="ambient-agv ambient-agv--two"></span><span class="warehouse-worker warehouse-worker--one"></span><span class="warehouse-worker warehouse-worker--two"></span></div>
-        <div class="scene-object agv" id="sceneAgv" aria-hidden="true"><img src="assets/agv-active.webp" alt="" aria-hidden="true"></div>
-        <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><img src="assets/pallet-active.webp" alt="" aria-hidden="true"><span class="scene-object-fallback" hidden>Паллета</span><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
+        <div class="scene-travel-group" id="sceneTravelGroup">
+          <div class="scene-object agv" id="sceneAgv" aria-hidden="true"><img src="assets/agv-active.webp" alt="" aria-hidden="true"></div>
+          <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><img src="assets/pallet-active.webp" alt="" aria-hidden="true"><span class="scene-object-fallback" hidden>Паллета</span><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
+        </div>
         <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><img src="assets/truck-active.webp" alt="" aria-hidden="true"><span class="scene-object-fallback" hidden>Машина</span><span class="truck-light" aria-hidden="true"></span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
@@ -35,9 +37,9 @@
 
     <div class="tsd-backdrop" id="tsdBackdrop" aria-hidden="true"></div>
     <section class="tsd-device" id="tsdDevice" data-open="true" data-screen="briefing" data-signal="new" aria-label="Терминал сбора данных">
+      <span class="tsd-indicator" aria-hidden="true"></span>
       <button class="tsd-hardware" data-action="OPEN_TSD" type="button" aria-label="Открыть ТСД">
         <img class="tsd-handheld" src="assets/tsd-handheld.webp" alt="" aria-hidden="true">
-        <span class="tsd-indicator" aria-hidden="true"></span>
         <span class="tsd-compact-copy" id="tsdCompactCopy">Новое задание</span>
       </button>
       <div class="tsd-screen" id="tsdScreen" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
@@ -152,6 +154,7 @@
   <script src="app-state.js?v=guide"></script>
   <script src="scene-view.js"></script>
   <script src="tsd-view.js"></script>
+  <script src="tsd-signal.js"></script>
   <script src="app.js?v=guide-2"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ const engine = require('../game-engine.js');
 const appState = require('../app-state.js');
 const sceneView = require('../scene-view.js');
 const tsdView = require('../tsd-view.js');
+const tsdSignal = require('../tsd-signal.js');
 const levels = require('../levels.js');
 const { LEVELS } = levels;
 
@@ -34,6 +35,7 @@ function loadUi() {
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: sceneView,
     RyabinovayaTsdView: tsdView,
+    RyabinovayaTsdSignal: tsdSignal,
     setTimeout() {},
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
@@ -45,7 +47,7 @@ test('renderScene mirrors scene state into the warehouse layers', () => {
   window.renderScene({
     activeZone: 'chilled', selectedZone: 'chilled', selectedVehicleZone: 'chilled',
     mode: 'to-dispatch', palletFillPercent: 42, loadedPalletCount: 2,
-    routeReady: false, eventCode: '', statusText: 'Тележка едет.', operatorName: 'Миша',
+    routeReady: false, eventCode: '', highlightObject: 'pallet', statusText: 'Тележка едет.', operatorName: 'Миша',
   }, {
     getElementById: (id) => elements.get(id),
     querySelectorAll: () => zones,
@@ -53,6 +55,7 @@ test('renderScene mirrors scene state into the warehouse layers', () => {
 
   assert.equal(elements.get('warehouseScene').dataset.mode, 'to-dispatch');
   assert.equal(elements.get('warehouseScene').dataset.activeZone, 'chilled');
+  assert.equal(elements.get('warehouseScene').dataset.highlight, 'pallet');
   assert.equal(elements.get('sceneStatus').textContent, 'Тележка едет.');
   assert.equal(elements.get('sceneOperatorName').textContent, 'Миша');
   assert.equal(elements.get('scenePallet').style.values['--pallet-fill'], '42%');

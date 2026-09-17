@@ -3,6 +3,7 @@ const { LEVELS, ZONE_NAMES: zones } = window.RyabinovayaLevels;
 const { reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles } = window.RyabinovayaAppState;
 const { warehouseViewFor } = window.RyabinovayaSceneView;
 const { terminalViewFor } = window.RyabinovayaTsdView;
+const { signalTsd } = window.RyabinovayaTsdSignal || { signalTsd: () => {} };
 const stores = { north: 'Северный', central: 'Центральный', west: 'Западный', east: 'Восточный' };
 const itemDetails = {
   water: { emoji: '💧', name: 'Вода 1,5 л' }, milk: { emoji: '🥛', name: 'Молоко' }, banana: { emoji: '🍌', name: 'Бананы' }, bread: { emoji: '🍞', name: 'Хлеб' }, 'ice-cream': { emoji: '🍨', name: 'Мороженое' },
@@ -10,6 +11,9 @@ const itemDetails = {
 const items = Object.values(engine.ITEMS).map((item) => ({ ...item, ...itemDetails[item.sku] }));
 let state = startLevel(1);
 let tsdReturnFocus = null;
+let lastTsdSignal = 'idle';
+let audioContext = null;
+let audioUnlocked = false;
 
 const byId = (document, id) => document.getElementById(id);
 const quantityFor = (pallet, sku) => pallet.items.filter((item) => item.sku === sku).reduce((total, item) => total + item.quantity, 0);
@@ -48,6 +52,30 @@ const orderLabel = (order) => {
 };
 const orderMarkup = (order) => `<div class="order-row"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel(order)} · ${zones[order.zone]}</span></div>`;
 
+function playWarehouseBeep(kind) {
+  if (!audioUnlocked) return;
+  const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextCtor) return;
+  try {
+    audioContext ||= new AudioContextCtor();
+    audioContext.resume?.();
+    const now = audioContext.currentTime;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.value = kind === 'error' ? 220 : kind === 'success' ? 660 : 880;
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.06, now + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.12);
+  } catch (_error) {
+    audioContext = null;
+  }
+}
+
 function renderScene(view, document) {
   const scene = byId(document, 'warehouseScene');
   scene.dataset.mode = view.mode;
@@ -55,6 +83,7 @@ function renderScene(view, document) {
   scene.dataset.selectedZone = view.selectedZone;
   scene.dataset.vehicleZone = view.selectedVehicleZone || '';
   scene.dataset.event = view.eventCode || '';
+  scene.dataset.highlight = view.highlightObject || '';
   byId(document, 'sceneStatus').textContent = view.statusText;
   byId(document, 'sceneOperatorName').textContent = view.operatorName;
   const scenePallet = byId(document, 'scenePallet');
@@ -102,8 +131,18 @@ function renderTsd(view, document) {
 }
 
 function render(nextState, document) {
-  renderScene(warehouseViewFor(nextState), document);
-  renderTsd(tsdViewFor(nextState), document);
+  const sceneView = warehouseViewFor(nextState);
+  const view = tsdViewFor(nextState);
+  renderScene(sceneView, document);
+  renderTsd(view, document);
+  if (view.signal !== lastTsdSignal) {
+    const navigatorApi = typeof navigator !== 'undefined' ? navigator : window.navigator;
+    signalTsd(view.signal, {
+      vibrate: (pattern) => navigatorApi?.vibrate?.(pattern),
+      beep: (kind) => playWarehouseBeep(kind),
+    });
+    lastTsdSignal = view.signal;
+  }
   const level = levelFor(nextState.levelId);
   const selectedVehicle = nextState.vehicles.find((vehicle) => vehicle.id === nextState.selectedVehicleId) || nextState.vehicles[0];
   const minutes = String(Math.floor(nextState.secondsRemaining / 60)).padStart(2, '0');
@@ -256,6 +295,7 @@ function dispatch(action) {
 }
 
 document.addEventListener('click', (event) => {
+  audioUnlocked = true;
   const button = event.target.closest('[data-action]');
   if (!button || button.disabled) return;
   const { action } = button.dataset;

@@ -64,3 +64,10 @@ test('demand changes request a short pulse on the active zone', () => {
   const state = { ...startLevel(1), feedback: { kind: 'info', code: 'demand-increase', message: 'Заявка выросла.' } };
   assert.equal(warehouseViewFor(state).eventCode, 'demand-increase');
 });
+
+test('wrong-zone feedback highlights the pallet while over-capacity highlights the truck', () => {
+  const wrongZone = { ...startLevel(1), feedback: { kind: 'error', code: 'wrong-zone', message: 'Ошибка зоны' } };
+  const capacity = { ...startLevel(1), feedback: { kind: 'error', code: 'over-capacity', message: 'Нет места' } };
+  assert.equal(warehouseViewFor(wrongZone).highlightObject, 'pallet');
+  assert.equal(warehouseViewFor(capacity).highlightObject, 'truck');
+});

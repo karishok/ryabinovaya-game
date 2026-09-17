@@ -136,7 +136,9 @@ button:disabled { cursor: default; opacity: 0.42; }
   width: min(430px, 100%);
   pointer-events: none;
   transform: translateX(-50%);
+  transition: transform 260ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
 }
+.tsd-device[data-open="false"] { transform: translate(-50%, 68%); }
 .tsd-hardware {
   position: relative;
   display: block;
@@ -153,6 +155,19 @@ button:disabled { cursor: default; opacity: 0.42; }
 }
 .tsd-handheld { display: block; width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 14px 18px rgba(0, 0, 0, 0.5)); pointer-events: none; }
 .tsd-indicator, .tsd-compact-copy { display: none; }
+.tsd-device[data-signal="new"] .tsd-indicator {
+  position: absolute;
+  z-index: 1;
+  top: 16px;
+  right: 28px;
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--terracotta);
+  box-shadow: 0 0 0 0 rgba(217, 74, 63, 0.72);
+  animation: tsd-new-pulse 900ms ease-out 1;
+}
 .tsd-device[data-open="true"] { pointer-events: auto; }
 .tsd-device[data-open="true"] .tsd-hardware { display: none; }
 .tsd-screen {
@@ -170,6 +185,7 @@ button:disabled { cursor: default; opacity: 0.42; }
   pointer-events: none;
 }
 .tsd-device[data-open="true"] .tsd-screen { display: block; pointer-events: auto; }
+.tsd-device[data-open="true"] .tsd-screen { animation: tsd-slide-in 260ms cubic-bezier(.22, .8, .24, 1); }
 .tsd-close { position: absolute; top: 11px; right: 11px; width: 44px; min-width: 44px; padding: 0; background: #293a30; }
 .tsd-kicker { display: block; color: #b4e7ca; font-size: 10px; font-weight: 850; letter-spacing: 0.1em; text-transform: uppercase; }
 .tsd-screen h2 { margin: 8px 48px 13px 0; color: var(--cream); font-size: 22px; letter-spacing: -0.04em; }
@@ -232,6 +248,14 @@ button:disabled { cursor: default; opacity: 0.42; }
 .warehouse-worker--one { bottom: 45%; left: 37%; animation: worker-shift 5.6s ease-in-out infinite; }
 .warehouse-worker--two { right: 24%; bottom: 38%; background: #945c3e; animation: worker-shift 6.8s ease-in-out infinite reverse; }
 
+.scene-travel-group {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  pointer-events: none;
+  transform: translateZ(0);
+  transition: transform 720ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
+}
 .agv {
   position: absolute;
   z-index: 2;
@@ -244,7 +268,7 @@ button:disabled { cursor: default; opacity: 0.42; }
   background: transparent;
   filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.38));
   pointer-events: none;
-  transition: transform 720ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease;
+  transition: opacity 180ms ease;
 }
 .agv img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
@@ -262,8 +286,7 @@ button:disabled { cursor: default; opacity: 0.42; }
   filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.35));
   color: inherit;
   cursor: pointer;
-  transform: translateZ(0);
-  transition: transform 720ms cubic-bezier(.22, .8, .24, 1), opacity 180ms ease, filter 180ms ease;
+  transition: opacity 180ms ease, filter 180ms ease;
 }
 .scene-pallet img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 
@@ -321,19 +344,20 @@ button:disabled { cursor: default; opacity: 0.42; }
 .primary-cta { grid-column: 1 / -1; min-height: 52px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 16px; background: linear-gradient(135deg, #d65e40, #b94732); color: #fffaf0; box-shadow: 0 8px 18px rgba(178, 65, 45, 0.44); font-size: 15px; }
 .btn.secondary { margin-top: 9px; border: 1px solid var(--line); background: #293b31; color: var(--cream); }
 
-[data-mode="idle"] .agv { animation: agv-patrol 8s ease-in-out infinite; }
-[data-mode="idle"] .scene-pallet { animation: pallet-ready 2.6s ease-in-out infinite; }
+[data-mode="idle"] .agv img { animation: agv-patrol 8s ease-in-out infinite; }
+[data-mode="idle"] .scene-pallet img { animation: pallet-ready 2.6s ease-in-out infinite; }
 [data-mode="idle"] .truck-bay { animation: truck-idle 3.4s ease-in-out infinite; }
-[data-mode="collecting"] .agv { transform: translate3d(32px, -36px, 0); }
-[data-mode="collecting"] .scene-pallet { transform: translate3d(32px, -36px, 0) rotate(-2deg); }
-[data-mode="to-dispatch"] .agv { transform: translate3d(170px, 38px, 0); }
-[data-mode="to-dispatch"] .scene-pallet { transform: translate3d(170px, 38px, 0) rotate(2deg); }
+[data-mode="collecting"] .scene-travel-group { transform: translate3d(32px, -36px, 0); }
+[data-mode="to-dispatch"] .scene-travel-group { transform: translate3d(170px, 38px, 0); }
 [data-mode="awaiting-route"] .truck-light { opacity: 1; animation: signal-wait 1.2s ease-in-out infinite; }
 [data-mode="route-ready"] .truck-light { background: #73eba7; box-shadow: 0 0 14px #73eba7; opacity: 1; animation: ready-beacon 0.75s ease-in-out infinite; }
 [data-mode="route-ready"] .scene-route { opacity: 0.95; }
-[data-mode="spoiled"] .scene-pallet { filter: saturate(0.52); box-shadow: 0 0 0 3px var(--danger), 0 0 24px rgba(217, 74, 63, 0.72); }
-[data-mode="spoiled"] .agv { transform: translate3d(66px, -18px, 0); }
-[data-event="demand-increase"] .scene-zone-sign.is-active { animation: zone-pulse 0.7s ease-in-out 2; }
+[data-mode="spoiled"] .scene-pallet { filter: saturate(0.52); }
+[data-mode="spoiled"] .scene-travel-group { transform: translate3d(66px, -18px, 0); }
+[data-event="demand-increase"] .scene-zone-sign.is-active,
+[data-highlight="zone"] .scene-zone-sign.is-active { animation: zone-pulse 0.7s ease-in-out 2; }
+[data-highlight="pallet"] .scene-pallet,
+[data-highlight="truck"] .truck-bay { animation: error-highlight 720ms ease-out 1; }
 
 /* Secondary screens and navigation */
 .guide-trigger, .event-banner, .detail-card { margin: 12px; }
@@ -427,6 +451,10 @@ button:disabled { cursor: default; opacity: 0.42; }
 @keyframes signal-wait { 50% { opacity: 0.22; } }
 @keyframes ready-beacon { 50% { transform: translateX(-50%) scale(1.45); } }
 @keyframes zone-pulse { 50% { transform: translateY(-2px) scale(1.05); } }
+@keyframes error-highlight {
+  0%, 100% { outline: 0 solid transparent; outline-offset: 4px; }
+  18%, 62% { outline: 3px solid var(--danger); outline-offset: 4px; }
+}
 @keyframes banner-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes sun-sweep { 0%, 18% { transform: translateX(-80%); opacity: 0; } 40%, 65% { opacity: 1; } 100% { transform: translateX(80%); opacity: 0; } }
 @keyframes route-glow { 50% { opacity: 0.34; } }
@@ -436,6 +464,8 @@ button:disabled { cursor: default; opacity: 0.42; }
 @keyframes agv-patrol { 0%, 100% { transform: translate3d(0, 0, 0); } 45% { transform: translate3d(36px, -12px, 0); } 70% { transform: translate3d(74px, 6px, 0); } }
 @keyframes pallet-ready { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 @keyframes truck-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes tsd-new-pulse { 0% { box-shadow: 0 0 0 0 rgba(217, 74, 63, 0.72); } 70% { box-shadow: 0 0 0 12px rgba(217, 74, 63, 0); } 100% { box-shadow: 0 0 0 0 rgba(217, 74, 63, 0); } }
+@keyframes tsd-slide-in { from { opacity: 0; transform: translateY(42px); } to { opacity: 1; transform: translateY(0); } }
 
 @media (max-width: 390px) {
   .app { width: 100%; }
@@ -451,8 +481,23 @@ button:disabled { cursor: default; opacity: 0.42; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
+    animation: none !important;
     transition-duration: 0.01ms !important;
   }
+  .tsd-device,
+  .tsd-device[data-open="false"] {
+    transform: translateX(-50%);
+    transition: opacity 80ms ease !important;
+  }
+  .scene-travel-group,
+  [data-mode="collecting"] .scene-travel-group,
+  [data-mode="to-dispatch"] .scene-travel-group,
+  [data-mode="spoiled"] .scene-travel-group {
+    transform: none !important;
+    transition: opacity 80ms ease !important;
+  }
+  [data-mode="collecting"] .scene-travel-group,
+  [data-mode="to-dispatch"] .scene-travel-group,
+  [data-mode="spoiled"] .scene-travel-group { opacity: 0.86; }
+  .tsd-device[data-open="true"] .tsd-screen { animation: none !important; }
 }
