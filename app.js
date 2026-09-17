@@ -1,6 +1,7 @@
 const engine = window.RyabinovayaEngine;
 const { LEVELS } = window.RyabinovayaLevels;
 const { reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles } = window.RyabinovayaAppState;
+const { warehouseViewFor } = window.RyabinovayaSceneView;
 const stores = { north: 'Северный', central: 'Центральный', west: 'Западный', east: 'Восточный' };
 const zones = { dry: 'Сухач', chilled: 'Охлаждёнка', frozen: 'Заморозка' };
 const itemDetails = {
@@ -19,7 +20,31 @@ const orderLabel = (order) => {
 };
 const orderMarkup = (order) => `<div class="order-row"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel(order)} · ${zones[order.zone]}</span></div>`;
 
+function renderScene(view, document) {
+  const scene = byId(document, 'warehouseScene');
+  scene.dataset.mode = view.mode;
+  scene.dataset.activeZone = view.activeZone;
+  scene.dataset.selectedZone = view.selectedZone;
+  scene.dataset.vehicleZone = view.selectedVehicleZone || '';
+  scene.dataset.event = view.eventCode || '';
+  byId(document, 'sceneStatus').textContent = view.statusText;
+  byId(document, 'sceneOperatorName').textContent = view.operatorName;
+  byId(document, 'scenePalletFill').style.setProperty('--pallet-fill', `${view.palletFillPercent}%`);
+  byId(document, 'scenePallet').setAttribute('aria-label', `Текущая паллета заполнена на ${view.palletFillPercent}%`);
+  const truckBay = byId(document, 'sceneTruckBay');
+  truckBay.dataset.routeReady = String(view.routeReady);
+  truckBay.dataset.loadedPallets = String(view.loadedPalletCount);
+  document.querySelectorAll('[data-scene-zone]').forEach((zone) => {
+    const active = zone.dataset.sceneZone === view.activeZone;
+    const selected = zone.dataset.sceneZone === view.selectedZone;
+    zone.classList.toggle('is-active', active);
+    zone.classList.toggle('is-selected', selected);
+    zone.setAttribute('aria-current', String(active));
+  });
+}
+
 function render(nextState, document) {
+  renderScene(warehouseViewFor(nextState), document);
   const level = levelFor(nextState.levelId);
   const selectedVehicle = nextState.vehicles.find((vehicle) => vehicle.id === nextState.selectedVehicleId) || nextState.vehicles[0];
   const minutes = String(Math.floor(nextState.secondsRemaining / 60)).padStart(2, '0');
@@ -59,13 +84,18 @@ function render(nextState, document) {
     button.hidden = !available;
     button.classList.toggle('selected', button.dataset.zone === nextState.pallet.zone);
   });
-  document.querySelectorAll('.warehouse-map [data-zone]').forEach((zone) => zone.classList.toggle('locked', !nextState.unlockedZones.includes(zone.dataset.zone)));
+  document.querySelectorAll('[data-scene-zone]').forEach((zone) => {
+    const unlocked = nextState.unlockedZones.includes(zone.dataset.sceneZone);
+    zone.classList.toggle('locked', !unlocked);
+    zone.disabled = !unlocked;
+  });
 
   byId(document, 'itemRows').innerHTML = items.filter((item) => item.zone === nextState.pallet.zone).map((item) => `<div class="item-row">
     <span class="item-emoji">${item.emoji}</span><div><strong>${item.name}</strong><small>${item.weightPerUnit} кг · ${zones[item.zone]}</small></div>
     <div class="qty"><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="-1" aria-label="Убрать ${item.name}">−</button><b>${quantityFor(nextState.pallet, item.sku)}</b><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="1" aria-label="Добавить ${item.name}">+</button></div>
   </div>`).join('');
   byId(document, 'capacity').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
+  byId(document, 'capacityCompact').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
   const routelessVehicles = new Set(missingRouteVehicles(nextState));
   byId(document, 'vehicleRows').innerHTML = nextState.vehicles.map((vehicle) => {
     const status = !vehicle.ready
@@ -178,6 +208,7 @@ document.addEventListener('click', (event) => {
 
 window.dispatch = dispatch;
 window.render = render;
+window.renderScene = renderScene;
 render(state, document);
 setInterval(() => {
   if (state.phase !== 'shift' || state.paused || state.report) return;

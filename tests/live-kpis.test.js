@@ -12,6 +12,8 @@ function renderKpis(state) {
     if (!elements.has(id)) elements.set(id, {
       classList: { toggle() {} },
       setAttribute() {},
+      dataset: {},
+      style: { setProperty() {} },
       textContent: '',
       innerHTML: '',
       disabled: false,
@@ -28,6 +30,7 @@ function renderKpis(state) {
     RyabinovayaEngine: engine,
     RyabinovayaLevels: { LEVELS },
     RyabinovayaAppState: appState,
+    RyabinovayaSceneView: require('../scene-view.js'),
     setTimeout() {},
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });

@@ -21,6 +21,8 @@ function renderModalVisibility(state) {
           contains: (name) => classes.has(name),
         },
         setAttribute() {},
+        dataset: {},
+        style: { setProperty() {} },
         textContent: '',
         innerHTML: '',
         disabled: false,
@@ -38,6 +40,7 @@ function renderModalVisibility(state) {
     RyabinovayaEngine: engine,
     RyabinovayaLevels: levels,
     RyabinovayaAppState: appState,
+    RyabinovayaSceneView: require('../scene-view.js'),
     setTimeout() {},
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
