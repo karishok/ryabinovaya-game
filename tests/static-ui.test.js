@@ -36,3 +36,15 @@ test('the page loads the scoring module before the app state', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   assert.match(html, /<script src="scoring\.js"[^>]*><\/script>\s*<script src="app-state\.js/);
 });
+
+test('warehouse styles define mobile motion and accessible fallbacks', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(css, /--industrial-green:/);
+  assert.match(css, /\.warehouse-scene\s*\{/);
+  assert.match(css, /height:\s*clamp\([^;]*72svh/);
+  assert.match(css, /\[data-mode="to-dispatch"\]/);
+  assert.match(css, /\[data-mode="spoiled"\]/);
+  assert.match(css, /@media\s*\(max-width:\s*390px\)/);
+  assert.match(css, /@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  assert.match(css, /overflow-x:\s*hidden/);
+});
