@@ -76,3 +76,33 @@ test('renderTsd mirrors terminal state into semantic visibility and content', ()
   assert.equal(elements.get('tsdZone').textContent, 'Зона: Сухач');
   assert.equal(elements.get('tsdAccept').hidden, true);
 });
+
+test('renderTsd shows exactly one panel and marks inactive panels hidden', () => {
+  const { window, elements } = loadUi();
+  const panelNames = ['briefing', 'task', 'current', 'builder', 'vehicles', 'feedback', 'report', 'guide'];
+  const panels = panelNames.map((name) => ({
+    dataset: { tsdPanel: name },
+    hidden: true,
+    attributes: {},
+    setAttribute(attribute, value) { this.attributes[attribute] = String(value); },
+  }));
+  const document = {
+    getElementById: (id) => elements.get(id),
+    querySelectorAll: (selector) => {
+      assert.equal(selector, '[data-tsd-panel]');
+      return panels;
+    },
+  };
+
+  window.renderTsd({
+    open: true, screen: 'vehicles', signal: 'idle', title: 'Машины',
+    storeName: '', orderText: '', zoneName: '', progressText: '0 / 100 кг',
+    message: '', canAccept: false,
+  }, document);
+
+  assert.equal(panels.filter((panel) => !panel.hidden).length, 1);
+  for (const panel of panels) {
+    assert.equal(panel.hidden, panel.dataset.tsdPanel !== 'vehicles');
+    assert.equal(panel.attributes['aria-hidden'], String(panel.hidden));
+  }
+});

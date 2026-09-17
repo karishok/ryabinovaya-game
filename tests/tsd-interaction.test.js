@@ -117,6 +117,27 @@ test('report continues through the visible TSD shell control', () => {
   assert.equal(elements.get('tsdDevice').dataset.screen, 'briefing');
 });
 
+test('successful load feedback can be dismissed before the next warehouse interaction', () => {
+  const { click, elements, pageControlFor } = loadUiWithClicks();
+
+  click({ dataset: { action: 'CONTINUE_STORY' }, disabled: false });
+  click({ dataset: { action: 'ACCEPT_TASK' }, disabled: false });
+  click({ dataset: { action: 'ADD_ITEM', sku: 'water', zone: 'dry', weight: '12', quantity: '2' }, disabled: false });
+  click({ dataset: { action: 'LOAD_PALLET' }, disabled: false });
+
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'feedback');
+  assert.equal(elements.get('tsdFeedbackContinue').hidden, false);
+
+  const dismiss = pageControlFor('DISMISS_FEEDBACK');
+  assert.ok(dismiss, 'successful load feedback must expose DISMISS_FEEDBACK');
+  dismiss.click();
+
+  assert.equal(elements.get('tsdDevice').dataset.open, 'false');
+  assert.equal(elements.get('tsdDevice').dataset.screen, 'current');
+  click({ dataset: { action: 'OPEN_VEHICLES' }, disabled: false });
+  assert.equal(elements.get('vehicleModal').attributes['aria-hidden'], 'false');
+});
+
 test('TSD owns briefing and report presentation while legacy dialogs stay hidden', () => {
   const { window, document, elements } = loadUiWithClicks();
   assert.equal(elements.get('tsdDevice').dataset.screen, 'briefing');

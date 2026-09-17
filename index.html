@@ -85,10 +85,10 @@
               <div id="vehicleRows"></div>
               <div class="select-label">Порядок остановок</div>
               <div id="routeStops"></div>
-              <button class="btn secondary full-width" id="routeButton" data-action="SET_ROUTE">Маршрут пока пуст</button>
+              <div class="tsd-sticky-action"><button class="btn full-width" id="routeButton" data-action="SET_ROUTE">Маршрут пока пуст</button></div>
             </div>
           </section>
-          <section id="tsdFeedback" data-tsd-panel="feedback" hidden aria-live="polite"><p class="event-banner" id="eventBanner" role="status"></p></section>
+          <section id="tsdFeedback" data-tsd-panel="feedback" hidden aria-live="polite"><p class="event-banner" id="eventBanner" role="status"></p><button class="tsd-primary" id="tsdFeedbackContinue" data-action="DISMISS_FEEDBACK" type="button" hidden>Продолжить</button></section>
           <section id="tsdGuide" data-tsd-panel="guide" hidden>
             <section id="guideModal" class="guide" aria-hidden="true">
               <section class="tsd-panel guide" id="guideDialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">

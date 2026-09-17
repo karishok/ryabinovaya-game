@@ -77,6 +77,13 @@ test('builder, vehicle and report content share the physical TSD shell', () => {
   assert.equal((html.match(/class="tsd-device"/g) || []).length, 1);
 });
 
+test('route-build action is sticky inside the TSD screen', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(html, /<div class="tsd-sticky-action"><button class="btn full-width" id="routeButton"/);
+  assert.match(css, /\.tsd-sticky-action\s*\{[^}]*position:\s*sticky;/s);
+});
+
 test('TSD is outside the warehouse stacking context and layers above navigation', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const css = fs.readFileSync('styles.css', 'utf8');

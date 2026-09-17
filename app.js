@@ -92,6 +92,7 @@ function renderTsd(view, document) {
   continueStory.textContent = view.title === 'Смена завершена' ? 'Продолжить' : 'Начать смену';
   byId(document, 'tsdAccept').hidden = !view.canAccept;
   byId(document, 'tsdContinue').hidden = view.screen !== 'report';
+  byId(document, 'tsdFeedbackContinue').hidden = view.screen !== 'feedback';
   const panels = document.querySelectorAll ? document.querySelectorAll('[data-tsd-panel]') : [];
   panels.forEach((panel) => {
     panel.hidden = panel.dataset.tsdPanel !== view.screen;
