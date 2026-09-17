@@ -1,7 +1,12 @@
 (function (root, factory) {
-  if (typeof module !== 'undefined' && module.exports) module.exports = factory();
-  else root.RyabinovayaSceneView = factory();
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  const isNode = typeof module !== 'undefined' && module.exports;
+  const levelData = isNode ? require('./levels.js') : root.RyabinovayaLevels;
+  const api = factory(levelData);
+  if (isNode) module.exports = api;
+  else root.RyabinovayaSceneView = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData) {
+  const ZONE_NAMES = levelData.ZONE_NAMES;
+
   const activeOrderFor = (state) => {
     const active = (state.orders || []).filter((order) => !order.cancelled);
     return active.find((order) => !(state.loadedPallets || []).some((pallet) => pallet.storeId === order.storeId)) || active[0] || null;
@@ -24,7 +29,7 @@
     else if ((state.pallet?.weight || 0) > 0) mode = 'collecting';
 
     const statusByMode = {
-      idle: order ? `Зона ${order.zone}: можно начинать сборку.` : 'Все заявки собраны. Проверьте транспорт.',
+      idle: order ? `Зона ${ZONE_NAMES[order.zone] || order.zone}: можно начинать сборку.` : 'Все заявки собраны. Проверьте транспорт.',
       collecting: 'Тележка готовит текущую паллету.',
       'to-dispatch': state.feedback?.message || 'Тележка везёт паллету к воротам.',
       'awaiting-route': 'Машина загружена и ждёт маршрут.',

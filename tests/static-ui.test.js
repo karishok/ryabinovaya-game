@@ -37,6 +37,20 @@ test('the page loads the scoring module before the app state', () => {
   assert.match(html, /<script src="scoring\.js"[^>]*><\/script>\s*<script src="app-state\.js/);
 });
 
+test('the README documents the mobile QA screenshot and the file exists', () => {
+  const readme = fs.readFileSync('README.md', 'utf8');
+  assert.match(readme, /Reference screenshot: `docs\/screenshots\/living-warehouse-mobile\.png`/);
+  assert.equal(fs.existsSync('docs/screenshots/living-warehouse-mobile.png'), true);
+});
+
+test('vehicle rows use a CSS glyph instead of an emoji', () => {
+  const app = fs.readFileSync('app.js', 'utf8');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.doesNotMatch(app, /🚚/, 'app.js should not render the truck emoji over the persistent scene overlay');
+  assert.match(app, /class="vehicle-glyph"/);
+  assert.match(css, /\.vehicle-glyph/);
+});
+
 test('warehouse styles define mobile motion and accessible fallbacks', () => {
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.match(css, /--industrial-green:/);

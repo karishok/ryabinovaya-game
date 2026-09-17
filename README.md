@@ -30,3 +30,5 @@ environment, semantic HTML interaction layers, and a pure `scene-view.js`
 mapper that turns existing game state into visual modes. Animations represent
 reducer state only and are disabled through the operating system's
 reduced-motion preference.
+
+Reference screenshot: `docs/screenshots/living-warehouse-mobile.png`.
