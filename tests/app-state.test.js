@@ -1,10 +1,33 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { reduceAction } = require('../app-state.js');
+const { reduceAction, startLevel } = require('../app-state.js');
 const { createPallet, createVehicle } = require('../game-engine.js');
 
 const addMilk = (state, quantity = 1) => reduceAction(state, {
   type: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity,
+});
+
+test('a level starts with its briefing on the TSD instead of an independent overlay', () => {
+  const state = startLevel(1);
+  assert.deepEqual(state.tsd, {
+    open: true,
+    screen: 'briefing',
+    acceptedOrderId: null,
+    signal: 'new',
+  });
+});
+
+test('accepting the pending task closes the TSD and records exactly one order', () => {
+  const briefing = reduceAction(startLevel(1), { type: 'CONTINUE_STORY' });
+  const task = reduceAction(briefing, { type: 'SHOW_TSD_TASK' });
+  const accepted = reduceAction(task, { type: 'ACCEPT_TASK' });
+  const duplicate = reduceAction(accepted, { type: 'ACCEPT_TASK' });
+
+  assert.equal(accepted.phase, 'shift');
+  assert.equal(accepted.tsd.open, false);
+  assert.equal(accepted.tsd.screen, 'current');
+  assert.equal(accepted.tsd.acceptedOrderId, accepted.orders[0].id);
+  assert.deepEqual(duplicate.tsd, accepted.tsd);
 });
 
 test('adding a compatible item increases pallet weight', () => {
