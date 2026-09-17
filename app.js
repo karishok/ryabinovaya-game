@@ -107,6 +107,9 @@ function renderTsd(view, document) {
   device.dataset.open = String(view.open);
   device.dataset.screen = view.screen;
   device.dataset.signal = view.signal;
+  const hardware = byId(document, 'tsdHardware');
+  hardware.setAttribute('aria-hidden', String(view.open));
+  hardware.setAttribute('tabindex', view.open ? '-1' : '0');
   byId(document, 'tsdBackdrop').setAttribute('aria-hidden', String(!view.open));
   byId(document, 'tsdScreen').setAttribute('aria-hidden', String(!view.open));
   byId(document, 'tsdTitle').textContent = view.title;

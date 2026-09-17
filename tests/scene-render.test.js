@@ -80,6 +80,29 @@ test('renderTsd mirrors terminal state into semantic visibility and content', ()
   assert.equal(elements.get('tsdAccept').hidden, true);
 });
 
+test('renderTsd removes the hidden hardware opener from the accessibility tree', () => {
+  const { window, elements } = loadUi();
+  const document = { getElementById: (id) => elements.get(id) };
+
+  window.renderTsd({
+    open: true, screen: 'task', signal: 'new', title: 'Новое задание',
+    storeName: 'Северный', orderText: 'Вода · 2 шт.', zoneName: 'Сухач',
+    progressText: '0 / 100 кг', message: '', canAccept: true,
+  }, document);
+
+  assert.equal(elements.get('tsdHardware').attributes['aria-hidden'], 'true');
+  assert.equal(elements.get('tsdHardware').attributes.tabindex, '-1');
+
+  window.renderTsd({
+    open: false, screen: 'current', signal: 'idle', title: 'Текущая работа',
+    storeName: '', orderText: '', zoneName: '', progressText: '0 / 100 кг',
+    message: '', canAccept: false,
+  }, document);
+
+  assert.equal(elements.get('tsdHardware').attributes['aria-hidden'], 'false');
+  assert.equal(elements.get('tsdHardware').attributes.tabindex, '0');
+});
+
 test('renderTsd shows exactly one panel and marks inactive panels hidden', () => {
   const { window, elements } = loadUi();
   const panelNames = ['briefing', 'task', 'current', 'builder', 'vehicles', 'feedback', 'report', 'guide'];
