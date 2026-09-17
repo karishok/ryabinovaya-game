@@ -41,6 +41,7 @@ function renderModalVisibility(state) {
     RyabinovayaLevels: levels,
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: require('../scene-view.js'),
+    RyabinovayaTsdView: require('../tsd-view.js'),
     setTimeout() {},
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
@@ -81,10 +82,10 @@ test('guide can open from the level briefing and return without skipping it', ()
   assert.equal(closed.guideOpen, false);
 });
 
-test('opening the guide hides the briefing overlay until the player returns', () => {
+test('opening the guide keeps the legacy briefing overlay hidden', () => {
   const state = reduceAction(startLevel(2), { type: 'OPEN_GUIDE' });
   assert.deepEqual(renderModalVisibility(state), { guideOpen: true, briefingOpen: false });
-  assert.deepEqual(renderModalVisibility(reduceAction(state, { type: 'CLOSE_GUIDE' })), { guideOpen: false, briefingOpen: true });
+  assert.deepEqual(renderModalVisibility(reduceAction(state, { type: 'CLOSE_GUIDE' })), { guideOpen: false, briefingOpen: false });
 });
 
 test('game shell provides a reachable, accessible guide with the core shift steps', () => {
@@ -97,6 +98,14 @@ test('game shell provides a reachable, accessible guide with the core shift step
   assert.ok((html.match(/data-action="OPEN_GUIDE"/g) || []).length >= 2);
   assert.match(html, /id="guideModal"[\s\S]*?<section[^>]*role="dialog"/);
   assert.match(html, /id="guideOrders"/);
+});
+
+test('briefing and guide are TSD screens rather than competing modal backdrops', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  assert.doesNotMatch(html, /id="levelBriefing"[^>]*class="modal-backdrop"/);
+  assert.doesNotMatch(html, /id="guideModal"[^>]*class="modal-backdrop"/);
+  assert.match(html, /id="tsdBriefing"/);
+  assert.match(html, /id="tsdGuide"/);
 });
 
 test('static page requests fresh guide assets so an open game picks up the update', () => {

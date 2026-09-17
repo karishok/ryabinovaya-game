@@ -12,6 +12,13 @@
     return active.find((order) => !(state.loadedPallets || []).some((pallet) => pallet.storeId === order.storeId)) || active[0] || null;
   };
 
+  const capacityTargetFor = (state) => {
+    const message = String(state.feedback?.message || '');
+    if (/паллета/i.test(message)) return 'pallet';
+    if (/машин/i.test(message)) return 'truck';
+    return 'truck';
+  };
+
   function warehouseViewFor(state) {
     const order = activeOrderFor(state);
     const selectedVehicle = (state.vehicles || []).find((vehicle) => vehicle.id === state.selectedVehicleId) || state.vehicles?.[0] || null;
@@ -39,9 +46,14 @@
     };
 
     return {
-      activeZone: order?.zone || state.pallet?.zone || 'dry',
+      // Подсвечивать зону имеет смысл только там, где есть из чего выбирать.
+      // На уровнях с одной открытой зоной подсказка повторяет ТСД и схему.
+      activeZone: (state.unlockedZones || []).length > 1
+        ? (order?.zone || state.pallet?.zone || 'dry')
+        : null,
       selectedZone: state.pallet?.zone || 'dry',
       selectedVehicleZone: selectedVehicle?.zone || null,
+      highlightObject: code === 'wrong-zone' ? 'pallet' : code === 'over-capacity' ? capacityTargetFor(state) : code === 'demand-increase' ? 'zone' : '',
       mode,
       palletFillPercent: Math.min(100, Math.round(((state.pallet?.weight || 0) / (state.pallet?.capacity || 100)) * 100)),
       loadedPalletCount: (state.loadedPallets || []).length,

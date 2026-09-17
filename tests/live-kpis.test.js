@@ -32,6 +32,7 @@ function renderKpis(state) {
     RyabinovayaLevels: levels,
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: require('../scene-view.js'),
+    RyabinovayaTsdView: require('../tsd-view.js'),
     setTimeout() {},
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });

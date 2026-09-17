@@ -55,6 +55,19 @@ test('finished shift returns a report and unlocks the next level', () => {
   assert.equal(result.nextLevelId, 2);
 });
 
+test('successfully loading a pallet marks the next task on the TSD', () => {
+  let state = startLevel(1);
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  const loaded = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+
+  assert.deepEqual(loaded.tsd, {
+    open: false,
+    screen: 'current',
+    acceptedOrderId: null,
+    signal: 'success',
+  });
+});
+
 test('tick applies a scheduled demand change once and exposes short feedback', () => {
   const state = startLevel(7);
   const next = tick(state, 120);
@@ -135,6 +148,14 @@ test('campaign shell includes briefing, operational feedback, and a complete rep
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /Следующая смена/);
+});
+
+test('warehouse workflow actions select their TSD screen while retaining compatibility flags', () => {
+  const app = fs.readFileSync('app.js', 'utf8');
+  assert.match(app, /screen:\s*'builder'/);
+  assert.match(app, /screen:\s*'vehicles'/);
+  assert.match(app, /screen:\s*'current'/);
+  assert.match(app, /screenForTsd/);
 });
 
 test('finished shift reports which loaded vehicles never got a route built', () => {

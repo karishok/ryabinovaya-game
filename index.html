@@ -15,112 +15,144 @@
         <div class="scene-shade" aria-hidden="true"></div>
 
         <div class="scene-hud">
-          <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">●</span><span><strong>Рябиновая</strong><small id="levelTitle">Уровень 1 · Один заказ</small></span></div>
-          <div class="shift"><div class="clock" id="clock">03:00</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
+          <div class="scene-hud-top">
+            <div class="brand-lockup"><span class="brand-mark" aria-hidden="true">●</span><span><strong>Рябиновая</strong><small id="levelTitle">Уровень 1 · Один заказ</small></span></div>
+            <div class="shift"><div class="clock" id="clock">03:00</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
+          </div>
+          <div class="scene-kpis" aria-label="Показатели смены">
+            <div class="kpi"><span>Заказы</span><b id="orders">0 / 1</b></div>
+            <div class="kpi"><span>Вовремя</span><b id="ontime">0%</b></div>
+            <div class="kpi"><span>Точность</span><b id="precision">100%</b></div>
+          </div>
         </div>
 
-        <section class="mission-ribbon" aria-labelledby="missionTitle">
-          <div><small id="missionHint">Текущая заявка</small><strong id="missionTitle">Северный ждёт заказ</strong><span id="missionOrder">Вода · 2 шт.</span></div>
-          <div class="ribbon-pallet"><span>Паллета</span><b id="capacityCompact">0 / 100 кг</b><i><span id="scenePalletFill"></span></i></div>
-        </section>
+        <button class="scene-zone-sign scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry"><span>Сухач</span></button>
+        <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled"><span>Охлаждёнка</span></button>
+        <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
 
-        <button class="scene-zone scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry"><span>Сухач</span></button>
-        <button class="scene-zone scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled"><span>Охлаждёнка</span></button>
-        <button class="scene-zone scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
-
-        <div class="scene-route" aria-hidden="true"></div>
-        <div class="ambient-traffic" aria-hidden="true"><span class="ambient-agv ambient-agv--one"></span><span class="ambient-agv ambient-agv--two"></span><span class="warehouse-worker warehouse-worker--one"></span><span class="warehouse-worker warehouse-worker--two"></span></div>
-        <div class="agv" id="sceneAgv" aria-hidden="true"><span class="agv-light"></span></div>
-        <button class="scene-pallet" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="pallet-load"></span><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
-        <button class="truck-bay" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light"></span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
+        <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
+        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
       </section>
+    </section>
+
+    <div class="tsd-backdrop" id="tsdBackdrop" aria-hidden="true"></div>
+    <section class="tsd-device" id="tsdDevice" data-open="true" data-screen="briefing" data-signal="new" aria-label="Терминал сбора данных">
+      <span class="tsd-indicator" aria-hidden="true"></span>
+      <button class="tsd-hardware" id="tsdHardware" data-action="OPEN_TSD" type="button" aria-label="Открыть ТСД">
+        <img class="tsd-handheld" src="assets/tsd-handheld.webp" alt="" aria-hidden="true">
+        <span class="tsd-compact-copy" id="tsdCompactCopy">
+          <span class="tsd-compact-kicker" id="tsdCompactKicker">Задание</span>
+          <span class="tsd-compact-task" id="tsdCompactTask">Новое задание</span>
+          <span class="tsd-compact-meta" id="tsdCompactMeta"></span>
+        </span>
+      </button>
+      <div class="tsd-screen" id="tsdScreen" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
+        <button class="tsd-close" id="tsdClose" data-action="CLOSE_TSD" type="button" aria-label="Убрать ТСД">×</button>
+        <div class="tsd-display" id="tsdDisplay">
+        <small class="tsd-kicker">Рябиновая · ТСД</small>
+        <h2 id="tsdTitle">Новая смена</h2>
+        <strong id="tsdStore"></strong>
+        <p id="tsdOrder"></p>
+        <p id="tsdZone"></p>
+        <p id="tsdProgress"></p>
+        <p id="tsdMessage" role="status"></p>
+        <p id="tsdReportSummary" hidden></p>
+        <button class="tsd-primary" id="tsdContinueStory" data-action="CONTINUE_STORY" type="button" hidden>Начать смену</button>
+        <button class="tsd-primary" id="tsdAccept" data-action="ACCEPT_TASK" type="button">Принять</button>
+        <button class="tsd-primary" id="tsdContinue" data-action="SHOW_STORY_AFTER" type="button" hidden>Следующая смена</button>
+        <div class="tsd-content-slot" id="tsdContentSlot">
+          <section id="tsdBriefing" data-tsd-panel="briefing" hidden>
+            <section id="levelBriefing" aria-hidden="true">
+              <section class="tsd-panel story-card" id="storyCard" role="dialog" aria-modal="true" aria-labelledby="briefingTitle">
+                <span class="story-kicker" id="briefingKicker">Новая смена</span><h2 id="briefingTitle">Уровень 1</h2><p id="briefingText">Инструкции смены.</p><p class="story-goal" id="briefingGoal"></p><button class="btn secondary full-width" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">Как играть?</button>
+              </section>
+            </section>
+          </section>
+          <section id="tsdTask" data-tsd-panel="task" hidden>
+            <div class="tsd-task-card"><span class="tsd-task-label">Куда</span><strong id="tsdTaskStore"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label">Что собрать</span><strong id="tsdTaskOrder"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label">Зона хранения</span><strong id="tsdTaskZone"></strong></div>
+          </section>
+          <section id="tsdCurrent" data-tsd-panel="current" hidden>
+            <div class="select-label">Заявки смены</div>
+            <div class="orders-list" id="ordersList"></div>
+            <p class="transport-summary" id="transportSummary">Выберите машину для отгрузки.</p>
+            <button class="btn secondary full-width" data-action="END_SHIFT">Завершить смену</button>
+            <section class="tsd-panel story-card" id="endlessMode" aria-hidden="true">
+              <span class="story-kicker">Кампания завершена</span><h2 id="endlessTitle">Бесконечный режим</h2><p>Скоро здесь появятся новые смены. Пока режим находится в разработке.</p>
+            </section>
+          </section>
+          <section id="builderModal" data-tsd-panel="builder" hidden aria-hidden="true">
+            <div class="tsd-panel" id="tsdBuilder" role="dialog" aria-modal="true" aria-labelledby="builderTitle">
+              <div class="modal-head"><h2 id="builderTitle">Сборка паллеты</h2><button class="close" data-action="CLOSE_BUILDER" aria-label="Закрыть">×</button></div>
+              <p class="builder-feedback" id="builderFeedback"></p>
+              <div class="select-label">Даркстор</div>
+              <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Северный</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Центральный</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Западный</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Восточный</button></div>
+              <div class="select-label">Зона</div>
+              <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry">🧱 Сухач</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled">❄️ Охлаждёнка</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen">🧊 Заморозка</button></div>
+              <div class="select-label">Добавить товар</div>
+              <div id="itemRows"></div>
+              <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b></div><button class="btn" data-action="LOAD_PALLET">Поставить в отгрузку</button></div>
+            </div>
+          </section>
+          <section id="vehicleModal" data-tsd-panel="vehicles" hidden aria-hidden="true">
+            <div class="tsd-panel" id="tsdVehicles" role="dialog" aria-modal="true" aria-labelledby="vehicleTitle">
+              <div class="modal-head"><h2 id="vehicleTitle">Машины</h2><button class="close" data-action="CLOSE_VEHICLES" aria-label="Закрыть">×</button></div>
+              <div id="vehicleRows"></div>
+              <div class="select-label">Карта доставки</div>
+              <div class="route-map" id="routeMap"></div>
+              <p class="route-summary" id="routeSummary"></p>
+              <div class="select-label">Порядок остановок</div>
+              <div id="routeStops"></div>
+              <div class="tsd-sticky-action"><button class="btn full-width" id="routeButton" data-action="SET_ROUTE">Маршрут пока пуст</button></div>
+            </div>
+          </section>
+          <section id="tsdFeedback" data-tsd-panel="feedback" hidden aria-live="polite"><p class="event-banner" id="eventBanner" role="status"></p><button class="tsd-primary" id="tsdFeedbackContinue" data-action="DISMISS_FEEDBACK" type="button" hidden>Продолжить</button></section>
+          <section id="tsdGuide" data-tsd-panel="guide" hidden>
+            <section id="guideModal" class="guide" aria-hidden="true">
+              <section class="tsd-panel guide" id="guideDialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
+                <div class="modal-head"><h2 id="guideTitle">Как играть?</h2><button class="close" data-action="CLOSE_GUIDE" aria-label="Вернуться к смене">×</button></div>
+                <p class="guide-intro">Цель смены — собрать товары по заявкам и доставить их в нужные дарксторы.</p>
+                <ol class="guide-steps">
+                  <li><strong>Собери паллету для одной заявки.</strong> Нажми «Собрать паллету», выбери даркстор и зону из заявки.</li>
+                  <li><strong>Добавь нужный товар.</strong> Кнопкой «+» выставь количество из заявки. Для каждого даркстора нужна отдельная паллета.</li>
+                  <li><strong>Поставь паллету в отгрузку.</strong> Она загрузится в машину своей зоны, а адрес добавится в остановки.</li>
+                  <li><strong>Построй маршрут.</strong> Открой «Транспорт», затем «Открыть машины» и нажми «Построить маршрут».</li>
+                  <li><strong>Проверь результат.</strong> Нажми «Завершить смену». Ждать окончания таймера не нужно.</li>
+                </ol>
+                <div class="guide-example"><h3>Заявки этой смены</h3><div id="guideOrders"></div></div>
+                <p class="guide-tip">Важно: зона паллеты и машины должна совпадать. Во время гайда таймер остановлен; нажми «Вернуться к смене», чтобы продолжить.</p>
+                <button class="btn full-width" data-action="CLOSE_GUIDE">Вернуться к смене</button>
+              </section>
+            </section>
+          </section>
+          <section id="reportModal" data-tsd-panel="report" hidden aria-hidden="true">
+            <div class="tsd-panel report" id="tsdReport" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+              <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Доставлено</small><strong id="reportDelivered">0%</strong></div><div class="report-stat"><small>Вовремя</small><strong id="reportOnTime">0%</strong></div><div class="report-stat"><small>Точность</small><strong id="reportPrecision">0%</strong></div><div class="report-stat"><small>Испорчено паллет</small><strong id="reportSpoiled">0</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><ul class="report-reasons" id="reportReasons"></ul><button class="btn" id="nextShift" data-action="SHOW_STORY_AFTER">Следующая смена</button>
+            </div>
+          </section>
+        </div>
+        </div>
+      </div>
     </section>
 
     <button class="guide-trigger" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">
       <span>📖 Как играть?</span><small>Порядок сборки и отправки заказа →</small>
     </button>
 
-    <div class="event-banner" id="eventBanner" role="status" aria-live="polite"></div>
-
-    <section class="screen" data-screen="orders">
-      <section class="card detail-card">
-        <h2>Заявки</h2>
-        <div class="compact-stats" aria-label="Показатели смены">
-          <div class="compact-stat"><span class="label">Заказы</span><div class="value" id="orders">0 / 1</div></div>
-          <div class="compact-stat"><span class="label">Вовремя</span><div class="value" id="ontime">0%</div></div>
-          <div class="compact-stat"><span class="label">Точность</span><div class="value" id="precision">100%</div></div>
-          <div class="compact-stat"><span class="label">Паллет в отгрузке</span><div class="value" id="mapPallets">0 паллет</div></div>
-        </div>
-        <div class="orders-list" id="ordersList"></div><button class="btn" data-action="OPEN_BUILDER">Собрать паллету</button></section>
-    </section>
-
-    <section class="screen" data-screen="transport">
-      <section class="card detail-card"><h2>Транспорт</h2><p id="transportSummary">Выберите машину для отгрузки.</p><button class="btn" data-action="OPEN_VEHICLES">Открыть машины</button><button class="btn secondary" data-action="END_SHIFT">Завершить смену</button></section>
-    </section>
-
-    <nav class="bottom-nav" aria-label="Навигация">
-      <button class="nav-item active" data-action="NAVIGATE" data-screen-target="warehouse"><span>🏭</span>Склад</button>
-      <button class="nav-item" data-action="NAVIGATE" data-screen-target="orders"><span>📋</span>Заявки</button>
-      <button class="nav-item" data-action="NAVIGATE" data-screen-target="transport"><span>🚚</span>Транспорт</button>
-    </nav>
   </main>
 
   <div class="toast" id="toast" role="status"></div>
-
-  <div class="modal-backdrop" id="guideModal" aria-hidden="true"><section class="modal guide" id="guideDialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
-    <div class="modal-head"><h2 id="guideTitle">Как играть?</h2><button class="close" data-action="CLOSE_GUIDE" aria-label="Вернуться к смене">×</button></div>
-    <p class="guide-intro">Цель смены — собрать товары по заявкам и доставить их в нужные дарксторы.</p>
-    <ol class="guide-steps">
-      <li><strong>Собери паллету для одной заявки.</strong> Нажми «Собрать паллету», выбери даркстор и зону из заявки.</li>
-      <li><strong>Добавь нужный товар.</strong> Кнопкой «+» выставь количество из заявки. Для каждого даркстора нужна отдельная паллета.</li>
-      <li><strong>Поставь паллету в отгрузку.</strong> Она загрузится в машину своей зоны, а адрес добавится в остановки.</li>
-      <li><strong>Построй маршрут.</strong> Открой «Транспорт», затем «Открыть машины» и нажми «Построить маршрут».</li>
-      <li><strong>Проверь результат.</strong> Нажми «Завершить смену». Ждать окончания таймера не нужно.</li>
-    </ol>
-    <div class="guide-example"><h3>Заявки этой смены</h3><div id="guideOrders"></div></div>
-    <p class="guide-tip">Важно: зона паллеты и машины должна совпадать. Во время гайда таймер остановлен; нажми «Вернуться к смене», чтобы продолжить.</p>
-    <button class="btn full-width" data-action="CLOSE_GUIDE">Вернуться к смене</button>
-  </section></div>
-
-  <div class="modal-backdrop" id="builderModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="builderTitle">
-    <div class="modal-head"><h2 id="builderTitle">Сборка паллеты</h2><button class="close" data-action="CLOSE_BUILDER" aria-label="Закрыть">×</button></div>
-    <p class="builder-feedback" id="builderFeedback"></p>
-    <div class="select-label">Даркстор</div>
-    <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Северный</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Центральный</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Западный</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Восточный</button></div>
-    <div class="select-label">Зона</div>
-    <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry">🧱 Сухач</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled">❄️ Охлаждёнка</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen">🧊 Заморозка</button></div>
-    <div class="select-label">Добавить товар</div>
-    <div id="itemRows"></div>
-    <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b></div><button class="btn" data-action="LOAD_PALLET">Поставить в отгрузку</button></div>
-  </section></div>
-
-  <div class="modal-backdrop" id="vehicleModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="vehicleTitle">
-    <div class="modal-head"><h2 id="vehicleTitle">Машины</h2><button class="close" data-action="CLOSE_VEHICLES" aria-label="Закрыть">×</button></div>
-    <div id="vehicleRows"></div>
-    <div class="select-label">Порядок остановок</div>
-    <div id="routeStops"></div>
-    <button class="btn secondary full-width" id="routeButton" data-action="SET_ROUTE">Маршрут пока пуст</button>
-  </section></div>
-
-  <div class="modal-backdrop" id="reportModal" aria-hidden="true"><section class="modal report" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
-    <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Доставлено</small><strong id="reportDelivered">0%</strong></div><div class="report-stat"><small>Вовремя</small><strong id="reportOnTime">0%</strong></div><div class="report-stat"><small>Точность</small><strong id="reportPrecision">0%</strong></div><div class="report-stat"><small>Испорчено паллет</small><strong id="reportSpoiled">0</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><ul class="report-reasons" id="reportReasons"></ul><button class="btn" id="nextShift" data-action="SHOW_STORY_AFTER">Следующая смена</button>
-  </section></div>
-
-  <div class="modal-backdrop" id="levelBriefing" aria-hidden="true"><section class="modal story-card" id="storyCard" role="dialog" aria-modal="true" aria-labelledby="briefingTitle">
-    <span class="story-kicker" id="briefingKicker">Новая смена</span><h2 id="briefingTitle">Уровень 1</h2><p id="briefingText">Инструкции смены.</p><p class="story-goal" id="briefingGoal"></p><button class="btn" data-action="CONTINUE_STORY">Начать смену</button><button class="btn secondary full-width" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">Как играть?</button>
-  </section></div>
-
-  <div class="modal-backdrop" id="endlessMode" aria-hidden="true"><section class="modal story-card" role="dialog" aria-modal="true" aria-labelledby="endlessTitle">
-    <span class="story-kicker">Кампания завершена</span><h2 id="endlessTitle">Бесконечный режим</h2><p>Скоро здесь появятся новые смены. Пока режим находится в разработке.</p>
-  </section></div>
 
   <script src="game-engine.js"></script>
   <script src="levels.js"></script>
   <script src="scoring.js"></script>
   <script src="app-state.js?v=guide"></script>
   <script src="scene-view.js"></script>
+  <script src="tsd-view.js"></script>
+  <script src="tsd-signal.js"></script>
   <script src="app.js?v=guide-2"></script>
 </body>
 </html>

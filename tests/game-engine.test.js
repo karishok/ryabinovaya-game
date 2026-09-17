@@ -11,6 +11,8 @@ const {
   buildRoute,
   bestRoute,
   itemBySku,
+  STORE_COORDINATES,
+  legMinutes,
 } = require('../game-engine.js');
 
 test('defines the three immutable warehouse zones', () => {
@@ -177,4 +179,17 @@ test('store names cover every store used by the campaign', () => {
       assert.ok(STORE_NAMES[store.id], `нет названия для ${store.id}`);
     }
   }
+});
+
+test('store coordinates are exported so the interface can draw the same map', () => {
+  assert.deepEqual(STORE_COORDINATES.depot, [0, 0]);
+  for (const store of ['north', 'central', 'west', 'east']) {
+    assert.equal(Array.isArray(STORE_COORDINATES[store]), true, `${store} needs a position`);
+  }
+});
+
+test('leg minutes add up to the whole route duration', () => {
+  const stops = ['north', 'west', 'central'];
+  const legs = stops.reduce((total, stop, index) => total + legMinutes(index === 0 ? 'depot' : stops[index - 1], stop), 0);
+  assert.equal(legs, buildRoute(null, stops).minutes);
 });

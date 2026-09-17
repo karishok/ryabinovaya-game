@@ -3,9 +3,10 @@ const assert = require('node:assert/strict');
 const { warehouseViewFor } = require('../scene-view.js');
 const { startLevel, reduceAction } = require('../app-state.js');
 
-test('initial shift points the warehouse at the active order zone', () => {
+test('initial shift selects the order zone without highlighting the only rack', () => {
   const view = warehouseViewFor(startLevel(1));
-  assert.equal(view.activeZone, 'dry');
+  // Уровень 1 открывает одну зону: подсвечивать нечего, выбирать не из чего.
+  assert.equal(view.activeZone, null);
   assert.equal(view.selectedZone, 'dry');
   assert.equal(view.mode, 'idle');
 });
@@ -63,4 +64,36 @@ test('over-capacity feedback maps to a blocked visual state', () => {
 test('demand changes request a short pulse on the active zone', () => {
   const state = { ...startLevel(1), feedback: { kind: 'info', code: 'demand-increase', message: 'Заявка выросла.' } };
   assert.equal(warehouseViewFor(state).eventCode, 'demand-increase');
+});
+
+test('wrong-zone feedback highlights the pallet while over-capacity highlights the truck', () => {
+  const wrongZone = { ...startLevel(1), feedback: { kind: 'error', code: 'wrong-zone', message: 'Ошибка зоны' } };
+  const capacity = { ...startLevel(1), feedback: { kind: 'error', code: 'over-capacity', message: 'Нет места' } };
+  assert.equal(warehouseViewFor(wrongZone).highlightObject, 'pallet');
+  assert.equal(warehouseViewFor(capacity).highlightObject, 'truck');
+});
+
+test('pallet-capacity feedback highlights the pallet', () => {
+  const state = reduceAction(startLevel(1), { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 9 });
+  assert.equal(state.feedback?.code, 'over-capacity');
+  assert.equal(warehouseViewFor(state).highlightObject, 'pallet');
+});
+
+test('vehicle-capacity feedback highlights the truck', () => {
+  let state = reduceAction(startLevel(1), { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 8 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
+  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  assert.equal(state.feedback?.code, 'over-capacity');
+  assert.equal(warehouseViewFor(state).highlightObject, 'truck');
+});
+
+test('a single unlocked zone needs no highlight because there is nothing to choose', () => {
+  const single = warehouseViewFor({ ...startLevel(1), phase: 'shift' });
+  assert.equal(single.activeZone, null);
+});
+
+test('three unlocked zones highlight the zone the current order belongs to', () => {
+  const many = warehouseViewFor({ ...startLevel(4), phase: 'shift' });
+  assert.ok(['dry', 'frozen', 'chilled'].includes(many.activeZone));
 });

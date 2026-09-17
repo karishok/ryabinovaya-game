@@ -39,6 +39,16 @@
       .filter((vehicle) => loadedVehicleIds.has(vehicle.id) && !(routeFor(state, vehicle.id)?.stops.length > 0))
       .map((vehicle) => vehicle.id);
   };
+  const activeOrderFor = (state) => {
+    const active = (state.orders || []).filter((order) => !order.cancelled);
+    return active.find((order) => !(state.loadedPallets || []).some((pallet) => pallet.storeId === order.storeId)) || active[0] || null;
+  };
+  const initialTsdState = () => ({
+    open: true,
+    screen: 'briefing',
+    acceptedOrderId: null,
+    signal: 'new',
+  });
 
   function startLevel(levelId) {
     const level = levelFor(levelId);
@@ -60,7 +70,7 @@
       paused: false,
       phase: 'briefing',
       story: { kind: 'before', text: level.storyBefore },
-      activeScreen: 'warehouse',
+      tsd: initialTsdState(),
       builderOpen: false,
       vehicleDrawerOpen: false,
       guideOpen: false,
@@ -211,12 +221,34 @@
     }
     if (action.type === 'CONTINUE_STORY') {
       if (state.phase === 'story-after') return state.nextLevelId ? startLevel(state.nextLevelId) : { ...state, phase: 'endless', story: null, report: null };
-      if (state.phase === 'briefing') return { ...state, phase: 'shift', story: null };
+      if (state.phase === 'briefing') {
+        return {
+          ...state,
+          phase: 'shift',
+          story: null,
+          tsd: { ...state.tsd, open: true, screen: 'task', signal: 'new' },
+        };
+      }
       return state;
     }
     if (action.type === 'SHOW_STORY_AFTER') {
       const level = levelFor(state.levelId);
       return { ...state, phase: 'story-after', report: null, story: { kind: 'after', text: level?.storyAfter || 'Смена завершена.' }, feedback: null };
+    }
+
+    if (action.type === 'OPEN_TSD') return { ...state, tsd: { ...state.tsd, open: true } };
+    if (action.type === 'CLOSE_TSD') return { ...state, tsd: { ...state.tsd, open: false } };
+    if (action.type === 'SHOW_TSD_TASK') {
+      return { ...state, tsd: { ...state.tsd, open: true, screen: 'task', signal: 'new' } };
+    }
+    if (action.type === 'ACCEPT_TASK') {
+      if (state.tsd?.acceptedOrderId) return state;
+      const order = activeOrderFor(state);
+      if (!order) return { ...state, tsd: { ...state.tsd, open: false, screen: 'current', signal: 'idle' } };
+      return {
+        ...state,
+        tsd: { open: false, screen: 'current', acceptedOrderId: order.id, signal: 'idle' },
+      };
     }
 
     if (action.type === 'SELECT_VEHICLE') {
@@ -291,6 +323,12 @@
         routeStops: state.selectedVehicleId === vehicle.id ? nextRouteStops : state.routeStops || [],
         routeStopsByVehicle: { ...(state.routeStopsByVehicle || {}), [vehicle.id]: nextRouteStops },
         pallet: palletFor({ ...state, pallet }),
+        tsd: {
+          open: false,
+          screen: 'current',
+          acceptedOrderId: null,
+          signal: 'success',
+        },
       }, feedback('success', 'pallet-loaded', 'Паллета собрана и готова к отгрузке.'));
     }
 

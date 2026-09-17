@@ -23,12 +23,12 @@ node --test tests/*.test.js
 The tests use Node.js's built-in test runner and require no additional
 dependencies.
 
-## Living warehouse UI
+## TSD warehouse UI
 
-The mobile warehouse is rendered as a layered scene: an optimized WebP
-environment, semantic HTML interaction layers, and a pure `scene-view.js`
-mapper that turns existing game state into visual modes. Animations represent
-reducer state only and are disabled through the operating system's
-reduced-motion preference.
+Tasks arrive on a physical handheld TSD. Accepting a task returns the device
+to the edge of the scene, leaving the rack signs, pallet, AGV, and truck as
+direct warehouse controls. Briefing, pallet building, vehicle routing,
+feedback, and reports reuse the same TSD shell; decorative layers never own
+pointer events. Reduced-motion preferences disable repeated movement.
 
-Reference screenshot: `docs/screenshots/living-warehouse-mobile.png`.
+Reference screenshot: `docs/screenshots/living-warehouse-mobile.png`
