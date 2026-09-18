@@ -43,6 +43,10 @@
       <section class="shift-board" id="shiftBoard" aria-label="Сводка смены">
         <div class="toast" id="toast" role="status"></div>
         <p class="board-status" id="boardStatus">Выберите заявку и начните сборку.</p>
+        <!-- Только очередь: заявку, которую ТСД уже держит на экране, сводка
+             не повторяет, а закрытые не печатает вовсе. Когда в очереди
+             ничего не осталось, блок исчезает. -->
+        <div class="select-label" id="ordersLabel">Ещё в очереди</div>
         <div class="orders-list" id="ordersList"></div>
         <div class="board-actions">
           <button class="btn secondary" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">📖 Как играть?</button>

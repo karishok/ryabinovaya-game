@@ -533,12 +533,12 @@ button:disabled { cursor: default; opacity: 0.42; }
 .order-row span { margin-top: 3px; color: var(--muted); font-size: 12px; }
 /* Сводка обязана уместиться между фотографией и полосой ТСД, поэтому в ней
    заявка — одна строка, а длинный список прокручивается внутри себя. */
-.shift-board .orders-list { max-height: 104px; overflow-y: auto; }
-.shift-board .order-row { display: flex; align-items: baseline; gap: 8px; padding: 7px 10px; }
-.shift-board .order-row strong { flex: none; font-size: 13px; }
-.shift-board .order-row span { overflow: hidden; margin-top: 0; text-overflow: ellipsis; white-space: nowrap; }
-.shift-board .order-row.is-done { opacity: 0.5; }
-.shift-board .order-row.is-done strong::after { content: " ✓"; color: #8ce0ad; }
+/* Три строки — максимум очереди в кампании, и они должны влезать целиком;
+   прокрутка остаётся страховкой на случай более длинной смены. */
+.shift-board .orders-list { max-height: 108px; overflow-y: auto; }
+.shift-board .order-row { display: flex; align-items: baseline; gap: 8px; padding: 5px 10px; }
+.shift-board .order-row strong { flex: none; font-size: 12px; }
+.shift-board .order-row span { overflow: hidden; margin-top: 0; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
 @keyframes signal-wait { 50% { opacity: 0.22; } }
 @keyframes ready-beacon { 50% { transform: translateX(-50%) scale(1.45); } }

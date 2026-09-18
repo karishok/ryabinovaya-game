@@ -66,10 +66,7 @@ const orderLabel = (order) => {
 const orderMarkup = (order) => `<div class="order-row"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel(order)} · ${zones[order.zone]}</span></div>`;
 /* В сводке заявка занимает одну строку и показывает остаток, а не исходное
    количество: после частичной отгрузки важно, сколько ещё собирать. */
-const boardOrderMarkup = (state, order) => {
-  const left = remainingFor(state, order);
-  return `<div class="order-row${left === 0 ? ' is-done' : ''}"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel({ ...order, quantity: left })}</span></div>`;
-};
+const boardOrderMarkup = (state, order) => `<div class="order-row"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel({ ...order, quantity: remainingFor(state, order) })}</span></div>`;
 
 function playWarehouseBeep(kind) {
   if (!audioUnlocked) return;
@@ -249,7 +246,15 @@ function render(nextState, document) {
   byId(document, 'precision').textContent = hasShipped ? `${metrics.precisionPercent}%` : '—';
   byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} палл.`;
   byId(document, 'vehicleName').textContent = selectedVehicle ? labelFor(nextState, selectedVehicle) : 'Выберите машину';
-  byId(document, 'ordersList').innerHTML = nextState.orders.filter((order) => !order.cancelled).map((order) => boardOrderMarkup(nextState, order)).join('') || '<p>Активных заявок нет.</p>';
+  /* Очередь — это то, чего нет на ТСД: заявки, кроме той, что уже висит на
+     экране прибора. На смене с одной заявкой сводка дублировала терминал
+     строку в строку, а закрытые заявки печатались как «0 шт.». */
+  const onTerminal = activeOrderFor(nextState);
+  const queue = nextState.orders
+    .filter((order) => !order.cancelled && remainingFor(nextState, order) > 0 && order.id !== onTerminal?.id);
+  byId(document, 'ordersList').innerHTML = queue.map((order) => boardOrderMarkup(nextState, order)).join('');
+  byId(document, 'ordersList').hidden = queue.length === 0;
+  byId(document, 'ordersLabel').hidden = queue.length === 0;
   byId(document, 'guideOrders').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Все заявки закрыты.</p>';
 
   const pause = document.querySelector('[data-action="PAUSE"]');
