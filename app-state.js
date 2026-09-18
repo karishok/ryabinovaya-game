@@ -415,7 +415,9 @@
       }
       const result = engine.addItemToPallet(pallet, item, quantity);
       if (!result.ok) {
-        const messages = { 'wrong-zone': 'Этот товар нужно собирать в другой зоне.', 'over-capacity': 'Паллета не выдержит такой вес — отправьте её и начните новую.' };
+        /* «Поставьте в отгрузку», а не «отправьте»: отправки машин в игре нет,
+           и слово уводило игрока искать несуществующую кнопку. */
+        const messages = { 'wrong-zone': 'Этот товар нужно собирать в другой зоне.', 'over-capacity': 'Паллета больше не выдержит — поставьте её в отгрузку и начните новую.' };
         return withFeedback(state, feedback('error', result.reason, messages[result.reason]));
       }
       return withFeedback({ ...state, pallet: normalizedPallet(result.pallet), stock: taken.stock }, null);
@@ -427,7 +429,10 @@
       const pick = vehicleForPallet(state, pallet, action.vehicleId || state.selectedVehicleId);
       if (!pick.vehicle) {
         const messages = {
-          'fleet-full': `Все фургоны зоны «${zoneName}» загружены под завязку — отправьте их и дождитесь свободного.`,
+          /* Машины не уезжают до конца смены и свободными не становятся, так
+             что советовать «отправьте и дождитесь» было обещанием действия,
+             которого нет. Полный парк означает перебор по весу. */
+          'fleet-full': `Все фургоны зоны «${zoneName}» полны — больше в эту смену не увезти. Уберите лишнее с паллеты или завершайте смену.`,
           'vehicle-not-ready': `Фургон зоны «${zoneName}» ещё в рейсе, он будет готов позже.`,
           'no-vehicle': `Для зоны «${zoneName}» в смене нет фургона.`,
         };
