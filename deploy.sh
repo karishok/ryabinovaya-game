@@ -2,11 +2,16 @@
 # Разворачивает «Рябиновую» на чистом сервере и обновляет уже развёрнутую.
 # Запускать на самом сервере от root:
 #   bash <(curl -fsSL https://raw.githubusercontent.com/karishok/ryabinovaya-game/main/deploy.sh)
+# Порт можно задать своим:
+#   PORT=9137 bash <(curl -fsSL .../deploy.sh)
 set -euo pipefail
 
 REPO="https://github.com/karishok/ryabinovaya-game.git"
 ROOT="/var/www/ryabinovaya"
 SITE="ryabinovaya"
+# Отдельный порт, а не 80: игра не отбирает его у того, что уже крутится на
+# сервере, и разворачивается рядом, ничего не ломая.
+PORT="${PORT:-8421}"
 
 log() { printf '\n==> %s\n' "$1"; }
 
@@ -48,10 +53,12 @@ else
   CONF_PATH="$CONF_DIR/$SITE.conf"
 fi
 
+# Порт подставляется ниже через sed: в heredoc с подстановкой пришлось бы
+# экранировать $uri, и одна забытая обратная косая ломала бы конфиг молча.
 cat > "$CONF_PATH" <<'CONF'
 server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
+    listen __PORT__;
+__LISTEN6__
     server_name _;
 
     root /var/www/ryabinovaya;
@@ -64,14 +71,12 @@ server {
     # Картинки склада и сканера не меняются между релизами.
     location ~* \.(webp|png|jpg|jpeg|svg|ico|woff2?)$ {
         expires 30d;
-        add_header Cache-Control "public";
     }
 
     # Разметка, стили и логика обновляются каждым деплоем — их кэшировать нельзя,
     # иначе игрок после обновления увидит старую версию.
     location ~* \.(html|css|js)$ {
         expires -1;
-        add_header Cache-Control "no-cache";
     }
 
     gzip on;
@@ -82,10 +87,36 @@ server {
 }
 CONF
 
+sed -i "s/__PORT__/$PORT/g" "$CONF_PATH"
+
+# На хосте без IPv6 строка listen [::] роняет весь nginx -t, поэтому она
+# появляется в конфиге только если стек действительно поднят.
+if [ -s /proc/net/if_inet6 ]; then
+  sed -i "s/^__LISTEN6__$/    listen [::]:$PORT;/" "$CONF_PATH"
+else
+  sed -i "/^__LISTEN6__$/d" "$CONF_PATH"
+fi
+
 if [ -n "$ENABLED_DIR" ]; then
   ln -sf "$CONF_PATH" "$ENABLED_DIR/$SITE"
-  # Дефолтный сайт тоже слушает :80 как default_server — иначе конфликт.
-  rm -f "$ENABLED_DIR/default"
+fi
+
+# Нестандартный порт закрыт брандмауэром и запрещён SELinux по умолчанию:
+# без этого игра открывается с самого сервера, но не снаружи.
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q '^Status: active'; then
+  log "Открываю порт $PORT в ufw"
+  ufw allow "$PORT/tcp" || true
+fi
+if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1; then
+  log "Открываю порт $PORT в firewalld"
+  firewall-cmd --permanent --add-port="$PORT/tcp" || true
+  firewall-cmd --reload || true
+fi
+if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce 2>/dev/null || echo Disabled)" = "Enforcing" ]; then
+  log "Разрешаю порт $PORT в SELinux"
+  command -v semanage >/dev/null 2>&1 || (command -v dnf >/dev/null 2>&1 && dnf install -y policycoreutils-python-utils) || true
+  semanage port -a -t http_port_t -p tcp "$PORT" 2>/dev/null \
+    || semanage port -m -t http_port_t -p tcp "$PORT" 2>/dev/null || true
 fi
 
 log "Проверяю конфиг и перезапускаю"
@@ -94,19 +125,22 @@ systemctl enable nginx >/dev/null 2>&1 || true
 systemctl restart nginx
 
 log "Проверяю, что игра отдаётся"
-code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/ || true)
-body=$(curl -fsS http://127.0.0.1/ 2>/dev/null || true)
+url="http://127.0.0.1:$PORT/"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$url" || true)
+body=$(curl -fsS "$url" 2>/dev/null || true)
 
 # Маркер намеренно латиницей: кириллица в grep зависит от локали сервера,
 # а подключение движка в index.html есть при любой локали.
 if [ "$code" = "200" ] && printf '%s' "$body" | grep -q 'game-engine.js'; then
   ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-  printf '\nГотово: http://%s/\n' "${ip:-<ip-сервера>}"
+  printf '\nГотово: http://%s:%s/\n' "${ip:-<ip-сервера>}" "$PORT"
+  printf 'Если снаружи не открывается — порт %s режет брандмауэр хостера, а не сервер.\n' "$PORT"
 else
-  echo "Ожидал игру, а по http://127.0.0.1/ пришёл ответ $code. Начало ответа:" >&2
+  echo "Ожидал игру, а по $url пришёл ответ $code. Начало ответа:" >&2
   printf '%s\n' "$body" | head -5 >&2
   echo >&2
-  echo "Скорее всего :80 занял другой конфиг. Посмотрите, кто ещё слушает 80:" >&2
-  echo "  nginx -T | grep -n -B2 -A6 'listen .*80'" >&2
+  echo "Кто занял порт $PORT:" >&2
+  echo "  nginx -T | grep -n -B2 -A6 'listen .*$PORT'" >&2
+  echo "  ss -lntp | grep :$PORT" >&2
   exit 1
 fi
