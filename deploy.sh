@@ -76,7 +76,9 @@ server {
 
     gzip on;
     gzip_min_length 1024;
-    gzip_types text/css application/javascript text/html image/svg+xml;
+    # text/html nginx сжимает всегда и в gzip_types его перечислять нельзя —
+    # получается «duplicate MIME type» при проверке конфига.
+    gzip_types text/css application/javascript image/svg+xml;
 }
 CONF
 
@@ -92,11 +94,19 @@ systemctl enable nginx >/dev/null 2>&1 || true
 systemctl restart nginx
 
 log "Проверяю, что игра отдаётся"
-code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/)
-if [ "$code" = "200" ] && curl -s http://127.0.0.1/ | grep -q "Рябиновая"; then
+code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1/ || true)
+body=$(curl -fsS http://127.0.0.1/ 2>/dev/null || true)
+
+# Маркер намеренно латиницей: кириллица в grep зависит от локали сервера,
+# а подключение движка в index.html есть при любой локали.
+if [ "$code" = "200" ] && printf '%s' "$body" | grep -q 'game-engine.js'; then
   ip=$(hostname -I 2>/dev/null | awk '{print $1}')
   printf '\nГотово: http://%s/\n' "${ip:-<ip-сервера>}"
 else
-  echo "nginx ответил $code — посмотрите journalctl -u nginx и nginx -t" >&2
+  echo "Ожидал игру, а по http://127.0.0.1/ пришёл ответ $code. Начало ответа:" >&2
+  printf '%s\n' "$body" | head -5 >&2
+  echo >&2
+  echo "Скорее всего :80 занял другой конфиг. Посмотрите, кто ещё слушает 80:" >&2
+  echo "  nginx -T | grep -n -B2 -A6 'listen .*80'" >&2
   exit 1
 fi
