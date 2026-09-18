@@ -318,6 +318,14 @@ function render(nextState, document) {
           : 'свободна';
     return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span class="vehicle-glyph" aria-hidden="true"></span><span><strong>${labelFor(nextState, vehicle)}</strong><small>${vehicle.pallets.length} паллет · до ${vehicle.capacity} кг</small></span><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
   }).join('');
+  const inBay = selectedVehicle?.pallets || [];
+  byId(document, 'loadedPallets').innerHTML = inBay.length
+    ? inBay.map((pallet, index) => {
+      const goods = (pallet.items || []).map((item) => `${itemDetails[item.sku]?.name || item.sku} · ${item.quantity}`).join(', ');
+      return `<div class="loaded-row"><span><strong>${stores[pallet.storeId] || pallet.storeId}</strong><small>${goods || 'пусто'} · ${pallet.weight} кг</small></span><button class="btn secondary" data-action="UNLOAD_PALLET" data-vehicle-id="${selectedVehicle.id}" data-pallet-index="${index}">Снять</button></div>`;
+    }).join('')
+    : '<p class="empty-route">Кузов пуст.</p>';
+
   const routeStops = nextState.routeStops || [];
   byId(document, 'routeMap').innerHTML = routeMapSvg(nextState, routeStops);
   byId(document, 'routeSummary').innerHTML = routeSummaryHtml(routeStops);
@@ -448,6 +456,7 @@ document.addEventListener('click', (event) => {
   if (action === 'SET_ROUTE') return dispatch({ type: action, vehicleId: state.selectedVehicleId, stops: state.routeStops });
   if (action === 'SELECT_VEHICLE') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
   if (action === 'MOVE_STOP') return dispatch({ type: action, index: button.dataset.index, direction: button.dataset.direction });
+  if (action === 'UNLOAD_PALLET') return dispatch({ type: action, vehicleId: button.dataset.vehicleId, palletIndex: button.dataset.palletIndex });
   const nextState = dispatch({ type: action });
   if (action === 'CLOSE_TSD' || action === 'ACCEPT_TASK') {
     tsdReturnFocus?.focus();

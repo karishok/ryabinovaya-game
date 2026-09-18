@@ -432,7 +432,7 @@
           /* Машины не уезжают до конца смены и свободными не становятся, так
              что советовать «отправьте и дождитесь» было обещанием действия,
              которого нет. Полный парк означает перебор по весу. */
-          'fleet-full': `Все фургоны зоны «${zoneName}» полны — больше в эту смену не увезти. Уберите лишнее с паллеты или завершайте смену.`,
+          'fleet-full': `Все фургоны зоны «${zoneName}» полны. Откройте машины на схеме и снимите лишнюю паллету — товар вернётся в зону.`,
           'vehicle-not-ready': `Фургон зоны «${zoneName}» ещё в рейсе, он будет готов позже.`,
           'no-vehicle': `Для зоны «${zoneName}» в смене нет фургона.`,
         };
@@ -471,6 +471,41 @@
         ...loaded,
         pallet: palletFor(loaded, nextOrder ? { storeId: nextOrder.storeId, zone: nextOrder.zone } : { storeId: pallet.storeId, zone: pallet.zone }),
       }, feedback('success', 'pallet-loaded', `${pallet.weight} кг в кузов «${vehicleLabel(state, vehicle)}», адрес в маршруте.`));
+    }
+
+    /* Снятие паллеты — единственный способ исправить забитый лишним кузов.
+       Товар возвращается в зону, адрес уходит из маршрута, если в этой машине
+       для него больше ничего не осталось. */
+    if (action.type === 'UNLOAD_PALLET') {
+      const vehicle = (state.vehicles || []).find((entry) => entry.id === action.vehicleId);
+      if (!vehicle) return withFeedback(state, feedback('error', 'unknown-vehicle', 'Машина не найдена.'));
+      const result = engine.unloadPallet(vehicle, Number(action.palletIndex));
+      if (!result.ok) return withFeedback(state, feedback('error', result.reason, 'Этой паллеты в кузове нет.'));
+
+      const removed = result.pallet;
+      const stock = (removed.items || []).reduce(
+        (total, item) => engine.addToStock(total, item.zone, item.sku, item.quantity),
+        state.stock,
+      );
+      let seen = false;
+      const loadedPallets = (state.loadedPallets || []).filter((pallet) => {
+        if (seen || pallet.vehicleId !== vehicle.id || pallet.storeId !== removed.storeId || pallet.weight !== removed.weight) return true;
+        seen = true;
+        return false;
+      });
+      const stillServed = new Set(result.vehicle.pallets.map((pallet) => pallet.storeId));
+      const stops = (routeStopsFor(state, vehicle.id)).filter((storeId) => stillServed.has(storeId));
+      const route = engine.buildRoute(null, stops);
+
+      return withFeedback({
+        ...state,
+        stock,
+        loadedPallets,
+        vehicles: state.vehicles.map((entry) => entry.id === vehicle.id ? result.vehicle : entry),
+        routeStops: state.selectedVehicleId === vehicle.id ? stops : state.routeStops || [],
+        routeStopsByVehicle: { ...(state.routeStopsByVehicle || {}), [vehicle.id]: stops },
+        routesByVehicle: { ...(state.routesByVehicle || {}), [vehicle.id]: route },
+      }, feedback('info', 'pallet-unloaded', `Паллета снята, ${removed.weight} кг вернулись в зону.`));
     }
 
     if (action.type === 'SET_ROUTE') {

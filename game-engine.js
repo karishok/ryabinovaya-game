@@ -40,6 +40,20 @@
     return { id, zone, capacity, pallets: [] };
   }
 
+  /* Снять паллету с машины. Без этого набитый лишним кузов невозможно было
+     разгрузить, и смена становилась непроходимой без единого действия,
+     способного это исправить. */
+  function unloadPallet(vehicle, palletIndex) {
+    const pallets = vehicle.pallets || [];
+    const pallet = pallets[palletIndex];
+    if (!pallet) return { ok: false, reason: 'unknown-pallet' };
+    return {
+      ok: true,
+      vehicle: { ...vehicle, pallets: pallets.filter((_, index) => index !== palletIndex) },
+      pallet,
+    };
+  }
+
   /* Входящая паллета живёт на приёмке в три шага: приехала → принята в ТСД →
      размещена в зоне хранения. Зона у неё своя, и ошибка размещения портит
      товар по тому же правилу, что и погрузка в неподходящий фургон. */
@@ -260,6 +274,7 @@
     addItemToPallet,
     createVehicle,
     loadPallet,
+    unloadPallet,
     createInboundPallet,
     receiveInbound,
     placeInbound,

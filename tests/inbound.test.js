@@ -235,3 +235,68 @@ test('when the zone fleet is full the refusal says so instead of blaming the pal
   assert.equal(refused.metrics.spoiledPallets, 0);
   assert.equal(refused.pallet.weight, 12, 'паллета остаётся собранной');
 });
+
+test('an overloaded truck can be emptied again, so a shift is never a dead end', () => {
+  /* Со скриншота игрока: кузов забит лишним, заявка по второму адресу не
+     влезает, и ни одно действие не освобождало место — смена становилась
+     непроходимой на третьем уровне, где ещё экспериментируют. */
+  const twoStores = LEVELS.find((level) => level.newMechanic === 'two-stores').id;
+  let state = shift(twoStores);
+  const put = (storeId, sku, weightPerUnit, quantity) => {
+    state = reduceAction(state, { type: 'SELECT_STORE', storeId });
+    state = reduceAction(state, { type: 'ADD_ITEM', sku, zone: 'dry', weightPerUnit, quantity });
+    state = reduceAction(state, { type: 'LOAD_PALLET' });
+  };
+
+  put('north', 'water', 12, 8);
+  const bread = state.orders.find((order) => order.storeId === 'west');
+  state = reduceAction(state, { type: 'SELECT_STORE', storeId: 'west' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'bread', zone: 'dry', weightPerUnit: 6, quantity: 3 });
+  const stuck = reduceAction(state, { type: 'LOAD_PALLET' });
+  assert.equal(stuck.feedback.code, 'fleet-full');
+  assert.equal(remainingFor(stuck, bread), 3, 'заявка недостижима');
+  assert.match(stuck.feedback.message, /снимите лишнюю паллету/i, 'подсказка обязана вести к выходу');
+
+  const freed = reduceAction(stuck, { type: 'UNLOAD_PALLET', vehicleId: 'dry-1', palletIndex: 0 });
+  assert.equal(freed.feedback.code, 'pallet-unloaded');
+  assert.equal(freed.vehicles[0].pallets.length, 0);
+  assert.equal(freed.loadedPallets.length, 0);
+  assert.deepEqual(freed.routeStopsByVehicle['dry-1'], [], 'адрес снятой паллеты уходит из маршрута');
+
+  const loaded = reduceAction(freed, { type: 'LOAD_PALLET' });
+  assert.equal(loaded.feedback.code, 'pallet-loaded');
+  assert.equal(remainingFor(loaded, bread), 0, 'заявка снова закрывается');
+});
+
+test('unloading returns the goods to the rack they were picked from', () => {
+  let state = shift(receiveLevel);
+  state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+  state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'dry' });
+  assert.equal(state.stock.dry.water, 4);
+
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 4 });
+  state = reduceAction(state, { type: 'LOAD_PALLET' });
+  assert.equal(state.stock.dry.water, 0);
+
+  const freed = reduceAction(state, { type: 'UNLOAD_PALLET', vehicleId: 'dry-1', palletIndex: 0 });
+  assert.equal(freed.stock.dry.water, 4, 'снятый товар снова доступен для отбора');
+});
+
+test('unloading a pallet keeps the other stops of the same truck', () => {
+  const route = LEVELS.find((level) => level.newMechanic === 'route').id;
+  let state = shift(route);
+  const put = (storeId, sku, weightPerUnit, quantity) => {
+    state = reduceAction(state, { type: 'SELECT_STORE', storeId });
+    state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'dry' });
+    state = reduceAction(state, { type: 'ADD_ITEM', sku, zone: 'dry', weightPerUnit, quantity });
+    state = reduceAction(state, { type: 'LOAD_PALLET' });
+  };
+  put('north', 'water', 12, 2);
+  put('central', 'bread', 6, 2);
+  assert.deepEqual(state.routeStopsByVehicle['dry-1'], ['north', 'central']);
+
+  const freed = reduceAction(state, { type: 'UNLOAD_PALLET', vehicleId: 'dry-1', palletIndex: 0 });
+  assert.deepEqual(freed.routeStopsByVehicle['dry-1'], ['central'], 'остаётся адрес оставшейся паллеты');
+  assert.equal(freed.loadedPallets.length, 1);
+  assert.equal(freed.loadedPallets[0].storeId, 'central');
+});
