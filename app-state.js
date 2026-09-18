@@ -348,8 +348,16 @@
     }
 
     const pallet = normalizedPallet(state.pallet || engine.createPallet({ storeId: 'north', zone: 'dry' }));
-    if (action.type === 'SELECT_ZONE') return withFeedback({ ...state, pallet: palletFor({ ...state, pallet }, { zone: action.zone }) }, null);
-    if (action.type === 'SELECT_STORE') return withFeedback({ ...state, pallet: palletFor({ ...state, pallet }, { storeId: action.storeId }) }, null);
+    /* Смена зоны обнуляет паллету — товар другой зоны на ней лежать не может.
+       Но отобранное надо вернуть в зону, иначе переключением зоны туда-сюда
+       можно было безвозвратно списать запас смены. */
+    if (action.type === 'SELECT_ZONE') {
+      if (action.zone === pallet.zone) return withFeedback(state, null);
+      const stock = pallet.items.reduce((total, item) => engine.addToStock(total, item.zone, item.sku, item.quantity), state.stock);
+      return withFeedback({ ...state, stock, pallet: palletFor({ ...state, pallet }, { zone: action.zone }) }, null);
+    }
+    // Адрес паллеты меняется без потери товара: зона та же, значит груз годен.
+    if (action.type === 'SELECT_STORE') return withFeedback({ ...state, pallet: { ...pallet, storeId: action.storeId } }, null);
 
     if (action.type === 'ADD_ITEM') {
       const quantity = Number(action.quantity);
@@ -393,11 +401,15 @@
       if (!result.ok) {
         const messages = { 'wrong-zone': 'Неверная зона: паллета испорчена, соберите её заново.', 'over-capacity': 'В машине не осталось места для этой паллеты.' };
         if (result.reason === 'wrong-zone') {
+          /* Новая паллета нацеливается на текущую заявку, а не на ту зону,
+             из-за которой груз только что испортили: иначе сборка открывалась
+             с товарами не той зоны, и ошибку нужно было исправлять вручную. */
+          const order = activeOrderFor(state);
           return withFeedback({
             ...state,
             metrics: { ...state.metrics, spoiledPallets: (state.metrics?.spoiledPallets || 0) + 1 },
             spoilageReasons: [...(state.spoilageReasons || []), result.spoilageReason],
-            pallet: palletFor({ ...state, pallet }),
+            pallet: palletFor({ ...state, pallet }, order ? { storeId: order.storeId, zone: order.zone } : {}),
           }, feedback('error', result.reason, messages[result.reason]));
         }
         return withFeedback(state, feedback('error', result.reason, messages[result.reason]));

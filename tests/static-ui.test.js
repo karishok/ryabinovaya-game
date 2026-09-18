@@ -211,3 +211,23 @@ test('the TSD panel is rendered as the screen of a device body', () => {
   const display = css.slice(css.indexOf('.tsd-display {'));
   assert.match(display.slice(0, display.indexOf('}')), /max-height:\s*min\(66svh/);
 });
+
+test('the builder puts the goods controls above the prefilled address block', () => {
+  const html = fs.readFileSync('index.html', 'utf8');
+  const builder = html.slice(html.indexOf('id="tsdBuilder"'), html.indexOf('id="vehicleModal"'));
+  /* Порядок здесь — это работоспособность: раньше адрес и зона занимали верх
+     экрана прибора, а кнопки «+» и «−» уходили под залипающий низ панели, и
+     паллету нельзя было наполнить вообще. */
+  assert.ok(builder.indexOf('id="itemRows"') < builder.indexOf('class="store-selects"'));
+  assert.ok(builder.indexOf('id="itemRows"') < builder.indexOf('class="zone-selects"'));
+  assert.match(builder, /<details class="builder-target"/);
+  // Низ панели идёт последним, иначе он снова перекроет товары.
+  assert.ok(builder.indexOf('class="modal-foot"') > builder.indexOf('id="itemRows"'));
+});
+
+test('the hidden attribute wins over the panel display rules', () => {
+  const css = fs.readFileSync('styles.css', 'utf8');
+  /* `.tsd-display > p { display: block }` переопределяет hidden, поэтому
+     спрятанные строки заявки продолжали печататься и занимать место. */
+  assert.match(css, /\[hidden\]\s*\{\s*display:\s*none\s*!important;?\s*\}/);
+});

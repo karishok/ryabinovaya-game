@@ -147,3 +147,49 @@ test('the sorting shift queues every dock pallet and keeps the delivery order wa
   assert.ok(activeOrderFor(state));
   assert.equal(state.metrics.spoiledPallets, 0);
 });
+
+test('changing the pallet zone returns the picked goods to the rack', () => {
+  let state = shift(sortingLevel);
+  for (let i = 0; i < 3; i += 1) {
+    const pending = state.inbound.find((pallet) => pallet.status === 'arrived' || pallet.status === 'received');
+    state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+    state = reduceAction(state, { type: 'PLACE_PALLET', zone: pending.zone });
+  }
+  assert.equal(state.stock.chilled.milk, 2);
+
+  state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'chilled' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity: 2 });
+  assert.equal(state.stock.chilled.milk, 0);
+
+  /* Переключением зоны туда-сюда раньше можно было безвозвратно списать
+     запас смены: паллета обнулялась, а товар в зону не возвращался. */
+  state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'dry' });
+  assert.equal(state.pallet.weight, 0);
+  assert.equal(state.stock.chilled.milk, 2);
+});
+
+test('changing only the address keeps the goods already on the pallet', () => {
+  let state = shift(sortingLevel);
+  state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'dry' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'bread', zone: 'dry', weightPerUnit: 6, quantity: 2 });
+  const moved = reduceAction(state, { type: 'SELECT_STORE', storeId: 'central' });
+
+  assert.equal(moved.pallet.storeId, 'central');
+  assert.equal(moved.pallet.weight, 12, 'зона та же — груз годен, пересобирать нечего');
+});
+
+test('a spoiled pallet comes back aimed at the current task, not at the mistake', () => {
+  // Смена с тремя зонами и без дефицита: порча здесь зависит только от зоны.
+  let state = shift(LEVELS.find((level) => level.newMechanic === 'three-zones').id);
+  state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'chilled' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity: 1 });
+  const spoiled = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+
+  assert.equal(spoiled.feedback.code, 'wrong-zone');
+  assert.equal(spoiled.metrics.spoiledPallets, 1);
+  const order = activeOrderFor(spoiled);
+  assert.deepEqual(
+    { storeId: spoiled.pallet.storeId, zone: spoiled.pallet.zone },
+    { storeId: order.storeId, zone: order.zone },
+  );
+});

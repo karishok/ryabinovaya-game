@@ -106,12 +106,20 @@
             <div class="tsd-panel" id="tsdBuilder" role="dialog" aria-modal="true" aria-labelledby="builderTitle">
               <div class="modal-head"><h2 class="sr-only" id="builderTitle">Сборка паллеты</h2><p class="panel-task" id="builderTask"></p><button class="close" data-action="CLOSE_BUILDER" aria-label="Закрыть">×</button></div>
               <p class="builder-feedback" id="builderFeedback"></p>
-              <div class="select-label">Даркстор</div>
-              <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Северный</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Центральный</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Западный</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Восточный</button></div>
-              <div class="select-label">Зона</div>
-              <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry">🧱 Сухач</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled">❄️ Охлаждёнка</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen">🧊 Заморозка</button></div>
-              <div class="select-label">Добавить товар</div>
+              <!-- Сначала то, ради чего экран открыт: кнопки «+» и «−». Адрес и
+                   зона подставлены из задания и убраны под спойлер — раньше они
+                   занимали верх экрана, а сами товары уходили под залипающий
+                   низ панели, и паллету нельзя было наполнить, не прокрутив
+                   вложенную область. -->
               <div id="itemRows"></div>
+              <details class="builder-target" id="builderTarget">
+                <summary>Адрес и зона: <b id="builderTargetLabel"></b></summary>
+                <p class="tsd-hint">Смена зоны начинает паллету заново: товар вернётся в зону хранения.</p>
+                <div class="select-label">Даркстор</div>
+                <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Северный</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Центральный</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Западный</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Восточный</button></div>
+                <div class="select-label">Зона</div>
+                <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry">🧱 Сухач</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled">❄️ Охлаждёнка</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen">🧊 Заморозка</button></div>
+              </details>
               <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b></div><button class="btn" data-action="LOAD_PALLET">Поставить в отгрузку</button></div>
             </div>
           </section>

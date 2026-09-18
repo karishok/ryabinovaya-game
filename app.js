@@ -152,7 +152,10 @@ function renderTsd(view, document) {
   byId(document, 'tsdTaskStore').textContent = view.storeName;
   byId(document, 'tsdTaskOrder').textContent = view.orderText;
   byId(document, 'tsdTaskZone').textContent = view.zoneName;
-  byId(document, 'tsdMessage').textContent = view.message;
+  const message = byId(document, 'tsdMessage');
+  message.textContent = view.message;
+  // Пустая строка статуса всё равно держала 24 px в шапке прибора.
+  message.hidden = !view.message;
   byId(document, 'tsdReportSummary').textContent = view.reportSummary || '';
   byId(document, 'tsdReportSummary').hidden = view.screen !== 'report';
   const continueStory = byId(document, 'tsdContinueStory');
@@ -274,6 +277,7 @@ function render(nextState, document) {
     <div class="qty"><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="-1" aria-label="Убрать ${item.name}">−</button><b>${quantityFor(nextState.pallet, item.sku)}</b><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="1" aria-label="Добавить ${item.name}">+</button></div>
   </div>`).join('');
   byId(document, 'capacity').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
+  byId(document, 'builderTargetLabel').textContent = `${stores[nextState.pallet.storeId] || nextState.pallet.storeId} · ${zones[nextState.pallet.zone]}`;
   /* Задание в шапке панели: экран задания мы больше не показываем
      принудительно, значит адрес и товар должны быть видны там, где собирают. */
   const activeOrder = activeOrderFor(nextState);
