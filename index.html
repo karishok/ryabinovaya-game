@@ -20,7 +20,9 @@
             <div class="shift"><div class="clock" id="clock">03:00</div><button class="pause" data-action="PAUSE" aria-label="Пауза">Ⅱ</button></div>
           </div>
           <div class="scene-kpis" aria-label="Показатели смены">
-            <div class="kpi"><span>Заказы</span><b id="orders">0 / 1</b></div>
+            <!-- Счётчик считает штуки товара, а не заявки: подпись «Заказы» над
+                 «2 / 5» читалась как «две заявки из пяти». -->
+            <div class="kpi"><span>Отгружено</span><b id="orders">0 / 1</b></div>
             <div class="kpi"><span>Вовремя</span><b id="ontime">0%</b></div>
             <div class="kpi"><span>Точность</span><b id="precision">100%</b></div>
           </div>

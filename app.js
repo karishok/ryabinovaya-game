@@ -102,6 +102,8 @@ function renderScene(view, document) {
   scene.dataset.vehicleZone = view.selectedVehicleZone || '';
   scene.dataset.event = view.eventCode || '';
   scene.dataset.highlight = view.highlightObject || '';
+  // Ворота мигают только когда порядок остановок ещё можно сократить.
+  scene.dataset.routeAttention = String(view.routeCanBeShortened);
   byId(document, 'sceneStatus').textContent = view.statusText;
   byId(document, 'sceneOperatorName').textContent = view.operatorName;
   const scenePallet = byId(document, 'scenePallet');

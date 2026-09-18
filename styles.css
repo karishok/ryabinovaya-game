@@ -448,9 +448,13 @@ button:disabled { cursor: default; opacity: 0.42; }
    хотспот обязан оставаться поверх того, что он помечает. */
 [data-mode="collecting"] .scene-pallet,
 [data-mode="to-dispatch"] .truck-bay { border-color: var(--amber); box-shadow: inset 0 0 26px rgba(240, 170, 56, 0.24); }
-[data-mode="awaiting-route"] .truck-light { opacity: 1; animation: signal-wait 1.2s ease-in-out infinite; }
-[data-mode="route-ready"] .truck-light { background: #73eba7; box-shadow: 0 0 14px #73eba7; opacity: 1; animation: ready-beacon 0.75s ease-in-out infinite; }
-[data-mode="route-ready"] .truck-bay { border-color: #8ce0ad; box-shadow: inset 0 0 26px rgba(140, 224, 173, 0.22); }
+/* Ровный зелёный: рейс собран, трогать его незачем. */
+[data-mode="route-ready"] .truck-light { background: #73eba7; box-shadow: 0 0 14px #73eba7; opacity: 1; }
+[data-mode="route-ready"] .truck-bay { border-color: rgba(140, 224, 173, 0.55); }
+/* Мигает только когда порядок остановок реально можно сократить — это
+   единственное, ради чего стоит открывать ворота. */
+[data-route-attention="true"] .truck-light { background: var(--amber); box-shadow: 0 0 14px var(--amber); opacity: 1; animation: ready-beacon 0.75s ease-in-out infinite; }
+[data-route-attention="true"] .truck-bay { border-color: var(--amber); box-shadow: inset 0 0 26px rgba(240, 170, 56, 0.22); }
 [data-mode="spoiled"] .scene-pallet { border-color: var(--danger); box-shadow: inset 0 0 26px rgba(217, 74, 63, 0.26); }
 [data-event="demand-increase"] .scene-zone-sign.is-active,
 [data-highlight="zone"] .scene-zone-sign.is-active { animation: zone-pulse 0.7s ease-in-out 2; }
@@ -559,7 +563,6 @@ button:disabled { cursor: default; opacity: 0.42; }
 .shift-board .order-row strong { flex: none; font-size: 12px; }
 .shift-board .order-row span { overflow: hidden; margin-top: 0; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 
-@keyframes signal-wait { 50% { opacity: 0.22; } }
 @keyframes ready-beacon { 50% { transform: translateX(-50%) scale(1.45); } }
 @keyframes zone-pulse { 50% { transform: translateY(-2px) scale(1.05); } }
 @keyframes error-highlight {

@@ -1,11 +1,21 @@
 (function (root, factory) {
   const isNode = typeof module !== 'undefined' && module.exports;
   const levelData = isNode ? require('./levels.js') : root.RyabinovayaLevels;
-  const api = factory(levelData);
+  const engine = isNode ? require('./game-engine.js') : root.RyabinovayaEngine;
+  const api = factory(levelData, engine);
   if (isNode) module.exports = api;
   else root.RyabinovayaSceneView = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData, engine) {
   const ZONE_NAMES = levelData.ZONE_NAMES;
+
+  /* Маршрут заслуживает внимания игрока только пока его можно сократить.
+     Раньше ворота отгрузки мигали всю смену подряд — с первой погруженной
+     паллеты и до конца, — хотя нажимать туда было незачем. */
+  const routeCanBeShortened = (state) => (state.vehicles || []).some((vehicle) => {
+    const stops = state.routeStopsByVehicle?.[vehicle.id] || [];
+    if (stops.length < 2) return false;
+    return engine.buildRoute(null, stops).minutes > engine.bestRoute(stops).minutes;
+  });
 
   const loadedQuantityFor = (state, order) => (state.loadedPallets || [])
     .filter((pallet) => pallet.storeId === order.storeId && pallet.zone === order.zone)
@@ -34,7 +44,6 @@
     const awaitingPlacement = Boolean(inbound && inbound.status === 'received');
     const selectedVehicle = (state.vehicles || []).find((vehicle) => vehicle.id === state.selectedVehicleId) || state.vehicles?.[0] || null;
     const route = state.routesByVehicle?.[selectedVehicle?.id] || null;
-    const hasLoadedVehicle = Boolean(selectedVehicle?.pallets?.length);
     const routeReady = Boolean(route?.stops?.length);
     const code = state.feedback?.code;
     let mode = 'idle';
@@ -44,9 +53,11 @@
     else if (awaitingPlacement) mode = 'placing';
     else if (inbound) mode = 'receiving';
     else if (code === 'pallet-loaded') mode = 'to-dispatch';
-    else if (hasLoadedVehicle && !routeReady) mode = 'awaiting-route';
-    else if (routeReady) mode = 'route-ready';
+    /* Начатая паллета важнее уже уехавших: пока игрок её собирает, подсвечивать
+       нужно её, а не ворота. Раньше route-ready перебивал сборку и внимание
+       уводило на транспорт. */
     else if ((state.pallet?.weight || 0) > 0) mode = 'collecting';
+    else if (routeReady) mode = 'route-ready';
 
     const statusByMode = {
       idle: order ? `Зона ${ZONE_NAMES[order.zone] || order.zone}: можно начинать сборку.` : 'Все заявки собраны. Проверьте транспорт.',
@@ -54,7 +65,6 @@
       placing: inbound ? `Отвезите паллету в зону «${ZONE_NAMES[inbound.zone] || inbound.zone}».` : '',
       collecting: 'Тележка готовит текущую паллету.',
       'to-dispatch': state.feedback?.message || 'Тележка везёт паллету к воротам.',
-      'awaiting-route': 'Машина загружена и ждёт маршрут.',
       // Не «готова к отправке»: отправлять её вручную не нужно и нечем.
       'route-ready': 'Маршрут построен — машина уедет по окончании смены.',
       spoiled: state.feedback?.message || 'Паллета испорчена из-за неверной зоны.',
@@ -84,6 +94,7 @@
       palletFillPercent: Math.min(100, Math.round(((state.pallet?.weight || 0) / (state.pallet?.capacity || 100)) * 100)),
       loadedPalletCount: (state.loadedPallets || []).length,
       routeReady,
+      routeCanBeShortened: routeCanBeShortened(state),
       eventCode: ['demand-increase', 'vehicle-ready', 'store-reception-change', 'order-cancelled'].includes(code) ? code : '',
       statusText: statusByMode[mode],
       operatorName: ['spoiled', 'blocked'].includes(mode) ? 'Лера' : 'Миша',

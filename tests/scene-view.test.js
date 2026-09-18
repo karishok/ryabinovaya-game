@@ -104,3 +104,39 @@ test('three unlocked zones highlight the zone the current order belongs to', () 
   const many = warehouseViewFor({ ...startLevel(4), phase: 'shift' });
   assert.ok(['dry', 'frozen', 'chilled'].includes(many.activeZone));
 });
+
+test('the gates blink only while the stop order can still be shortened', () => {
+  const { LEVELS } = require('../levels.js');
+  const route = LEVELS.find((level) => level.newMechanic === 'route').id;
+  const put = (state, storeId, sku, weightPerUnit, quantity) => {
+    let next = reduceAction(state, { type: 'SELECT_STORE', storeId });
+    next = reduceAction(next, { type: 'SELECT_ZONE', zone: 'dry' });
+    next = reduceAction(next, { type: 'ADD_ITEM', sku, zone: 'dry', weightPerUnit, quantity });
+    next = reduceAction(next, { type: 'LOAD_PALLET' });
+    return reduceAction(next, { type: 'DISMISS_FEEDBACK' });
+  };
+
+  let state = reduceAction(startLevel(route), { type: 'CONTINUE_STORY' });
+  state = put(state, 'north', 'water', 12, 2);
+  /* Одна остановка переставлять нечем — мигать не над чем. Раньше ворота
+     мигали всю смену с первой же погруженной паллеты. */
+  assert.equal(warehouseViewFor(state).routeCanBeShortened, false);
+
+  state = put(state, 'central', 'bread', 6, 2);
+  assert.equal(warehouseViewFor(state).routeCanBeShortened, true, 'порядок можно сократить — есть ради чего открыть ворота');
+
+  state = reduceAction(state, { type: 'SELECT_VEHICLE', vehicleId: 'dry-1' });
+  state = reduceAction(state, { type: 'MOVE_STOP', index: 1, direction: -1 });
+  assert.equal(warehouseViewFor(state).routeCanBeShortened, false, 'порядок стал лучшим — внимание больше не нужно');
+});
+
+test('an unfinished pallet outranks an already routed truck', () => {
+  let state = reduceAction(startLevel(1), { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = reduceAction(state, { type: 'LOAD_PALLET' });
+  state = reduceAction(state, { type: 'DISMISS_FEEDBACK' });
+  assert.equal(warehouseViewFor(state).mode, 'route-ready');
+
+  // Игрок начал следующую паллету: подсвечивать надо её, а не транспорт.
+  const collecting = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
+  assert.equal(warehouseViewFor(collecting).mode, 'collecting');
+});
