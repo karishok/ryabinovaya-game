@@ -89,7 +89,10 @@
     const compactKicker = screen === 'report'
       ? 'Итоги'
       : inbound ? (awaitingPlacement ? 'Разместить' : 'Приёмка')
-        : accepted ? 'В работе' : 'Новое задание';
+        // Без этой ветки плашка писала «Новое задание» над строкой «Все
+        // заявки собраны» — подпись противоречила тому, что под ней.
+        : !order ? 'Готово'
+          : accepted ? 'В работе' : 'Новое задание';
     const compactTask = inbound
       ? `${inboundItem?.name || inbound.sku} · ${inbound.quantity} шт. → ${inboundZoneName}`
       : order

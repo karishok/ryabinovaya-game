@@ -178,7 +178,7 @@ function renderTsd(view, document) {
   byId(document, 'warehouseScene').setAttribute('aria-hidden', 'false');
 }
 
-/* Карта депо и дарксторов по тем же координатам, которыми движок считает
+/* Карта центра и дарксторов по тем же координатам, которыми движок считает
    длину рейса. Без неё игрок не может судить, какой порядок остановок
    короче, и «Вовремя» выглядит произвольной оценкой. */
 function routeMapSvg(state, routeStops) {
@@ -201,7 +201,7 @@ function routeMapSvg(state, routeStops) {
   return `<svg viewBox="-4.1 -4.1 9.2 5.2" role="img" aria-label="Карта дарксторов и текущего маршрута">`
     + line
     + `<rect class="map-depot" x="${depotX - 0.28}" y="${depotY - 0.28}" width="0.56" height="0.56" />`
-    + `<text class="map-label" x="${depotX}" y="${depotY + 0.78}">Депо</text>`
+    + `<text class="map-label" x="${depotX}" y="${depotY + 0.78}">Рябиновая</text>`
     + nodes
     + '</svg>';
 }

@@ -79,3 +79,25 @@ test('an already accepted task cannot be accepted again when reopened', () => {
   assert.equal(view.screen, 'task');
   assert.equal(view.canAccept, false);
 });
+
+test('the closed terminal never labels an empty queue as a new task', () => {
+  const { LEVELS } = require('../levels.js');
+  const one = LEVELS.find((level) => level.newMechanic === 'one-order').id;
+  let state = reduceAction(startLevel(one), { type: 'CONTINUE_STORY' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = reduceAction(state, { type: 'LOAD_PALLET' });
+
+  const view = terminalViewFor(state);
+  assert.equal(view.compactTask, 'Все заявки собраны');
+  /* Подпись обязана согласовываться со строкой под ней: «Новое задание»
+     над «Все заявки собраны» — прямое противоречие. */
+  assert.notEqual(view.compactKicker, 'Новое задание');
+  assert.equal(view.compactKicker, 'Готово');
+});
+
+test('the route map is drawn from the centre, named after the centre', () => {
+  const fs = require('node:fs');
+  const app = fs.readFileSync('app.js', 'utf8');
+  assert.match(app, /map-label[^>]*>Рябиновая</, 'точка отправления — это сам центр, а не безымянное «депо»');
+  assert.doesNotMatch(app, />Депо</);
+});
