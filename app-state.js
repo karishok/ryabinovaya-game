@@ -57,6 +57,35 @@
 
   const pendingInboundFor = (state) => (state.inbound || [])
     .find((pallet) => pallet.status === 'arrived' || pallet.status === 'received') || null;
+
+  const roomIn = (vehicle) => vehicle.capacity - (vehicle.pallets || []).reduce((total, pallet) => total + pallet.weight, 0);
+
+  /* Два фургона одной зоны назывались одинаково («Сухач фургон»), и в списке
+     машин их было не различить — на смене с делением заявки это как раз то,
+     что нужно понимать. Номер появляется только когда есть из чего выбирать. */
+  function vehicleLabel(state, vehicle) {
+    if (!vehicle) return 'Машина не выбрана';
+    const zoneName = levelData.ZONE_NAMES[vehicle.zone] || vehicle.zone;
+    const sameZone = (state.vehicles || []).filter((entry) => entry.zone === vehicle.zone);
+    if (sameZone.length < 2) return `${zoneName} фургон`;
+    return `${zoneName} фургон №${sameZone.findIndex((entry) => entry.id === vehicle.id) + 1}`;
+  }
+
+  /* Машину под паллету назначает склад, а не игрок: своя зона и достаточно
+     места. Раньше выбор был неявным (первый подходящий фургон), и заявку,
+     которая не влезает в одну машину, доставить было нельзя — вторая
+     паллета упиралась в забитый кузов, а выбрать другой фургон в сборке
+     было негде. */
+  function vehicleForPallet(state, pallet, preferredId) {
+    const fleet = (state.vehicles || []).filter((vehicle) => vehicle.zone === pallet.zone && vehicle.ready !== false);
+    const preferred = fleet.find((vehicle) => vehicle.id === preferredId);
+    if (preferred && roomIn(preferred) >= pallet.weight) return { vehicle: preferred };
+    const withRoom = fleet.find((vehicle) => roomIn(vehicle) >= pallet.weight);
+    if (withRoom) return { vehicle: withRoom };
+    if (fleet.length > 0) return { reason: 'fleet-full' };
+    const waiting = (state.vehicles || []).some((vehicle) => vehicle.zone === pallet.zone && vehicle.ready === false);
+    return { reason: waiting ? 'vehicle-not-ready' : 'no-vehicle' };
+  }
   const initialTsdState = () => ({
     open: true,
     screen: 'briefing',
@@ -393,27 +422,20 @@
     }
 
     if (action.type === 'LOAD_PALLET') {
-      const vehicle = (state.vehicles || []).find((entry) => entry.id === action.vehicleId);
-      if (!vehicle) return withFeedback(state, feedback('error', 'unknown-vehicle', 'Машина для отгрузки не найдена.'));
-      if (vehicle.ready === false) return withFeedback(state, feedback('info', 'vehicle-not-ready', 'Эта машина будет готова позже.'));
       if (pallet.weight === 0) return withFeedback(state, feedback('info', 'empty-pallet', 'Сначала добавьте товар на паллету.'));
-      const result = engine.loadPallet(vehicle, pallet);
-      if (!result.ok) {
-        const messages = { 'wrong-zone': 'Неверная зона: паллета испорчена, соберите её заново.', 'over-capacity': 'В машине не осталось места для этой паллеты.' };
-        if (result.reason === 'wrong-zone') {
-          /* Новая паллета нацеливается на текущую заявку, а не на ту зону,
-             из-за которой груз только что испортили: иначе сборка открывалась
-             с товарами не той зоны, и ошибку нужно было исправлять вручную. */
-          const order = activeOrderFor(state);
-          return withFeedback({
-            ...state,
-            metrics: { ...state.metrics, spoiledPallets: (state.metrics?.spoiledPallets || 0) + 1 },
-            spoilageReasons: [...(state.spoilageReasons || []), result.spoilageReason],
-            pallet: palletFor({ ...state, pallet }, order ? { storeId: order.storeId, zone: order.zone } : {}),
-          }, feedback('error', result.reason, messages[result.reason]));
-        }
-        return withFeedback(state, feedback('error', result.reason, messages[result.reason]));
+      const zoneName = levelData.ZONE_NAMES[pallet.zone] || pallet.zone;
+      const pick = vehicleForPallet(state, pallet, action.vehicleId || state.selectedVehicleId);
+      if (!pick.vehicle) {
+        const messages = {
+          'fleet-full': `Все фургоны зоны «${zoneName}» загружены под завязку — отправьте их и дождитесь свободного.`,
+          'vehicle-not-ready': `Фургон зоны «${zoneName}» ещё в рейсе, он будет готов позже.`,
+          'no-vehicle': `Для зоны «${zoneName}» в смене нет фургона.`,
+        };
+        return withFeedback(state, feedback('error', pick.reason, messages[pick.reason]));
       }
+      const vehicle = pick.vehicle;
+      const result = engine.loadPallet(vehicle, pallet);
+      if (!result.ok) return withFeedback(state, feedback('error', result.reason, 'Этот фургон не берёт такую паллету.'));
       const vehicleRouteStops = routeStopsFor(state, vehicle.id);
       const nextRouteStops = vehicleRouteStops.includes(pallet.storeId) ? vehicleRouteStops : [...vehicleRouteStops, pallet.storeId];
       /* Маршрут строится сам в порядке погрузки. Раньше кнопку «Построить
@@ -424,7 +446,10 @@
         ...state,
         vehicles: state.vehicles.map((entry) => entry.id === vehicle.id ? result.vehicle : entry),
         loadedPallets: [...(state.loadedPallets || []), result.pallet],
-        routeStops: state.selectedVehicleId === vehicle.id ? nextRouteStops : state.routeStops || [],
+        // Выбор следует за грузом: панель транспорта открывается на той
+        // машине, которая только что забрала паллету.
+        selectedVehicleId: vehicle.id,
+        routeStops: nextRouteStops,
         routeStopsByVehicle: { ...(state.routeStopsByVehicle || {}), [vehicle.id]: nextRouteStops },
         routesByVehicle: { ...(state.routesByVehicle || {}), [vehicle.id]: engine.buildRoute(vehicle, nextRouteStops) },
         tsd: {
@@ -440,7 +465,7 @@
       return withFeedback({
         ...loaded,
         pallet: palletFor(loaded, nextOrder ? { storeId: nextOrder.storeId, zone: nextOrder.zone } : { storeId: pallet.storeId, zone: pallet.zone }),
-      }, feedback('success', 'pallet-loaded', 'Паллета в кузове, адрес добавлен в маршрут.'));
+      }, feedback('success', 'pallet-loaded', `${pallet.weight} кг в кузов «${vehicleLabel(state, vehicle)}», адрес в маршруте.`));
     }
 
     if (action.type === 'SET_ROUTE') {
@@ -466,5 +491,6 @@
   return {
     reduceAction, startLevel, tick, finishShift, shiftOutcome, liveMetrics, fulfillmentFor,
     missingRouteVehicles, activeOrderFor, pendingInboundFor, remainingFor,
+    vehicleForPallet, vehicleLabel, roomIn,
   };
 });

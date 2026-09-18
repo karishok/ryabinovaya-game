@@ -48,14 +48,16 @@ test('loading a pallet builds its route at once, so the truck never waits withou
   assert.equal(warehouseViewFor(state).routeReady, true);
 });
 
-test('wrong-zone loading stops the AGV and names the spoilage', () => {
-  let state = startLevel(4);
-  state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'chilled' });
-  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity: 1 });
-  state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+test('wrong putaway stops the AGV and names the spoilage', () => {
+  /* Порча осталась только на приёмке: там товар действительно простоял в
+     чужой температуре. Погрузка в чужой кузов паллету не портит — её
+     просто везут к своему фургону. */
+  let state = reduceAction(startLevel(5), { type: 'CONTINUE_STORY' });
+  state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+  state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'dry' });
   const view = warehouseViewFor(state);
   assert.equal(view.mode, 'spoiled');
-  assert.match(view.statusText, /испорчена/i);
+  assert.match(view.statusText, /испорчен/i);
 });
 
 test('over-capacity feedback maps to a blocked visual state', () => {
@@ -68,11 +70,13 @@ test('demand changes request a short pulse on the active zone', () => {
   assert.equal(warehouseViewFor(state).eventCode, 'demand-increase');
 });
 
-test('wrong-zone feedback highlights the pallet while over-capacity highlights the truck', () => {
-  const wrongZone = { ...startLevel(1), feedback: { kind: 'error', code: 'wrong-zone', message: 'Ошибка зоны' } };
+test('misplacement highlights the pallet while a full fleet highlights the truck', () => {
+  const misplaced = { ...startLevel(1), feedback: { kind: 'error', code: 'wrong-placement', message: 'Не та зона' } };
   const capacity = { ...startLevel(1), feedback: { kind: 'error', code: 'over-capacity', message: 'Нет места' } };
-  assert.equal(warehouseViewFor(wrongZone).highlightObject, 'pallet');
+  const fleetFull = { ...startLevel(1), feedback: { kind: 'error', code: 'fleet-full', message: 'Все фургоны загружены' } };
+  assert.equal(warehouseViewFor(misplaced).highlightObject, 'pallet');
   assert.equal(warehouseViewFor(capacity).highlightObject, 'truck');
+  assert.equal(warehouseViewFor(fleetFull).highlightObject, 'truck');
 });
 
 test('pallet-capacity feedback highlights the pallet', () => {
@@ -81,12 +85,13 @@ test('pallet-capacity feedback highlights the pallet', () => {
   assert.equal(warehouseViewFor(state).highlightObject, 'pallet');
 });
 
-test('vehicle-capacity feedback highlights the truck', () => {
+test('a full fleet highlights the truck instead of blaming the pallet', () => {
   let state = reduceAction(startLevel(1), { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 8 });
   state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
   state = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
-  assert.equal(state.feedback?.code, 'over-capacity');
+  // На первом уровне сухач обслуживает одна машина, поэтому свободной нет.
+  assert.equal(state.feedback?.code, 'fleet-full');
   assert.equal(warehouseViewFor(state).highlightObject, 'truck');
 });
 

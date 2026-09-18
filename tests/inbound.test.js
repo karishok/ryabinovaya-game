@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const engine = require('../game-engine.js');
 const { LEVELS } = require('../levels.js');
-const { startLevel, reduceAction, finishShift, shiftOutcome, activeOrderFor } = require('../app-state.js');
+const { startLevel, reduceAction, finishShift, shiftOutcome, activeOrderFor, remainingFor } = require('../app-state.js');
 const { terminalViewFor } = require('../tsd-view.js');
 const { warehouseViewFor } = require('../scene-view.js');
 
@@ -178,18 +178,60 @@ test('changing only the address keeps the goods already on the pallet', () => {
   assert.equal(moved.pallet.weight, 12, 'зона та же — груз годен, пересобирать нечего');
 });
 
-test('a spoiled pallet comes back aimed at the current task, not at the mistake', () => {
-  // Смена с тремя зонами и без дефицита: порча здесь зависит только от зоны.
+test('a chilled pallet rides in the chilled van even when a dry one is selected', () => {
+  /* Раньше такая погрузка «портила» паллету, хотя в центре её просто не
+     примут в кузов чужой зоны. Теперь склад сам ставит её к своей машине. */
   let state = shift(LEVELS.find((level) => level.newMechanic === 'three-zones').id);
+  state = reduceAction(state, { type: 'SELECT_VEHICLE', vehicleId: 'dry-1' });
   state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'chilled' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity: 1 });
-  const spoiled = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+  const loaded = reduceAction(state, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
 
-  assert.equal(spoiled.feedback.code, 'wrong-zone');
-  assert.equal(spoiled.metrics.spoiledPallets, 1);
-  const order = activeOrderFor(spoiled);
-  assert.deepEqual(
-    { storeId: spoiled.pallet.storeId, zone: spoiled.pallet.zone },
-    { storeId: order.storeId, zone: order.zone },
-  );
+  assert.equal(loaded.feedback.code, 'pallet-loaded');
+  assert.equal(loaded.metrics.spoiledPallets, 0);
+  assert.equal(loaded.loadedPallets[0].vehicleId, 'chilled-1');
+  assert.match(loaded.feedback.message, /Охлаждёнка фургон/);
+});
+
+test('an order too big for one truck is split across the fleet without any truck picking', () => {
+  const capacityLevel = LEVELS.find((level) => level.newMechanic === 'capacity').id;
+  let state = shift(capacityLevel);
+  const plus = (times) => {
+    for (let i = 0; i < times; i += 1) {
+      state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
+    }
+  };
+
+  // Восемь мест — 96 кг, девятое уже не влезает в паллету.
+  plus(8);
+  assert.equal(state.pallet.weight, 96);
+  plus(1);
+  assert.equal(state.feedback.code, 'over-capacity');
+
+  state = reduceAction(state, { type: 'LOAD_PALLET' });
+  assert.equal(state.feedback.code, 'pallet-loaded');
+  assert.match(state.feedback.message, /№1/);
+
+  /* Остаток уходит во вторую машину сам. Раньше здесь был тупик: сборка
+     упиралась в забитый кузов, а выбрать другой фургон было негде. */
+  plus(2);
+  state = reduceAction(state, { type: 'LOAD_PALLET' });
+  assert.equal(state.feedback.code, 'pallet-loaded');
+  assert.match(state.feedback.message, /№2/);
+
+  assert.equal(remainingFor(state, state.orders.find((order) => order.storeId === 'north')), 0);
+  assert.deepEqual(state.loadedPallets.map((pallet) => pallet.vehicleId), ['dry-1', 'dry-2']);
+});
+
+test('when the zone fleet is full the refusal says so instead of blaming the pallet', () => {
+  let state = shift(LEVELS.find((level) => level.newMechanic === 'one-order').id);
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 8 });
+  state = reduceAction(state, { type: 'LOAD_PALLET' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
+  const refused = reduceAction(state, { type: 'LOAD_PALLET' });
+
+  assert.equal(refused.feedback.code, 'fleet-full');
+  assert.match(refused.feedback.message, /Сухач/);
+  assert.equal(refused.metrics.spoiledPallets, 0);
+  assert.equal(refused.pallet.weight, 12, 'паллета остаётся собранной');
 });

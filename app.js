@@ -1,6 +1,9 @@
 const engine = window.RyabinovayaEngine;
 const { LEVELS, ZONE_NAMES: zones } = window.RyabinovayaLevels;
-const { reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles, activeOrderFor, remainingFor } = window.RyabinovayaAppState;
+const {
+  reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles,
+  activeOrderFor, remainingFor, vehicleForPallet, vehicleLabel: labelFor, roomIn,
+} = window.RyabinovayaAppState;
 const { warehouseViewFor } = window.RyabinovayaSceneView;
 const { terminalViewFor } = window.RyabinovayaTsdView;
 const { signalTsd } = window.RyabinovayaTsdSignal || { signalTsd: () => {} };
@@ -17,7 +20,6 @@ let audioUnlocked = false;
 
 const byId = (document, id) => document.getElementById(id);
 const quantityFor = (pallet, sku) => pallet.items.filter((item) => item.sku === sku).reduce((total, item) => total + item.quantity, 0);
-const vehicleLabel = (vehicle) => `${zones[vehicle.zone]} фургон`;
 const levelFor = (levelId) => LEVELS.find((level) => level.id === levelId);
 const screenForTsd = (nextState, baseScreen) => {
   if (nextState.report || nextState.phase === 'report') return 'report';
@@ -246,7 +248,7 @@ function render(nextState, document) {
   byId(document, 'ontime').textContent = hasShipped ? `${metrics.onTimePercent}%` : '—';
   byId(document, 'precision').textContent = hasShipped ? `${metrics.precisionPercent}%` : '—';
   byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} палл.`;
-  byId(document, 'vehicleName').textContent = selectedVehicle ? vehicleLabel(selectedVehicle) : 'Выберите машину';
+  byId(document, 'vehicleName').textContent = selectedVehicle ? labelFor(nextState, selectedVehicle) : 'Выберите машину';
   byId(document, 'ordersList').innerHTML = nextState.orders.filter((order) => !order.cancelled).map((order) => boardOrderMarkup(nextState, order)).join('') || '<p>Активных заявок нет.</p>';
   byId(document, 'guideOrders').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Все заявки закрыты.</p>';
 
@@ -276,6 +278,17 @@ function render(nextState, document) {
   </div>`).join('');
   byId(document, 'capacity').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
   byId(document, 'builderTargetLabel').textContent = `${stores[nextState.pallet.storeId] || nextState.pallet.storeId} · ${zones[nextState.pallet.zone]}`;
+  /* Куда поедет паллета, видно до нажатия: на смене с делением заявки это
+     единственный способ понять, что остаток уходит во вторую машину. */
+  const pick = vehicleForPallet(nextState, nextState.pallet, nextState.selectedVehicleId);
+  const targetMessages = {
+    'fleet-full': 'все фургоны зоны загружены',
+    'vehicle-not-ready': 'фургон зоны ещё в рейсе',
+    'no-vehicle': 'фургона этой зоны в смене нет',
+  };
+  byId(document, 'capacityTarget').textContent = pick.vehicle
+    ? `→ ${labelFor(nextState, pick.vehicle)}, свободно ${roomIn(pick.vehicle)} кг`
+    : `→ ${targetMessages[pick.reason] || 'машина не найдена'}`;
   /* Задание в шапке панели: экран задания мы больше не показываем
      принудительно, значит адрес и товар должны быть видны там, где собирают. */
   const activeOrder = activeOrderFor(nextState);
@@ -283,7 +296,7 @@ function render(nextState, document) {
     ? `Задание: ${stores[activeOrder.storeId]} · ${orderLabel({ ...activeOrder, quantity: remainingFor(nextState, activeOrder) })} · ${zones[activeOrder.zone]}`
     : 'Все заявки закрыты — можно завершать смену.';
   byId(document, 'vehicleTask').textContent = selectedVehicle
-    ? `${vehicleLabel(selectedVehicle)} · ${selectedVehicle.pallets.length} палл.`
+    ? `${labelFor(nextState, selectedVehicle)} · ${selectedVehicle.pallets.length} палл.`
     : 'Машина не выбрана';
   const routelessVehicles = new Set(missingRouteVehicles(nextState));
   byId(document, 'vehicleRows').innerHTML = nextState.vehicles.map((vehicle) => {
@@ -299,7 +312,7 @@ function render(nextState, document) {
         : stops > 0
           ? `${stops} ост. · ${loadedKg} кг`
           : 'свободна';
-    return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span class="vehicle-glyph" aria-hidden="true"></span><span><strong>${vehicleLabel(vehicle)}</strong><small>${vehicle.pallets.length} паллет · до ${vehicle.capacity} кг</small></span><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
+    return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span class="vehicle-glyph" aria-hidden="true"></span><span><strong>${labelFor(nextState, vehicle)}</strong><small>${vehicle.pallets.length} паллет · до ${vehicle.capacity} кг</small></span><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
   }).join('');
   const routeStops = nextState.routeStops || [];
   byId(document, 'routeMap').innerHTML = routeMapSvg(nextState, routeStops);

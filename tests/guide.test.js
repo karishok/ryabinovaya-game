@@ -90,7 +90,10 @@ test('opening the guide keeps the legacy briefing overlay hidden', () => {
 
 test('game shell provides a reachable, accessible guide with the core shift steps', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  for (const label of ['Как играть?', 'Поставить в отгрузку', 'Построить маршрут', 'Завершить смену']) {
+  /* Гайд обязан называть шаги смены её словами: приёмку, размещение,
+     сборку и завершение. «Построить маршрут» ушло — маршрут строится сам
+     при погрузке, игрок только переставляет остановки. */
+  for (const label of ['Как играть?', 'Принять паллету', 'вывеску нужной зоны', 'Поставить в отгрузку', 'остановок', 'Заверши смену']) {
     assert.ok(html.includes(label), `guide should explain: ${label}`);
   }
   assert.match(html, /data-action="OPEN_GUIDE"/);

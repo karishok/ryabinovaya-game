@@ -113,19 +113,11 @@
     return { ...stock, [zone]: { ...(stock[zone] || {}), [sku]: available + quantity } };
   }
 
+  /* Несовместимый фургон паллету не портит: в реальном центре её просто не
+     примут в кузов. Товар гибнет там, где действительно простоял в чужой
+     температуре — при размещении в неверную зону, см. placeInbound. */
   function loadPallet(vehicle, pallet) {
-    if (pallet.zone !== vehicle.zone) {
-      return {
-        ok: false,
-        reason: 'wrong-zone',
-        spoilageReason: {
-          type: 'wrong-transport',
-          vehicleZone: vehicle.zone,
-          palletZone: pallet.zone,
-          message: `паллета испорчена из-за несовместимого транспорта: машина ${vehicle.zone}, паллета ${pallet.zone}`,
-        },
-      };
-    }
+    if (pallet.zone !== vehicle.zone) return { ok: false, reason: 'wrong-zone' };
 
     const loadedWeight = vehicle.pallets.reduce((total, loadedPallet) => total + loadedPallet.weight, 0);
     if (loadedWeight + pallet.weight > vehicle.capacity) {

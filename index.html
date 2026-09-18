@@ -122,7 +122,7 @@
                 <div class="select-label">Зона</div>
                 <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry">🧱 Сухач</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled">❄️ Охлаждёнка</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen">🧊 Заморозка</button></div>
               </details>
-              <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b></div><button class="btn" data-action="LOAD_PALLET">Поставить в отгрузку</button></div>
+              <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b><small id="capacityTarget"></small></div><button class="btn" data-action="LOAD_PALLET">Поставить в отгрузку</button></div>
             </div>
           </section>
           <section id="vehicleModal" data-tsd-panel="vehicles" hidden aria-hidden="true">
@@ -142,16 +142,17 @@
             <section id="guideModal" class="guide" aria-hidden="true">
               <section class="tsd-panel guide" id="guideDialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
                 <div class="modal-head"><h2 id="guideTitle">Как играть?</h2><button class="close" data-action="CLOSE_GUIDE" aria-label="Вернуться к смене">×</button></div>
-                <p class="guide-intro">Цель смены — собрать товары по заявкам и доставить их в нужные дарксторы.</p>
+                <p class="guide-intro">Задания приходят на ТСД. Их два вида: принять привоз и собрать заявку на отгрузку.</p>
                 <ol class="guide-steps">
-                  <li><strong>Собери паллету для одной заявки.</strong> Нажми «Собрать паллету», выбери даркстор и зону из заявки.</li>
-                  <li><strong>Добавь нужный товар.</strong> Кнопкой «+» выставь количество из заявки. Для каждого даркстора нужна отдельная паллета.</li>
-                  <li><strong>Поставь паллету в отгрузку.</strong> Она загрузится в машину своей зоны, а адрес добавится в остановки.</li>
-                  <li><strong>Построй маршрут.</strong> Открой «Транспорт», затем «Открыть машины» и нажми «Построить маршрут».</li>
-                  <li><strong>Проверь результат.</strong> Нажми «Завершить смену». Ждать окончания таймера не нужно.</li>
+                  <li><strong>Разбери приёмку.</strong> Если у ворот стоит паллета, ТСД покажет накладную. Нажми «Принять паллету», а потом — вывеску нужной зоны на схеме склада. Зона написана в накладной; ошибка портит товар.</li>
+                  <li><strong>Собери паллету по заявке.</strong> Нажми паллету на схеме. Даркстор и зона уже подставлены из задания, остаётся кнопкой «+» набрать количество.</li>
+                  <li><strong>Поставь её в отгрузку.</strong> Склад сам подберёт фургон нужной зоны со свободным местом — он подписан внизу сборки. Адрес сразу попадает в маршрут.</li>
+                  <li><strong>Если заявка не влезает</strong> в одну паллету или машину, отправь что набралось и собери остаток: он уедет следующим фургоном.</li>
+                  <li><strong>Проверь порядок остановок.</strong> Нажми машину на схеме: стрелками можно переставить адреса. Чем короче рейс, тем выше «Вовремя».</li>
+                  <li><strong>Заверши смену</strong> кнопкой под схемой. Ждать таймер не нужно.</li>
                 </ol>
                 <div class="guide-example"><h3>Заявки этой смены</h3><div id="guideOrders"></div></div>
-                <p class="guide-tip">Важно: зона паллеты и машины должна совпадать. Во время гайда таймер остановлен; нажми «Вернуться к смене», чтобы продолжить.</p>
+                <p class="guide-tip">Одна паллета — один даркстор. Во время гайда таймер остановлен; нажми «Вернуться к смене», чтобы продолжить.</p>
                 <button class="btn full-width" data-action="CLOSE_GUIDE">Вернуться к смене</button>
               </section>
             </section>

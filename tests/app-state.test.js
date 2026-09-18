@@ -51,7 +51,7 @@ test('adding twice then removing once keeps one SKU record and consistent weight
   assert.deepEqual(next.pallet.items, [{ sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity: 1 }]);
 });
 
-test('rejected incompatible load preserves builder state and records spoilage', () => {
+test('with no truck for the zone the load is refused and the pallet is kept intact', () => {
   const initial = {
     builderOpen: true,
     pallet: { ...createPallet({ storeId: 'north', zone: 'chilled' }), weight: 10 },
@@ -59,15 +59,21 @@ test('rejected incompatible load preserves builder state and records spoilage', 
     metrics: { spoiledPallets: 0 },
   };
   const next = reduceAction(initial, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
+
+  /* Порчи здесь больше нет: в кузов чужой зоны паллету просто не примут.
+     Собранный товар остаётся на паллете — игроку нечего пересобирать. */
   assert.equal(next.builderOpen, true);
-  assert.equal(next.metrics.spoiledPallets, 1);
-  assert.equal(next.spoilageReasons[0].type, 'wrong-transport');
-  assert.equal(next.feedback.code, 'wrong-zone');
+  assert.equal(next.metrics.spoiledPallets, 0);
+  assert.equal(next.feedback.code, 'no-vehicle');
+  assert.match(next.feedback.message, /Охлаждёнка/);
+  assert.equal(next.pallet.weight, 10);
+  assert.equal((next.loadedPallets || []).length, 0);
 });
 
-test('wrong-transport spoilage clears the builder pallet so its goods cannot later be delivered', () => {
+test('a pallet is routed to a truck of its own zone even if another one is selected', () => {
   const initial = {
     builderOpen: true,
+    selectedVehicleId: 'dry-1',
     pallet: {
       ...createPallet({ storeId: 'north', zone: 'chilled' }),
       weight: 10,
@@ -79,15 +85,13 @@ test('wrong-transport spoilage clears the builder pallet so its goods cannot lat
     secondsRemaining: 120,
   };
 
-  const spoiled = reduceAction(initial, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
-  const laterLoad = reduceAction(spoiled, { type: 'LOAD_PALLET', vehicleId: 'chilled-1' });
+  const next = reduceAction(initial, { type: 'LOAD_PALLET', vehicleId: 'dry-1' });
 
-  assert.equal(spoiled.builderOpen, true);
-  assert.equal(spoiled.feedback.code, 'wrong-zone');
-  assert.match(spoiled.feedback.message, /испорчен/i);
-  assert.deepEqual(spoiled.pallet.items, []);
-  assert.equal(spoiled.pallet.weight, 0);
-  assert.equal((laterLoad.loadedPallets || []).length, 0);
+  assert.equal(next.feedback.code, 'pallet-loaded');
+  assert.equal(next.metrics.spoiledPallets, 0);
+  assert.equal(next.loadedPallets.length, 1);
+  assert.equal(next.loadedPallets[0].vehicleId, 'chilled-1');
+  assert.equal(next.selectedVehicleId, 'chilled-1');
 });
 
 test('end-shift score includes accumulated spoilage and penalty data', () => {

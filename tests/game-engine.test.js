@@ -77,10 +77,10 @@ test('a vehicle accepts only pallets from its zone', () => {
   const vehicle = createVehicle({ id: 'dry-1', zone: ZONES.DRY });
   const pallet = createPallet({ storeId: 'north', zone: ZONES.CHILLED });
   const result = loadPallet(vehicle, pallet);
-  assert.equal(result.ok, false);
-  assert.equal(result.reason, 'wrong-zone');
-  assert.equal(result.spoilageReason.type, 'wrong-transport');
-  assert.match(result.spoilageReason.message, /dry.*chilled|chilled.*dry/);
+  /* Отказ, а не порча: в кузов чужой зоны паллету просто не примут. Товар
+     гибнет там, где действительно простоял в чужой температуре, — при
+     размещении в неверную зону (см. placeInbound). */
+  assert.deepEqual(result, { ok: false, reason: 'wrong-zone' });
 });
 
 test('vehicle capacity applies across multiple pallets', () => {

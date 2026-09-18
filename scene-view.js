@@ -39,8 +39,8 @@
     const code = state.feedback?.code;
     let mode = 'idle';
 
-    if (code === 'wrong-zone' || code === 'wrong-placement') mode = 'spoiled';
-    else if (code === 'over-capacity') mode = 'blocked';
+    if (code === 'wrong-placement') mode = 'spoiled';
+    else if (code === 'over-capacity' || code === 'fleet-full') mode = 'blocked';
     else if (awaitingPlacement) mode = 'placing';
     else if (inbound) mode = 'receiving';
     else if (code === 'pallet-loaded') mode = 'to-dispatch';
@@ -75,7 +75,10 @@
           : null,
       selectedZone: state.pallet?.zone || 'dry',
       selectedVehicleZone: selectedVehicle?.zone || null,
-      highlightObject: code === 'wrong-zone' ? 'pallet' : code === 'over-capacity' ? capacityTargetFor(state) : code === 'demand-increase' ? 'zone' : '',
+      highlightObject: code === 'wrong-placement' ? 'pallet'
+        : code === 'fleet-full' ? 'truck'
+          : code === 'over-capacity' ? capacityTargetFor(state)
+            : code === 'demand-increase' ? 'zone' : '',
       mode,
       palletFillPercent: Math.min(100, Math.round(((state.pallet?.weight || 0) / (state.pallet?.capacity || 100)) * 100)),
       loadedPalletCount: (state.loadedPallets || []).length,

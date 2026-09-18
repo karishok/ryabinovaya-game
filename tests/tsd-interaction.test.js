@@ -142,7 +142,7 @@ test('a successful load reports through the toast and never takes over the termi
      полноэкранное сообщение с обязательным «Продолжить». */
   assert.equal(elements.get('tsdDevice').dataset.open, 'false');
   assert.notEqual(elements.get('tsdDevice').dataset.screen, 'feedback');
-  assert.match(elements.get('toast').textContent, /в кузове/i);
+  assert.match(elements.get('toast').textContent, /в кузов/i);
   assert.match(elements.get('toast').className, /show success/);
 
   click({ dataset: { action: 'OPEN_VEHICLES' }, disabled: false });

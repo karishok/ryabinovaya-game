@@ -4,7 +4,7 @@ const fs = require('node:fs');
 
 test('living warehouse shell keeps product vocabulary and scene layers', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  for (const label of ['Рябиновая', 'Сухач', 'Заморозка', 'Охлаждёнка', 'Собрать паллету', 'reportModal']) {
+  for (const label of ['Рябиновая', 'Сухач', 'Заморозка', 'Охлаждёнка', 'Сборка паллеты', 'Приёмка', 'reportModal']) {
     assert.match(html, new RegExp(label));
   }
   for (const id of ['warehouseScene', 'sceneStatus', 'sceneOperator', 'sceneOperatorName', 'scenePallet', 'sceneTruckBay', 'tsdDevice', 'tsdBackdrop', 'tsdScreen']) {
