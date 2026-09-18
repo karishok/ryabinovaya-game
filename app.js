@@ -156,11 +156,9 @@ function renderTsd(view, document) {
   message.textContent = view.message;
   // Пустая строка статуса всё равно держала 24 px в шапке прибора.
   message.hidden = !view.message;
-  byId(document, 'tsdReportSummary').textContent = view.reportSummary || '';
-  byId(document, 'tsdReportSummary').hidden = view.screen !== 'report';
   const continueStory = byId(document, 'tsdContinueStory');
   continueStory.hidden = view.screen !== 'briefing';
-  continueStory.textContent = view.title === 'Смена завершена' ? 'Продолжить' : 'Начать смену';
+  continueStory.textContent = view.storyKind === 'after' ? 'Продолжить' : 'Начать смену';
   byId(document, 'tsdAccept').hidden = !view.canAccept;
   byId(document, 'tsdReceive').hidden = !view.canReceive;
   byId(document, 'tsdClose').hidden = !view.canClose;
@@ -334,27 +332,25 @@ function render(nextState, document) {
   reportModal.setAttribute('aria-hidden', String(nextState.report ? false : true));
   if (nextState.report) {
     byId(document, 'reportStars').textContent = '★'.repeat(nextState.report.stars);
-    byId(document, 'reportMessage').textContent = nextState.report.reasons[0] || 'Срочные паллеты готовы к отгрузке.';
     byId(document, 'reportDelivered').textContent = `${nextState.report.deliveredPercent}%`;
     byId(document, 'reportOnTime').textContent = `${nextState.report.onTimePercent}%`;
     byId(document, 'reportPrecision').textContent = `${nextState.report.precisionPercent}%`;
     byId(document, 'reportSpoiled').textContent = String(nextState.report.spoiledPallets);
     byId(document, 'reportProfit').textContent = `${nextState.report.profit.toLocaleString('ru-RU')} ₽`;
-    byId(document, 'reportReasons').innerHTML = nextState.report.reasons.slice(0, 3).map((reason) => `<li>${reason}</li>`).join('');
-    byId(document, 'nextShift').textContent = nextState.nextLevelId ? 'Следующая смена' : 'Завершить кампанию';
+    /* Первую причину печатает шапка прибора, поэтому список продолжает с
+       второй, а не начинает с той же строки заново. */
+    byId(document, 'reportReasons').innerHTML = nextState.report.reasons.slice(1, 3).map((reason) => `<li>${reason}</li>`).join('');
+    byId(document, 'tsdContinue').textContent = nextState.nextLevelId ? 'Следующая смена' : 'Завершить кампанию';
   }
 
+  /* Карточка нужна только перед сменой: там она несёт цель и вход в гайд.
+     После смены в ней оставалась пустая рамка с «Как играть?», хотя смена
+     уже закончилась, — итог целиком печатает шапка прибора. */
   const briefing = byId(document, 'levelBriefing');
-  const showStory = !nextState.guideOpen && (nextState.phase === 'briefing' || nextState.phase === 'story-after');
-  briefing.classList.toggle('open', false);
+  const showStory = !nextState.guideOpen && nextState.phase === 'briefing';
   briefing.hidden = !showStory;
   briefing.setAttribute('aria-hidden', String(!showStory));
-  if (showStory) {
-    byId(document, 'briefingKicker').textContent = nextState.phase === 'briefing' ? 'Новая смена' : 'Итоги истории';
-    byId(document, 'briefingTitle').textContent = nextState.phase === 'briefing' ? `Уровень ${level.id} · ${level.title}` : 'Смена завершена';
-    byId(document, 'briefingText').textContent = nextState.story?.text || '';
-    byId(document, 'briefingGoal').textContent = nextState.phase === 'briefing' ? level.goal : (nextState.nextLevelId ? 'Нажмите, чтобы перейти к следующей смене.' : 'Кампания пройдена.');
-  }
+  if (showStory) byId(document, 'briefingGoal').textContent = level.goal;
   const endless = byId(document, 'endlessMode');
   endless.hidden = nextState.phase !== 'endless';
   endless.classList.toggle('open', nextState.phase === 'endless');

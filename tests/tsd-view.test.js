@@ -9,6 +9,7 @@ test('briefing view uses the level story inside the TSD', () => {
   assert.equal(view.open, true);
   assert.equal(view.title, 'Новая смена');
   assert.ok(view.message.length > 0);
+  assert.equal(view.storyKind, 'before');
 });
 
 test('task view names the store, goods and Russian zone', () => {

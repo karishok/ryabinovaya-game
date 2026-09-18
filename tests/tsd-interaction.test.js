@@ -117,8 +117,12 @@ test('report continues through the visible TSD shell control', () => {
 
   const continueButton = shellControlFor('SHOW_STORY_AFTER');
   assert.equal(elements.get('tsdDevice').dataset.screen, 'report');
+  // Шапка печатает первую причину, таблица карточки — цифры. Ни то, ни
+  // другое не повторяется: раньше причина стояла и строкой, и заголовком,
+  // и первым пунктом списка, а проценты — и в шапке, и в таблице.
   assert.ok(elements.get('tsdMessage').textContent.length > 0);
-  assert.match(elements.get('tsdReportSummary').textContent, /Доставлено:/);
+  assert.match(elements.get('reportDelivered').textContent, /%/);
+  assert.equal(elements.get('reportReasons').innerHTML, '');
   assert.ok(continueButton, 'report must expose SHOW_STORY_AFTER in the TSD shell');
   assert.equal(elements.get('tsdContinue').hidden, false);
   continueButton.click();
@@ -241,4 +245,49 @@ test('the close button only appears on screens the player can actually leave', (
   const report = appState.reduceAction(task, { type: 'END_SHIFT' });
   window.render(report, document);
   assert.equal(elements.get('tsdClose').hidden, true);
+});
+
+test('no TSD screen prints the same line twice', () => {
+  /* Шапка прибора и панель экрана — два разных места, и каждое раньше
+     печатало заголовок и текст целиком: на брифинге история стояла дважды,
+     на отчёте причина — трижды. Проверяем все экраны разом. */
+  const html = fs.readFileSync('index.html', 'utf8');
+  // id → панель ТСД, внутри которой он лежит: скрытая панель ничего не
+  // печатает, даже если её строки остались в памяти рендера.
+  const panelOf = new Map();
+  for (const [, panel, body] of html.matchAll(/data-tsd-panel="(\w+)"[^>]*>([\s\S]*?)(?=<section[^>]*data-tsd-panel=|<\/div>\s*<\/div>\s*<\/div>)/g)) {
+    for (const [, id] of body.matchAll(/id="(\w+)"/g)) if (!panelOf.has(id)) panelOf.set(id, panel);
+  }
+
+  const readable = (elements, screen) => [...elements.entries()]
+    /* Полоса закрытого ТСД (tsdCompact*) и сводка смены — другие поверхности:
+       они видны, когда терминал закрыт, и повторять их экраном не считается. */
+    .filter(([id]) => !['toast', 'sceneStatus', 'boardStatus', 'tsdCompactKicker', 'tsdCompactTask', 'tsdCompactMeta'].includes(id))
+    .filter(([id]) => !panelOf.has(id) || panelOf.get(id) === screen)
+    .filter(([, el]) => !el.hidden && typeof el.textContent === 'string' && el.textContent.trim().length > 8)
+    .map(([id, el]) => [id, el.textContent.trim()]);
+
+  const duplicatesIn = (elements) => {
+    const screen = elements.get('tsdDevice').dataset.screen;
+    const seen = new Map();
+    for (const [id, text] of readable(elements, screen)) {
+      if (!seen.has(text)) seen.set(text, []);
+      seen.get(text).push(id);
+    }
+    return [...seen.entries()].filter(([, ids]) => ids.length > 1);
+  };
+
+  const briefing = loadUiWithClicks();
+  assert.deepEqual(duplicatesIn(briefing.elements), [], 'брифинг печатает строку дважды');
+
+  const task = loadUiWithClicks();
+  task.click({ dataset: { action: 'CONTINUE_STORY' }, disabled: false });
+  assert.equal(task.elements.get('tsdDevice').dataset.screen, 'task');
+  assert.deepEqual(duplicatesIn(task.elements), [], 'задание печатает строку дважды');
+
+  const report = loadUiWithClicks();
+  report.click({ dataset: { action: 'CONTINUE_STORY' }, disabled: false });
+  report.click({ dataset: { action: 'END_SHIFT' }, disabled: false });
+  assert.equal(report.elements.get('tsdDevice').dataset.screen, 'report');
+  assert.deepEqual(duplicatesIn(report.elements), [], 'отчёт печатает строку дважды');
 });

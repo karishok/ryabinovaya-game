@@ -162,7 +162,7 @@ test('one loaded quantity is allocated only once across matching order lines', (
 test('campaign shell includes briefing, operational feedback, and a complete report', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   assert.match(html, /<script src="levels\.js"><\/script>\s*<script src="scoring\.js"><\/script>\s*<script src="app-state\.js(?:\?[^\"]*)?"><\/script>/);
-  for (const id of ['levelBriefing', 'storyCard', 'eventBanner', 'reportDelivered', 'reportOnTime', 'reportSpoiled', 'nextShift']) {
+  for (const id of ['levelBriefing', 'storyCard', 'eventBanner', 'reportDelivered', 'reportOnTime', 'reportSpoiled', 'tsdContinue']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /Следующая смена/);

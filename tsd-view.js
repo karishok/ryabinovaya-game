@@ -57,6 +57,8 @@
     const awaitingPlacement = Boolean(inbound && inbound.status === 'received');
     const progressText = `${state.pallet?.weight || 0} / ${state.pallet?.capacity || 100} кг`;
     const signal = state.feedback?.kind === 'error' ? 'error' : (state.tsd?.signal || 'idle');
+    // Имя уровня постоянно висит в шапке сцены над фотографией, поэтому
+    // заголовок брифинга его не повторяет.
     const titleByScreen = {
       report: 'Итоги смены',
       feedback: 'Ошибка',
@@ -75,9 +77,9 @@
       task: state.feedback?.message || (order ? 'Проверьте заявку и примите её.' : 'Активных заявок нет.'),
       current: state.feedback?.message || '',
     };
-    const reportSummary = state.report
-      ? `Доставлено: ${state.report.deliveredPercent ?? 0}% · Вовремя: ${state.report.onTimePercent ?? 0}% · Точность: ${state.report.precisionPercent ?? 0}%`
-      : '';
+    // Цифры отчёта живут в таблице карточки; строкой в шапке их печатать
+    // второй раз незачем.
+    const storyKind = state.story?.kind || null;
     const mandatoryOpen = ['feedback', 'briefing', 'report'].includes(screen);
     const accepted = Boolean(state.tsd?.acceptedOrderId);
     const remaining = order ? order.quantity - loadedQuantityFor(state, order) : 0;
@@ -108,7 +110,10 @@
       screen,
       signal,
       title: titleByScreen[screen],
-      showOrderBlock: ['task', 'current', 'inbound'].includes(screen),
+      /* Экраны задания и приёмки раскладывают те же строки по подписанным
+         карточкам («Куда», «Что собрать», «Зона»), поэтому шапка их не
+         повторяет. Остаётся «Текущая работа», где карточек нет. */
+      showOrderBlock: screen === 'current',
       storeName: inbound ? `Привоз: ${inbound.supplier}` : order ? STORE_NAMES[order.storeId] || order.storeId : '',
       orderText: inbound
         ? `${inboundItem?.name || inbound.sku} · ${inbound.quantity} шт.`
@@ -116,7 +121,7 @@
       zoneName: inbound ? inboundZoneName : order ? ZONE_NAMES[order.zone] || order.zone : '',
       progressText: inbound ? '' : progressText,
       message: messageByScreen[screen],
-      reportSummary,
+      storyKind,
       canAccept: screen === 'task' && !accepted && Boolean(order),
       canReceive: screen === 'inbound' && !awaitingPlacement,
       awaitingPlacement,

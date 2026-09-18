@@ -20,7 +20,8 @@ test('redesign keeps every established gameplay command reachable', () => {
 
 test('mobile shell keeps builder, transport, pause and report reachable', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  for (const id of ['builderModal', 'vehicleModal', 'reportModal', 'routeButton', 'nextShift']) {
+  // Переход к следующей смене — одна кнопка в шапке прибора (tsdContinue).
+  for (const id of ['builderModal', 'vehicleModal', 'reportModal', 'routeButton', 'tsdContinue']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
 });

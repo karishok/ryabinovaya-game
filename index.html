@@ -72,16 +72,18 @@
         <p id="tsdZone"></p>
         <p id="tsdProgress"></p>
         <p id="tsdMessage" role="status"></p>
-        <p id="tsdReportSummary" hidden></p>
         <button class="tsd-primary" id="tsdContinueStory" data-action="CONTINUE_STORY" type="button" hidden>Начать смену</button>
         <button class="tsd-primary" id="tsdAccept" data-action="ACCEPT_TASK" type="button">Принять</button>
         <button class="tsd-primary" id="tsdReceive" data-action="RECEIVE_PALLET" type="button" hidden>Принять паллету</button>
         <button class="tsd-primary" id="tsdContinue" data-action="SHOW_STORY_AFTER" type="button" hidden>Следующая смена</button>
         <div class="tsd-content-slot" id="tsdContentSlot">
+          <!-- Заголовок смены и текст истории печатает шапка прибора. Карточка
+               добавляет только то, чего в шапке нет: цель смены и вход в гайд.
+               Раньше она повторяла и заголовок, и историю целиком. -->
           <section id="tsdBriefing" data-tsd-panel="briefing" hidden>
             <section id="levelBriefing" aria-hidden="true">
-              <section class="tsd-panel story-card" id="storyCard" role="dialog" aria-modal="true" aria-labelledby="briefingTitle">
-                <span class="story-kicker" id="briefingKicker">Новая смена</span><h2 id="briefingTitle">Уровень 1</h2><p id="briefingText">Инструкции смены.</p><p class="story-goal" id="briefingGoal"></p><button class="btn secondary full-width" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">Как играть?</button>
+              <section class="tsd-panel story-card" id="storyCard" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
+                <p class="story-goal" id="briefingGoal"></p><button class="btn secondary full-width" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">Как играть?</button>
               </section>
             </section>
           </section>
@@ -156,7 +158,10 @@
           </section>
           <section id="reportModal" data-tsd-panel="report" hidden aria-hidden="true">
             <div class="tsd-panel report" id="tsdReport" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
-              <div class="big" id="reportStars">★</div><h2 id="reportTitle">Смена завершена</h2><p id="reportMessage">Итоги смены готовы.</p><div class="report-grid"><div class="report-stat"><small>Доставлено</small><strong id="reportDelivered">0%</strong></div><div class="report-stat"><small>Вовремя</small><strong id="reportOnTime">0%</strong></div><div class="report-stat"><small>Точность</small><strong id="reportPrecision">0%</strong></div><div class="report-stat"><small>Испорчено паллет</small><strong id="reportSpoiled">0</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><ul class="report-reasons" id="reportReasons"></ul><button class="btn" id="nextShift" data-action="SHOW_STORY_AFTER">Следующая смена</button>
+              <!-- Заголовок — в шапке прибора, причины — в списке ниже.
+                   Раньше «Итоги смены» стояли трижды: строкой в шапке,
+                   заголовком карточки и первой причиной. -->
+              <div class="big" id="reportStars">★</div><div class="report-grid"><div class="report-stat"><small>Доставлено</small><strong id="reportDelivered">0%</strong></div><div class="report-stat"><small>Вовремя</small><strong id="reportOnTime">0%</strong></div><div class="report-stat"><small>Точность</small><strong id="reportPrecision">0%</strong></div><div class="report-stat"><small>Испорчено паллет</small><strong id="reportSpoiled">0</strong></div><div class="report-stat"><small>Итоговая прибыль</small><strong id="reportProfit">0 ₽</strong></div></div><ul class="report-reasons" id="reportReasons"></ul>
             </div>
           </section>
         </div>
