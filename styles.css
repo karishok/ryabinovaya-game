@@ -238,9 +238,10 @@ button:disabled { cursor: default; opacity: 0.42; }
     radial-gradient(circle at 88% 50%, #4b515b 0 5px, transparent 5px);
   content: "";
 }
-/* Собственно экран прибора. */
+/* Собственно экран прибора. Высота выбрана так, чтобы сборка помещалась
+   целиком даже с раскрытым блоком адреса — прокручивать задание не нужно. */
 .tsd-display {
-  max-height: min(66svh, 600px);
+  max-height: min(72svh, 640px);
   overflow: auto;
   padding: 16px 15px;
   border: 1px solid #090b0d;
@@ -282,7 +283,8 @@ button:disabled { cursor: default; opacity: 0.42; }
 .builder-target[open] > summary::after { content: " ▴"; }
 .builder-target > summary b { color: var(--cream); }
 .builder-target > *:not(summary) { margin-right: 13px; margin-left: 13px; }
-.builder-target .zone-selects { margin-bottom: 13px; }
+.builder-target .zone-selects { margin-bottom: 8px; }
+.builder-target .tsd-hint { margin-top: 0; }
 .tsd-task-card { display: grid; gap: 3px; padding: 11px 13px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: rgba(9, 18, 14, 0.55); }
 .tsd-task-label { color: #b4e7ca; font-size: 9px; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
 .tsd-task-card strong { color: var(--cream); font-size: 15px; }
@@ -307,41 +309,46 @@ button:disabled { cursor: default; opacity: 0.42; }
 .route-summary b { color: var(--cream); }
 .route-stop .leg { margin-left: 6px; color: #ffe0a0; font-size: 11px; font-weight: 800; }
 
+/* Метка зоны — компактный шильдик на своём стеллаже, а не рамка в половину
+   кадра. Координаты — центры тех же трёх подсвеченных рядов, поэтому значок
+   стоит на ряду, а не висит под ним. */
 .scene-zone-sign {
-  /* Область поверх самого стеллажа на фотографии, а не табличка рядом с ним. */
   position: absolute;
   z-index: 3;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0 0 6px;
-  border: 2px solid transparent;
-  border-radius: 10px;
-  background: transparent;
-  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
-}
-.scene-zone-sign span {
-  padding: 5px 9px;
+  display: grid;
+  min-width: 52px;
+  min-height: 44px;
+  padding: 0 10px;
+  place-items: center;
   border: 1px solid rgba(244, 234, 216, 0.34);
-  border-radius: 999px;
+  border-radius: 12px;
   background: rgba(10, 20, 15, 0.82);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+  transform: translate(-50%, -50%);
+}
+.scene-zone-sign b {
   color: #fff6d9;
-  font-size: 10px;
+  font-size: 15px;
   font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   pointer-events: none;
 }
-/* Границы совпадают с тремя подсвеченными рядами в видимой полосе кадра. */
-.scene-zone--dry { top: 1.4%; left: 1%; width: 23%; height: 62.5%; }
-.scene-zone--chilled { top: 6.9%; left: 26%; width: 19%; height: 56.9%; }
-.scene-zone--frozen { top: 11.1%; left: 53%; width: 19%; height: 51.4%; }
+/* Цвет температуры и есть обозначение зоны: он же повторяется в сборке. */
+.scene-zone--chilled b, .zone-select[data-zone="chilled"] b { color: var(--chilled); }
+.scene-zone--frozen b, .zone-select[data-zone="frozen"] b { color: var(--frozen); }
+.scene-zone--dry b, .zone-select[data-zone="dry"] b { color: var(--amber); }
+.scene-zone--dry { top: 33%; left: 13%; }
+.scene-zone--chilled { top: 35%; left: 35%; }
+.scene-zone--frozen { top: 37%; left: 63%; }
 /* Все три зоны оформлены одинаково: различает их только состояние, не цвет. */
-.scene-zone-sign.is-selected { border-color: rgba(244, 234, 216, 0.5); background: rgba(244, 234, 216, 0.07); }
-.scene-zone-sign.is-active { border-color: var(--cream); background: rgba(244, 234, 216, 0.12); box-shadow: inset 0 0 26px rgba(244, 234, 216, 0.16); }
-.scene-zone-sign.is-active span { border-color: var(--cream); background: rgba(10, 20, 15, 0.94); }
+.scene-zone-sign.is-selected { border-color: rgba(244, 234, 216, 0.55); background: rgba(24, 44, 34, 0.9); }
+/* Активная зона крупнее и светлее — без рамки во весь стеллаж. */
+.scene-zone-sign.is-active { border-color: var(--cream); background: rgba(14, 28, 21, 0.95); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55), 0 0 0 3px rgba(244, 234, 216, 0.18); transform: translate(-50%, -50%) scale(1.08); }
 .scene-zone-sign.locked { opacity: 0.4; }
-.scene-zone-sign.locked span { color: #b8c1b5; }
+.scene-zone-sign.locked b { color: #b8c1b5; }
 
 /* Хотспоты поверх объектов, которые уже нарисованы на фотографии.
    Ничего не дорисовываем: область только помечает объект и делает его
@@ -375,8 +382,9 @@ button:disabled { cursor: default; opacity: 0.42; }
 .dock-badge { position: absolute; top: -10px; right: -6px; min-width: 22px; padding: 2px 6px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: var(--terracotta); color: #fffaf0; font-size: 10px; font-weight: 900; text-align: center; pointer-events: none; }
 @keyframes dock-pulse { 50% { box-shadow: 0 0 0 4px rgba(240, 170, 56, 0.28), inset 0 0 30px rgba(240, 170, 56, 0.32); } }
 /* Зона-цель при размещении: подсказка должна читаться без ТСД. */
-.scene-zone-sign.is-target { border-color: rgba(240, 170, 56, 0.75); background: rgba(240, 170, 56, 0.14); }
-.scene-zone-sign.is-target.is-active span { border-color: var(--amber); background: rgba(40, 24, 8, 0.94); color: #ffd98a; }
+.scene-zone-sign.is-target { border-color: rgba(240, 170, 56, 0.6); }
+.scene-zone-sign.is-target.is-active { border-color: var(--amber); background: rgba(44, 27, 8, 0.95); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55), 0 0 0 3px rgba(240, 170, 56, 0.34); }
+.scene-zone-sign.is-target.is-active b { color: #ffd98a; }
 /* Фуры у погрузочных доков в глубине кадра. */
 .truck-bay { top: 56.9%; left: 73%; width: 27%; height: 15.3%; }
 
@@ -449,7 +457,6 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Сводка смены под фотографией: занимает то место, которое раньше было
    пустым, и держит заявки и завершение смены на виду без лишних нажатий. */
 .shift-board { display: grid; gap: 9px; padding: 13px 12px 0; }
-.board-status { margin: 0; color: #d9f0de; font-size: 13px; font-weight: 750; line-height: 1.35; }
 .board-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .board-actions .btn.secondary { margin-top: 0; font-size: 13px; }
 .event-banner { display: none; padding: 10px 12px; border: 1px solid rgba(81, 185, 173, 0.62); border-radius: 12px; background: #183b33; color: #d8fff3; font-size: 12px; font-weight: 700; }
@@ -470,8 +477,15 @@ button:disabled { cursor: default; opacity: 0.42; }
 .select-label { margin-top: 13px; color: #bfc9bd; font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
 /* Сетка вместо переноса флексом: четыре даркстора раньше вставали в четыре
    строки и занимали полэкрана. */
-.store-selects, .zone-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 7px 0 10px; }
-.store-select, .zone-select { min-height: 44px; padding: 8px 10px; border: 1px solid rgba(244, 234, 216, 0.17); border-radius: 11px; background: #25362d; font-size: 13px; text-align: left; }
+.store-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 7px 0 10px; }
+/* Три зоны — одна строка: температура читается и в узкой колонке. */
+.zone-selects { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 7px 0 10px; }
+.zone-select { display: grid; gap: 1px; padding: 7px 4px; place-items: center; text-align: center; }
+.zone-select b { font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.zone-select small { overflow: hidden; max-width: 100%; color: var(--muted); font-size: 9px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.zone-select.selected small { color: #c6ffed; }
+.store-select, .zone-select { min-height: 44px; padding: 6px 9px; border: 1px solid rgba(244, 234, 216, 0.17); border-radius: 11px; background: #25362d; font-size: 12px; text-align: left; }
+.store-select { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .store-select.selected, .zone-select.selected, .vehicle-row.selected { border-color: var(--chilled); background: #1d493d; color: #c6ffed; }
 .builder-feedback { display: none; margin: 0 0 10px; padding: 9px; border: 1px solid rgba(217, 74, 63, 0.75); border-radius: 11px; background: rgba(112, 40, 34, 0.64); color: #ffe0db; font-size: 12px; }
 .builder-feedback.show { display: block; }
@@ -508,9 +522,9 @@ button:disabled { cursor: default; opacity: 0.42; }
 .report-reasons { margin: 0 0 16px; padding-left: 19px; color: var(--muted); text-align: left; font-size: 12px; }
 .report-reasons li + li { margin-top: 5px; }
 
-/* Уведомление — строка в сводке смены, а не плавающая плашка: плавающая
-   ложилась поверх кнопок сводки, и оба текста становились нечитаемыми. */
-.toast { display: none; padding: 11px 14px; border-radius: 13px; background: #ecf9f0; color: #163426; box-shadow: var(--shadow); font-weight: 750; }
+/* Уведомление — плашка внизу фотографии. В потоке сводки оно раздвигало
+   её и загоняло кнопки под полосу ТСД, поверх кнопок — перекрывало их. */
+.toast { position: absolute; z-index: 6; right: 12px; bottom: 12px; left: 12px; display: none; padding: 10px 13px; border-radius: 13px; background: #ecf9f0; color: #163426; box-shadow: var(--shadow); font-size: 13px; font-weight: 750; }
 .toast.show { display: block; animation: banner-in 180ms ease-out; }
 .toast.error { background: #ffe1dc; color: #5a231b; }
 .toast.info { background: #e9eee2; color: #29352a; }

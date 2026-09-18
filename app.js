@@ -1,5 +1,6 @@
 const engine = window.RyabinovayaEngine;
-const { LEVELS, ZONE_NAMES: zones } = window.RyabinovayaLevels;
+// Названия дарксторов и зон — из данных уровней, а не второй копией здесь.
+const { LEVELS, ZONE_NAMES: zones, STORE_NAMES: stores, ZONE_MARKS: zoneMarks } = window.RyabinovayaLevels;
 const {
   reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles,
   activeOrderFor, remainingFor, vehicleForPallet, vehicleLabel: labelFor, roomIn,
@@ -7,7 +8,6 @@ const {
 const { warehouseViewFor } = window.RyabinovayaSceneView;
 const { terminalViewFor } = window.RyabinovayaTsdView;
 const { signalTsd } = window.RyabinovayaTsdSignal || { signalTsd: () => {} };
-const stores = { north: 'Северный', central: 'Центральный', west: 'Западный', east: 'Восточный' };
 const itemDetails = {
   water: { emoji: '💧', name: 'Вода 1,5 л' }, milk: { emoji: '🥛', name: 'Молоко' }, banana: { emoji: '🍌', name: 'Бананы' }, bread: { emoji: '🍞', name: 'Хлеб' }, 'ice-cream': { emoji: '🍨', name: 'Мороженое' },
 };
@@ -102,7 +102,6 @@ function renderScene(view, document) {
   scene.dataset.event = view.eventCode || '';
   scene.dataset.highlight = view.highlightObject || '';
   byId(document, 'sceneStatus').textContent = view.statusText;
-  byId(document, 'boardStatus').textContent = view.statusText;
   byId(document, 'sceneOperatorName').textContent = view.operatorName;
   const scenePallet = byId(document, 'scenePallet');
   scenePallet.style.setProperty('--pallet-fill', `${view.palletFillPercent}%`);

@@ -67,7 +67,7 @@ test('renderTsd mirrors terminal state into semantic visibility and content', ()
   const { window, elements } = loadUi();
   window.renderTsd({
     open: false, screen: 'current', signal: 'idle', title: 'Текущая работа',
-    storeName: 'Северный', orderText: 'Вода · 2 шт.', zoneName: 'Сухач',
+    storeName: 'Тушино', orderText: 'Вода · 2 шт.', zoneName: 'Сухач',
     progressText: '24 / 100 кг', message: 'Готово.', canAccept: false,
   }, { getElementById: (id) => elements.get(id) });
 
@@ -86,7 +86,7 @@ test('renderTsd removes the hidden hardware opener from the accessibility tree',
 
   window.renderTsd({
     open: true, screen: 'task', signal: 'new', title: 'Новое задание',
-    storeName: 'Северный', orderText: 'Вода · 2 шт.', zoneName: 'Сухач',
+    storeName: 'Тушино', orderText: 'Вода · 2 шт.', zoneName: 'Сухач',
     progressText: '0 / 100 кг', message: '', canAccept: true,
   }, document);
 

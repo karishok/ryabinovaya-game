@@ -80,7 +80,7 @@ test('tapping the pallet opens the builder instead of detouring through the task
   assert.equal(elements.get('tsdDevice').dataset.screen, 'builder');
   assert.equal(elements.get('builderModal').attributes['aria-hidden'], 'false');
   // Задание видно там, где собирают, а не на отдельном экране.
-  assert.match(elements.get('builderTask').textContent, /Северный/);
+  assert.match(elements.get('builderTask').textContent, /Тушино/);
 
   click({ dataset: { action: 'CLOSE_BUILDER' }, disabled: false });
   click({ dataset: { action: 'OPEN_VEHICLES' }, disabled: false });
@@ -262,7 +262,7 @@ test('no TSD screen prints the same line twice', () => {
   const readable = (elements, screen) => [...elements.entries()]
     /* Полоса закрытого ТСД (tsdCompact*) и сводка смены — другие поверхности:
        они видны, когда терминал закрыт, и повторять их экраном не считается. */
-    .filter(([id]) => !['toast', 'sceneStatus', 'boardStatus', 'tsdCompactKicker', 'tsdCompactTask', 'tsdCompactMeta'].includes(id))
+    .filter(([id]) => !['toast', 'sceneStatus', 'tsdCompactKicker', 'tsdCompactTask', 'tsdCompactMeta'].includes(id))
     .filter(([id]) => !panelOf.has(id) || panelOf.get(id) === screen)
     .filter(([, el]) => !el.hidden && typeof el.textContent === 'string' && el.textContent.trim().length > 8)
     .map(([id, el]) => [id, el.textContent.trim()]);

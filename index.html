@@ -26,23 +26,30 @@
           </div>
         </div>
 
-        <button class="scene-zone-sign scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry"><span>Сухач</span></button>
-        <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled"><span>Охлаждёнка</span></button>
-        <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen"><span>Заморозка</span></button>
+        <!-- Зона помечается температурой стеллажа, а не подписью во всю
+             высоту кадра: раньше хотспот был прямоугольником на полкадра с
+             табличкой у нижней кромки. Значок стоит в центре своего ряда. -->
+        <button class="scene-zone-sign scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry" aria-label="Зона Сухач, +18 градусов"><b>+18°</b></button>
+        <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled" aria-label="Зона Охлаждёнка, +4 градуса"><b>+4°</b></button>
+        <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen" aria-label="Зона Заморозка, −18 градусов"><b>−18°</b></button>
 
         <button class="scene-dock scene-object" id="sceneDock" data-action="OPEN_TSD" type="button" hidden aria-label="Открыть задание приёмки"><span class="dock-badge" id="dockBadge">1</span><span class="scene-object-hint" aria-hidden="true">Приёмка</span></button>
         <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
         <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
+
+        <!-- Уведомление лежит поверх нижней части фотографии, а не в потоке
+             сводки: в потоке оно раздвигало её и загоняло кнопки под ТСД. -->
+        <div class="toast" id="toast" role="status"></div>
       </section>
 
       <!-- Сводка смены живёт на странице, а не внутри терминала: раньше под
            фотографией оставалось 235 px пустоты, а список заявок и завершение
            смены были спрятаны за отдельным нажатием на ТСД. -->
       <section class="shift-board" id="shiftBoard" aria-label="Сводка смены">
-        <div class="toast" id="toast" role="status"></div>
-        <p class="board-status" id="boardStatus">Выберите заявку и начните сборку.</p>
+        <!-- Строки статуса здесь нет: что делать сейчас, говорит полоса ТСД,
+             а что только что случилось — тост поверх сцены. -->
         <!-- Только очередь: заявку, которую ТСД уже держит на экране, сводка
              не повторяет, а закрытые не печатает вовсе. Когда в очереди
              ничего не осталось, блок исчезает. -->
@@ -120,11 +127,14 @@
               <div id="itemRows"></div>
               <details class="builder-target" id="builderTarget">
                 <summary>Адрес и зона: <b id="builderTargetLabel"></b></summary>
-                <p class="tsd-hint">Смена зоны начинает паллету заново: товар вернётся в зону хранения.</p>
-                <div class="select-label">Даркстор</div>
-                <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Северный</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Центральный</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Западный</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Восточный</button></div>
-                <div class="select-label">Зона</div>
-                <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry">🧱 Сухач</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled">❄️ Охлаждёнка</button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen">🧊 Заморозка</button></div>
+                <!-- Подписи «Даркстор» и «Зона» не нужны: названия дарксторов и
+                     температуры зон различимы сами, а экран прибора должен
+                     помещаться целиком даже с раскрытым блоком. -->
+                <p class="tsd-hint">Смена зоны начнёт паллету заново.</p>
+                <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Тушино</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Косинская</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Саларьево</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Беломорская</button></div>
+                <!-- Три зоны в одну строку: зона обозначается температурой,
+                     как на стеллаже, поэтому кнопке хватает узкой колонки. -->
+                <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry"><b>+18°</b><small>Сухач</small></button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled"><b>+4°</b><small>Охлаждёнка</small></button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen"><b>−18°</b><small>Заморозка</small></button></div>
               </details>
               <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b><small id="capacityTarget"></small></div><button class="btn" data-action="LOAD_PALLET">Поставить в отгрузку</button></div>
             </div>

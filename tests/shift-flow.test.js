@@ -120,7 +120,7 @@ test('dismiss-feedback removes an operational notification without changing shif
 
 test('a pallet with the wrong goods for the store fulfils nothing and shows up as dead weight', () => {
   let state = { ...startLevel(levelWith('dynamic-demand')), phase: 'shift' };
-  // Западный заказывал хлеб, а уехала вода.
+  // Саларьево заказывал хлеб, а уехала вода.
   state = ship(state, 'west', 'dry', 'water', 12, 2, 'dry-1');
 
   const report = finishShift(state).report;
@@ -216,7 +216,7 @@ test('shiftOutcome describes the shift in plain data for the scorer', () => {
   assert.deepEqual(outcome.delivered, [{ storeId: 'north', zone: 'dry', sku: 'water', quantity: 2, price: 1500 }]);
   assert.deepEqual(outcome.routes, [{ vehicleId: 'dry-1', stops: ['north'], minutes: 15, bestStops: ['north'], bestMinutes: 15 }]);
   assert.deepEqual(outcome.vehiclesWithoutRoute, []);
-  assert.equal(outcome.demand[0].storeName, 'Северный');
+  assert.equal(outcome.demand[0].storeName, 'Тушино');
   assert.equal(outcome.demand[0].itemName, 'Вода 1,5 л');
 });
 
@@ -239,7 +239,7 @@ test('a perfectly played first level now earns three stars', () => {
 test('orders screen is populated from current state instead of static level 1 copy', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const app = fs.readFileSync('app.js', 'utf8');
-  assert.doesNotMatch(html, /В этой смене одна срочная заявка: «Северный» ждёт воду из зоны «Сухач»\./);
+  assert.doesNotMatch(html, /В этой смене одна срочная заявка: «Тушино» ждёт воду из зоны «Сухач»\./);
   assert.match(html, /id="ordersList"/);
   assert.match(app, /nextState\.orders/);
   assert.match(app, /byId\(document, 'ordersList'\)\.innerHTML/);

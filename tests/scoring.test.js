@@ -128,7 +128,7 @@ test('spoilage is charged against profit', () => {
   assert.equal(profitFor({ ...base, spoiledPallets: 1 }) - profitFor(base), -3000);
 });
 
-const names = { north: 'Северный', central: 'Центральный', west: 'Западный' };
+const names = { north: 'Тушино', central: 'Косинская', west: 'Саларьево' };
 
 test('a perfect shift reports praise instead of a fault list', () => {
   assert.deepEqual(reasonsFor(perfect, emptyOutcome), ['Смена отработана идеально']);
@@ -154,7 +154,7 @@ test('a routeless vehicle does not suppress a route-length complaint about anoth
   };
   const reasons = reasonsFor(metricsFor(outcome), outcome);
   assert.ok(reasons.some((reason) => /Маршрут не построен: dry-2/.test(reason)));
-  assert.ok(reasons.some((reason) => reason === 'Маршрут на 10 минут длиннее оптимального: короче было Западный → Северный'));
+  assert.ok(reasons.some((reason) => reason === 'Маршрут на 10 минут длиннее оптимального: короче было Саларьево → Тушино'));
 });
 
 test('a longer-than-optimal route names the shorter order', () => {
@@ -163,7 +163,7 @@ test('a longer-than-optimal route names the shorter order', () => {
     routes: [{ vehicleId: 'dry-1', stops: ['north', 'west', 'central'], minutes: 61, bestStops: ['central', 'north', 'west'], bestMinutes: 49 }],
   };
   const reasons = reasonsFor(metricsFor(outcome), outcome);
-  assert.ok(reasons.some((reason) => reason === 'Маршрут на 12 минут длиннее оптимального: короче было Центральный → Северный → Западный'));
+  assert.ok(reasons.some((reason) => reason === 'Маршрут на 12 минут длиннее оптимального: короче было Косинская → Тушино → Саларьево'));
 });
 
 test('excess cargo is reported in kilograms', () => {
@@ -175,12 +175,12 @@ test('excess cargo is reported in kilograms', () => {
 test('undelivered goods name the store and the item', () => {
   const outcome = {
     ...emptyOutcome, storeNames: names,
-    demand: [{ storeId: 'west', zone: 'dry', sku: 'bread', quantity: 3, storeName: 'Западный', itemName: 'Хлеб' }],
+    demand: [{ storeId: 'west', zone: 'dry', sku: 'bread', quantity: 3, storeName: 'Саларьево', itemName: 'Хлеб' }],
     delivered: [{ storeId: 'west', zone: 'dry', sku: 'bread', quantity: 1, price: 900 }],
     loadedWeight: 6, usefulWeight: 6,
   };
   const reasons = reasonsFor(metricsFor(outcome), outcome);
-  assert.ok(reasons.some((reason) => /Не доставлено: 2 из 3 позиций.*Западный.*Хлеб/.test(reason)));
+  assert.ok(reasons.some((reason) => /Не доставлено: 2 из 3 позиций.*Саларьево.*Хлеб/.test(reason)));
 });
 
 test('spoilage messages are passed through', () => {
@@ -191,7 +191,7 @@ test('spoilage messages are passed through', () => {
 test('scoreShift bundles metrics, stars, profit and reasons', () => {
   const outcome = {
     ...emptyOutcome,
-    demand: [{ storeId: 'north', zone: 'dry', sku: 'water', quantity: 2, storeName: 'Северный', itemName: 'Вода 1,5 л' }],
+    demand: [{ storeId: 'north', zone: 'dry', sku: 'water', quantity: 2, storeName: 'Тушино', itemName: 'Вода 1,5 л' }],
     delivered: [{ storeId: 'north', zone: 'dry', sku: 'water', quantity: 2, price: 1500 }],
     loadedWeight: 24, usefulWeight: 24,
     routes: [{ vehicleId: 'dry-1', stops: ['north'], minutes: 15, bestStops: ['north'], bestMinutes: 15 }],

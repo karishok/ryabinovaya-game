@@ -11,17 +11,27 @@
   const store = (id, zone) => ({ id, zone, acceptsFromSecond: 0 });
   const arrival = (id, zone, sku, quantity, supplier) => ({ id, zone, sku, quantity, supplier });
 
+  /* Идентификаторы остаются географическими: по ним движок берёт координаты
+     дарксторов для расчёта рейса. Меняются только вывески для игрока. */
   const STORE_NAMES = Object.freeze({
-    north: 'Северный',
-    central: 'Центральный',
-    west: 'Западный',
-    east: 'Восточный',
+    north: 'Тушино',
+    central: 'Косинская',
+    west: 'Саларьево',
+    east: 'Беломорская',
   });
 
   const ZONE_NAMES = Object.freeze({
     dry: 'Сухач',
     chilled: 'Охлаждёнка',
     frozen: 'Заморозка',
+  });
+
+  /* Зона на складе помечается температурой, а не словом: так её и подписывают
+     на стеллажах, и такой значок читается на схеме без надписи. */
+  const ZONE_MARKS = Object.freeze({
+    dry: '+18°',
+    chilled: '+4°',
+    frozen: '−18°',
   });
 
   /* Порядок уровней — это порядок правил, а не порядок цифр. Каждая смена
@@ -200,5 +210,5 @@
     },
   ];
 
-  return { LEVELS, STORE_NAMES, ZONE_NAMES };
+  return { LEVELS, STORE_NAMES, ZONE_NAMES, ZONE_MARKS };
 });

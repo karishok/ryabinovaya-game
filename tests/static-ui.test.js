@@ -195,7 +195,6 @@ test('everything the removed tabs hosted has a new home', () => {
   assert.match(panel, /id="ordersList"/);
   assert.match(panel, /data-action="END_SHIFT"/);
   assert.match(panel, /data-action="OPEN_GUIDE"/);
-  assert.match(panel, /id="boardStatus"/);
 });
 
 test('the TSD panel is rendered as the screen of a device body', () => {
@@ -208,8 +207,13 @@ test('the TSD panel is rendered as the screen of a device body', () => {
   assert.match(html, /class="tsd-display"[\s\S]*?id="tsdTitle"/);
   assert.match(css, /\.tsd-screen::before/);
   assert.match(css, /\.tsd-screen::after/);
+  /* Экран прибора ограничен по высоте, иначе корпус уезжает за край кадра.
+     Конкретное число — вопрос вёрстки, поэтому проверяем сам предел и то,
+     что он оставляет место корпусу. */
   const display = css.slice(css.indexOf('.tsd-display {'));
-  assert.match(display.slice(0, display.indexOf('}')), /max-height:\s*min\(66svh/);
+  const cap = display.slice(0, display.indexOf('}')).match(/max-height:\s*min\((\d+)svh/);
+  assert.ok(cap, 'высота экрана прибора должна быть ограничена');
+  assert.ok(Number(cap[1]) <= 75, `экран прибора ${cap[1]}svh не оставляет места корпусу`);
 });
 
 test('the builder puts the goods controls above the prefilled address block', () => {

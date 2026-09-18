@@ -16,7 +16,7 @@ test('task view names the store, goods and Russian zone', () => {
   const state = reduceAction(startLevel(1), { type: 'CONTINUE_STORY' });
   const view = terminalViewFor(state);
   assert.equal(view.title, 'Новое задание');
-  assert.equal(view.storeName, 'Северный');
+  assert.equal(view.storeName, 'Тушино');
   assert.equal(view.orderText, 'Вода 1,5 л · 2 шт.');
   assert.equal(view.zoneName, 'Сухач');
   assert.equal(view.canAccept, true);
