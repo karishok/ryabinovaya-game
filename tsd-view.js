@@ -36,19 +36,18 @@
     /* Приёмка блокирует склад: пока паллета стоит в воротах, отбирать из
        зоны нечего, поэтому ТСД показывает её раньше заявки на отгрузку. */
     const inbound = state.phase === 'shift' || taskScreen ? pendingInboundFor(state) : null;
-    const screen = reportScreen
-      ? 'report'
-      : storyScreen
-        ? 'briefing'
-        : errorScreen
-          ? 'feedback'
-          : briefingScreen
-            ? 'briefing'
-            : inbound
-              ? 'inbound'
-              : taskScreen
-                ? 'task'
-                : 'current';
+    const endlessScreen = state.phase === 'endless';
+    // Порядок — это приоритет экранов; списком он читается, а семиэтажным
+    // тернарником уже нет.
+    const screen = [
+      [endlessScreen, 'endless'],
+      [reportScreen, 'report'],
+      [storyScreen, 'briefing'],
+      [errorScreen, 'feedback'],
+      [briefingScreen, 'briefing'],
+      [Boolean(inbound), 'inbound'],
+      [taskScreen, 'task'],
+    ].find(([when]) => when)?.[1] || 'current';
 
     const order = acceptedOrderFor(state) || activeOrderFor(state);
     const item = order ? engine.itemBySku(order.sku) : null;
@@ -60,6 +59,7 @@
     // Имя уровня постоянно висит в шапке сцены над фотографией, поэтому
     // заголовок брифинга его не повторяет.
     const titleByScreen = {
+      endless: 'Кампания пройдена',
       report: 'Итоги смены',
       feedback: 'Ошибка',
       briefing: state.story?.kind === 'after' ? 'Смена завершена' : 'Новая смена',
@@ -68,6 +68,7 @@
       current: 'Текущая работа',
     };
     const messageByScreen = {
+      endless: 'Все девять смен закрыты.',
       report: state.report?.reasons?.[0] || 'Смена завершена.',
       feedback: state.feedback?.message || '',
       briefing: state.story?.text || '',
@@ -80,7 +81,7 @@
     // Цифры отчёта живут в таблице карточки; строкой в шапке их печатать
     // второй раз незачем.
     const storyKind = state.story?.kind || null;
-    const mandatoryOpen = ['feedback', 'briefing', 'report'].includes(screen);
+    const mandatoryOpen = ['feedback', 'briefing', 'report', 'endless'].includes(screen);
     const accepted = Boolean(state.tsd?.acceptedOrderId);
     const remaining = order ? order.quantity - loadedQuantityFor(state, order) : 0;
     // Закрытый ТСД обязан показывать текущее задание: игрок смотрит на
@@ -124,6 +125,7 @@
       storyKind,
       canAccept: screen === 'task' && !accepted && Boolean(order),
       canReceive: screen === 'inbound' && !awaitingPlacement,
+      canRestart: screen === 'endless',
       awaitingPlacement,
       placementZone: awaitingPlacement ? inbound.zone : null,
       // Брифинг, ошибка и отчёт держат терминал открытым принудительно, поэтому

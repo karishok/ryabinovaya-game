@@ -132,3 +132,95 @@ test('every declared mechanic is actually exercised by its level data', () => {
     }
   }
 });
+
+/* Тупик — это состояние, из которого смену уже не закрыть, а игра об этом
+   молчит. Два таких нашлись на живой игре: забитый кузов без разгрузки и
+   конец кампании без выхода. Ниже — инварианты, которые не дают им вернуться
+   при правке данных уровней. */
+test('every ordered zone has a truck able to carry the whole demand', () => {
+  for (const level of LEVELS) {
+    const bumped = new Map();
+    for (const event of level.events || []) {
+      if (event.type === 'demand-increase') bumped.set(event.orderId, (bumped.get(event.orderId) || 0) + event.quantity);
+    }
+    const weightByZone = new Map();
+    for (const order of level.initialOrders) {
+      const quantity = order.quantity + (bumped.get(order.id) || 0);
+      const weight = quantity * engine.itemBySku(order.sku).weightPerUnit;
+      weightByZone.set(order.zone, (weightByZone.get(order.zone) || 0) + weight);
+    }
+    // Машина, приезжающая по событию, до него недоступна — на неё не рассчитываем.
+    const delayed = new Set((level.events || []).filter((event) => event.type === 'vehicle-ready').map((event) => event.vehicleId));
+    const capacityByZone = new Map();
+    for (const vehicle of level.vehicles) {
+      if (delayed.has(vehicle.id)) continue;
+      capacityByZone.set(vehicle.zone, (capacityByZone.get(vehicle.zone) || 0) + vehicle.capacity);
+    }
+
+    for (const [zone, weight] of weightByZone) {
+      const capacity = capacityByZone.get(zone) || 0;
+      assert.ok(capacity > 0, `уровень ${level.id}: заявка в зоне ${zone}, а фургона этой зоны нет`);
+      assert.ok(capacity >= weight, `уровень ${level.id}: зона ${zone} — спрос ${weight} кг не влезает в парк ${capacity} кг`);
+    }
+  }
+});
+
+test('every ordered item is either stocked or delivered to the dock', () => {
+  for (const level of LEVELS) {
+    const stock = engine.stockFrom(level.stock);
+    const arriving = new Map();
+    for (const pallet of level.inbound || []) {
+      const key = `${pallet.zone}:${pallet.sku}`;
+      arriving.set(key, (arriving.get(key) || 0) + pallet.quantity);
+    }
+    const bumped = new Map();
+    for (const event of level.events || []) {
+      if (event.type === 'demand-increase') bumped.set(event.orderId, (bumped.get(event.orderId) || 0) + event.quantity);
+    }
+
+    for (const order of level.initialOrders) {
+      const available = engine.availableStock(stock, order.zone, order.sku) + (arriving.get(`${order.zone}:${order.sku}`) || 0);
+      const needed = order.quantity + (bumped.get(order.id) || 0);
+      assert.ok(available >= needed,
+        `уровень ${level.id}: ${order.sku} в зоне ${order.zone} — нужно ${needed}, а взять неоткуда (${available})`);
+    }
+  }
+});
+
+test('a shift can always be emptied back out: nothing loads without a way to unload', () => {
+  // Единственное необратимое действие в смене — порча, и она осознанная.
+  // Всё остальное должно откатываться, иначе смена превращается в тупик.
+  let state = { ...startLevel(1), phase: 'shift' };
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 8 });
+  state = reduceAction(state, { type: 'LOAD_PALLET' });
+  const full = usedCapacity(state.vehicles[0]);
+  assert.ok(full > 0);
+
+  const freed = reduceAction(state, { type: 'UNLOAD_PALLET', vehicleId: 'dry-1', palletIndex: 0 });
+  assert.equal(usedCapacity(freed.vehicles[0]), 0, 'кузов обязан освобождаться полностью');
+});
+
+test('the finished campaign offers a way back instead of a dead screen', () => {
+  const { terminalViewFor } = require('../tsd-view.js');
+  const last = LEVELS[LEVELS.length - 1];
+  const finished = reduceAction(
+    { ...startLevel(last.id), phase: 'story-after', nextLevelId: null, story: { kind: 'after', text: 'x' } },
+    { type: 'CONTINUE_STORY' },
+  );
+  assert.equal(finished.phase, 'endless');
+
+  const view = terminalViewFor(finished);
+  assert.equal(view.screen, 'endless');
+  assert.equal(view.title, 'Кампания пройдена');
+  assert.equal(view.canRestart, true, 'с финального экрана обязан быть выход');
+
+  const restarted = reduceAction(finished, { type: 'START_LEVEL', levelId: 1 });
+  assert.equal(restarted.levelId, 1);
+  assert.equal(restarted.phase, 'briefing');
+});
+
+test('the restart control actually exists on the page', () => {
+  const html = require('node:fs').readFileSync('index.html', 'utf8');
+  assert.match(html, /data-action="RESTART_CAMPAIGN"/);
+  assert.match(html, /data-tsd-panel="endless"/);
+});

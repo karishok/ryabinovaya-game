@@ -26,6 +26,7 @@ const screenForTsd = (nextState, baseScreen) => {
   if (nextState.builderOpen) return 'builder';
   if (nextState.vehicleDrawerOpen) return 'vehicles';
   if (nextState.guideOpen) return 'guide';
+  if (nextState.phase === 'endless') return 'endless';
   if (nextState.phase === 'briefing' || nextState.phase === 'story-after') return 'briefing';
   /* Только ошибка забирает экран терминала. Успех и рабочие уведомления
      уходят в тост: раньше каждая собранная паллета требовала лишнего
@@ -155,6 +156,7 @@ function renderTsd(view, document) {
   // Пустая строка статуса всё равно держала 24 px в шапке прибора.
   message.hidden = !view.message;
   const continueStory = byId(document, 'tsdContinueStory');
+  // На экране конца кампании эта кнопка ничего не делала — там своя.
   continueStory.hidden = view.screen !== 'briefing';
   continueStory.textContent = view.storyKind === 'after' ? 'Продолжить' : 'Начать смену';
   byId(document, 'tsdAccept').hidden = !view.canAccept;
@@ -376,10 +378,6 @@ function render(nextState, document) {
   briefing.hidden = !showStory;
   briefing.setAttribute('aria-hidden', String(!showStory));
   if (showStory) byId(document, 'briefingGoal').textContent = level.goal;
-  const endless = byId(document, 'endlessMode');
-  endless.hidden = nextState.phase !== 'endless';
-  endless.classList.toggle('open', nextState.phase === 'endless');
-  endless.setAttribute('aria-hidden', String(nextState.phase !== 'endless'));
 
   const eventBanner = byId(document, 'eventBanner');
   const showTsdFeedback = view.screen === 'feedback';
@@ -457,6 +455,8 @@ document.addEventListener('click', (event) => {
   if (action === 'SELECT_VEHICLE') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
   if (action === 'MOVE_STOP') return dispatch({ type: action, index: button.dataset.index, direction: button.dataset.direction });
   if (action === 'UNLOAD_PALLET') return dispatch({ type: action, vehicleId: button.dataset.vehicleId, palletIndex: button.dataset.palletIndex });
+  // Пройти заново — это просто старт первого уровня, отдельное действие не нужно.
+  if (action === 'RESTART_CAMPAIGN') return dispatch({ type: 'START_LEVEL', levelId: 1 });
   const nextState = dispatch({ type: action });
   if (action === 'CLOSE_TSD' || action === 'ACCEPT_TASK') {
     tsdReturnFocus?.focus();

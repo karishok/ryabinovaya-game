@@ -119,6 +119,17 @@ if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce 2>/dev/null || echo 
     || semanage port -m -t http_port_t -p tcp "$PORT" 2>/dev/null || true
 fi
 
+# Короткая команда для последующих обновлений. Не алиас в .bashrc: алиас
+# живёт только в интерактивной оболочке и не виден ни cron, ни ssh-команде.
+log "Ставлю команду ryabinovaya"
+cat > /usr/local/bin/ryabinovaya <<'CMD'
+#!/usr/bin/env bash
+# Обновляет «Рябиновую» до свежего main и перезапускает nginx.
+# Порт можно сменить: PORT=9137 ryabinovaya
+exec bash <(curl -fsSL https://raw.githubusercontent.com/karishok/ryabinovaya-game/main/deploy.sh)
+CMD
+chmod +x /usr/local/bin/ryabinovaya
+
 log "Проверяю конфиг и перезапускаю"
 nginx -t
 systemctl enable nginx >/dev/null 2>&1 || true
@@ -134,6 +145,7 @@ body=$(curl -fsS "$url" 2>/dev/null || true)
 if [ "$code" = "200" ] && printf '%s' "$body" | grep -q 'game-engine.js'; then
   ip=$(hostname -I 2>/dev/null | awk '{print $1}')
   printf '\nГотово: http://%s:%s/\n' "${ip:-<ip-сервера>}" "$PORT"
+  printf 'Обновлять дальше — командой: ryabinovaya\n'
   printf 'Если снаружи не открывается — порт %s режет брандмауэр хостера, а не сервер.\n' "$PORT"
 else
   echo "Ожидал игру, а по $url пришёл ответ $code. Начало ответа:" >&2

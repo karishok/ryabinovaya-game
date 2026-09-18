@@ -111,8 +111,14 @@
           </section>
           <section id="tsdCurrent" data-tsd-panel="current" hidden>
             <p class="tsd-hint">Задания приходят сюда. Сводка смены и список заявок — под фотографией склада.</p>
-            <section class="tsd-panel story-card" id="endlessMode" aria-hidden="true">
-              <span class="story-kicker">Кампания завершена</span><h2 id="endlessTitle">Бесконечный режим</h2><p>Скоро здесь появятся новые смены. Пока режим находится в разработке.</p>
+          </section>
+          <!-- Своя панель у конца кампании: раньше она жила внутри «Текущей
+               работы», а та на этой фазе не показывалась. Игрок упирался в
+               заголовок «Новая смена» с кнопкой, которая ничего не делала. -->
+          <section id="tsdEndless" data-tsd-panel="endless" hidden>
+            <section class="tsd-panel story-card" id="endlessMode">
+              <p class="story-goal">Все девять смен пройдены. Бесконечный режим ещё в разработке.</p>
+              <button class="btn secondary full-width" data-action="RESTART_CAMPAIGN">Пройти кампанию заново</button>
             </section>
           </section>
           <section id="builderModal" data-tsd-panel="builder" hidden aria-hidden="true">
