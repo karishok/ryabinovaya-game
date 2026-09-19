@@ -98,8 +98,11 @@
       : order
         ? `${STORE_NAMES[order.storeId] || order.storeId} · ${item?.name || order.sku} · ${remaining} шт.`
         : 'Все заявки собраны';
+    /* Куда нажимать, уже написано в строке состояния над схемой, а адрес
+       зоны — в строке задания выше. Плашка добавляет то, чего больше нигде
+       нет: от кого пришла паллета. */
     const compactMeta = inbound
-      ? (awaitingPlacement ? `Нажмите зону «${inboundZoneName}» на схеме` : `Поставщик: ${inbound.supplier}`)
+      ? `Поставщик: ${inbound.supplier}`
       : order
         ? `${ZONE_NAMES[order.zone] || order.zone} · паллета ${progressText}`
         : 'Проверьте маршруты и завершите смену';
@@ -118,7 +121,8 @@
          карточкам («Куда», «Что собрать», «Зона»), поэтому шапка их не
          повторяет. Остаётся «Текущая работа», где карточек нет. */
       showOrderBlock: screen === 'current',
-      storeName: inbound ? `Привоз: ${inbound.supplier}` : order ? STORE_NAMES[order.storeId] || order.storeId : '',
+      // Без приставки: карточка и так подписана «Поставщик».
+      storeName: inbound ? inbound.supplier : order ? STORE_NAMES[order.storeId] || order.storeId : '',
       orderText: inbound
         ? `${inboundItem?.name || inbound.sku} · ${inbound.quantity} шт.`
         : order ? `${item?.name || order.sku} · ${remaining} шт.` : '',

@@ -106,7 +106,7 @@ test('every declared mechanic is actually exercised by its level data', () => {
   for (const level of inboundLevels) {
     for (const pallet of level.inbound) {
       assert.equal(engine.availableStock(engine.stockFrom(level.stock), pallet.zone, pallet.sku), 0,
-        `уровень ${level.id}: привоз ${pallet.sku} бессмыслен, если товар и так лежит в зоне`);
+        `уровень ${level.id}: поставка ${pallet.sku} бессмысленна, если товар и так лежит в зоне`);
     }
   }
   // Сортировка по зонам требует выбора: одной зоны для этого мало.

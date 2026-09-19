@@ -254,6 +254,7 @@ test('no TSD screen prints the same line twice', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   // id → панель ТСД, внутри которой он лежит: скрытая панель ничего не
   // печатает, даже если её строки остались в памяти рендера.
+  const inboundLevelId = levels.LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
   const panelOf = new Map();
   for (const [, panel, body] of html.matchAll(/data-tsd-panel="(\w+)"[^>]*>([\s\S]*?)(?=<section[^>]*data-tsd-panel=|<\/div>\s*<\/div>\s*<\/div>)/g)) {
     for (const [, id] of body.matchAll(/id="(\w+)"/g)) if (!panelOf.has(id)) panelOf.set(id, panel);
@@ -290,4 +291,24 @@ test('no TSD screen prints the same line twice', () => {
   report.click({ dataset: { action: 'END_SHIFT' }, disabled: false });
   assert.equal(report.elements.get('tsdDevice').dataset.screen, 'report');
   assert.deepEqual(duplicatesIn(report.elements), [], 'отчёт печатает строку дважды');
+
+  // Оба состояния приёмки в проверку не входили вовсе.
+
+  const inbound = loadUiWithClicks();
+  inbound.window.dispatch({ type: 'START_LEVEL', levelId: inboundLevelId });
+  inbound.click({ dataset: { action: 'CONTINUE_STORY' }, disabled: false });
+  assert.equal(inbound.elements.get('tsdDevice').dataset.screen, 'inbound');
+  assert.deepEqual(duplicatesIn(inbound.elements), [], 'приёмка печатает строку дважды');
+
+  inbound.click({ dataset: { action: 'RECEIVE_PALLET' }, disabled: false });
+  assert.equal(inbound.elements.get('tsdDevice').dataset.screen, 'inbound');
+  assert.deepEqual(duplicatesIn(inbound.elements), [], 'размещение печатает строку дважды');
+
+  /* Точное сравнение ловит только совпадение символ в символ, а подсказка
+     приёмки пересказывала шапку своими словами — и проходила. Пересказ
+     алгоритмом не опознать, поэтому держим структуру: в панели приёмки
+     только подписанные карточки, свободной строке там взяться неоткуда. */
+  const inboundPanel = html.match(/<section id="tsdInbound"[\s\S]*?<\/section>/)?.[0] || '';
+  assert.ok(inboundPanel, 'панель приёмки должна быть в разметке');
+  assert.equal(/tsd-hint/.test(inboundPanel), false, 'приёмка снова пересказывает шапку свободной строкой');
 });

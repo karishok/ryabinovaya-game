@@ -327,7 +327,7 @@
         ...state,
         inbound: state.inbound.map((pallet) => pallet.id === pending.id ? result.pallet : pallet),
         tsd: { ...state.tsd, open: false, screen: 'current', signal: 'idle' },
-      }, feedback('info', 'pallet-received', `Принято. Отвезите паллету в зону «${levelData.ZONE_NAMES[pending.zone] || pending.zone}».`));
+      }, feedback('info', 'pallet-received', 'Паллета принята.'));
     }
 
     /* Размещение: игрок жмёт вывеску зоны на схеме склада. Ошибка портит
@@ -409,7 +409,7 @@
       if (!taken.ok) {
         const onDock = (state.inbound || []).find((entry) => entry.sku === item.sku && entry.status !== 'placed' && entry.status !== 'spoiled');
         const message = onDock
-          ? 'В зоне не осталось товара — сначала примите и разместите привоз.'
+          ? 'В зоне не осталось товара — сначала примите и разместите поставку.'
           : 'В зоне не осталось этого товара.';
         return withFeedback(state, feedback('error', 'no-stock', message));
       }

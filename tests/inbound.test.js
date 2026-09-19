@@ -87,7 +87,7 @@ test('goods reach the racks only after putaway, and then the order can be picked
 
   const blocked = pick(state);
   assert.equal(blocked.feedback.code, 'no-stock');
-  assert.match(blocked.feedback.message, /примите и разместите привоз/i);
+  assert.match(blocked.feedback.message, /примите и разместите поставку/i);
   assert.equal(blocked.pallet.weight, 0);
 
   state = reduceAction(state, { type: 'RECEIVE_PALLET' });

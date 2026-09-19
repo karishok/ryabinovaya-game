@@ -167,9 +167,6 @@ function renderTsd(view, document) {
   byId(document, 'tsdInboundSupplier').textContent = view.storeName;
   byId(document, 'tsdInboundGoods').textContent = view.orderText;
   byId(document, 'tsdInboundZone').textContent = view.zoneName;
-  byId(document, 'tsdInboundHint').textContent = view.awaitingPlacement
-    ? `Паллета на тележке. Нажмите вывеску «${view.zoneName}» на схеме склада.`
-    : 'Сверьте накладную с паллетой и примите её.';
   byId(document, 'tsdContinue').hidden = view.screen !== 'report';
   byId(document, 'tsdFeedbackContinue').hidden = view.screen !== 'feedback';
   const panels = document.querySelectorAll ? document.querySelectorAll('[data-tsd-panel]') : [];
