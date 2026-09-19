@@ -101,3 +101,29 @@ test('the route map is drawn from the centre, named after the centre', () => {
   assert.match(app, /map-label[^>]*>Рябиновая</, 'точка отправления — это сам центр, а не безымянное «депо»');
   assert.doesNotMatch(app, />Депо</);
 });
+
+test('the docked terminal calls for attention only while an untouched task sits on it', () => {
+  /* Прибор стоит в ряду кнопок и ничего не рассказывает, поэтому анимация —
+     единственное, что зовёт его открыть. Звать она обязана ровно тогда,
+     когда нажатие что-то меняет. */
+  const { LEVELS } = require('../levels.js');
+  const inboundLevel = LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
+  let state = reduceAction(startLevel(inboundLevel), { type: 'CONTINUE_STORY' });
+  assert.equal(terminalViewFor(state).screen, 'inbound');
+  // Открытый терминал уже перед глазами — звать его незачем.
+  assert.equal(terminalViewFor(state).attention, false);
+
+  const closed = reduceAction(state, { type: 'CLOSE_TSD' });
+  assert.equal(terminalViewFor(closed).open, false);
+  assert.equal(terminalViewFor(closed).attention, true, 'паллету у ворот надо принять на ТСД');
+
+  // Принята: дальше нажимают зону на схеме склада, а не прибор.
+  state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+  assert.equal(terminalViewFor(state).awaitingPlacement, true);
+  assert.equal(terminalViewFor(state).attention, false, 'на размещении зовёт схема, а не терминал');
+
+  state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'dry' });
+  state = reduceAction(state, { type: 'DISMISS_FEEDBACK' });
+  const open = terminalViewFor({ ...state, tsd: { ...state.tsd, open: true } });
+  assert.equal(open.attention, false, 'открытый терминал звать себя не может');
+});

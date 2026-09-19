@@ -175,8 +175,11 @@ test('the game is one screen: no bottom navigation, nothing hidden under the TSD
   assert.doesNotMatch(css, /\.compact-stat/);
   // Сдвиг вниз был рассчитан на арт высотой 300px и резал полосу пополам.
   assert.doesNotMatch(css, /translate\(-50%,\s*68%\)/);
-  // Контент не должен уезжать под плавающую полосу.
-  assert.match(css, /\.app\s*\{[^}]*padding:\s*0 0 128px/s);
+  /* Плавающей полосы внизу больше нет: прибор стоит в ряду кнопок, а ряд
+     прижат к низу страницы. Резерв в 128px под полосу стал бы пустотой,
+     поэтому его сменил отступ безопасной зоны. */
+  assert.doesNotMatch(css, /padding:\s*0 0 128px/);
+  assert.match(css, /\.shift-board\s*\{[^}]*margin-top:\s*auto/s);
 });
 
 test('everything the removed tabs hosted has a new home', () => {
@@ -187,14 +190,14 @@ test('everything the removed tabs hosted has a new home', () => {
   // Счётчик паллет — на самой машине.
   const truck = html.slice(html.indexOf('id="sceneTruckBay"'));
   assert.match(truck.slice(0, truck.indexOf('</button>')), /id="mapPallets"/);
-  /* Список заявок и завершение смены — в сводке под фотографией, а не за
-     нажатием на ТСД: под сценой всё равно оставалась пустая полоса, а на
-     терминале это была лишняя остановка. */
+  /* Завершение смены и справка — в ряду под фотографией, а не за нажатием
+     на ТСД: под сценой всё равно оставалась пустая полоса, а на терминале
+     это была лишняя остановка. Между ними стоит сам прибор. */
   const board = html.slice(html.indexOf('class="shift-board"'));
   const panel = board.slice(0, board.indexOf('</section>'));
-  assert.match(panel, /id="ordersList"/);
   assert.match(panel, /data-action="END_SHIFT"/);
   assert.match(panel, /data-action="OPEN_GUIDE"/);
+  assert.match(panel, /data-action="OPEN_GUIDE"[\s\S]*id="tsdHardware"[\s\S]*data-action="END_SHIFT"/);
 });
 
 test('the TSD panel is rendered as the screen of a device body', () => {

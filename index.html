@@ -52,13 +52,15 @@
       <section class="shift-board" id="shiftBoard" aria-label="Сводка смены">
         <!-- Строки статуса здесь нет: что делать сейчас, говорит полоса ТСД,
              а что только что случилось — тост поверх сцены. -->
-        <!-- Только очередь: заявку, которую ТСД уже держит на экране, сводка
-             не повторяет, а закрытые не печатает вовсе. Когда в очереди
-             ничего не осталось, блок исчезает. -->
-        <div class="select-label" id="ordersLabel">Ещё в очереди</div>
-        <div class="orders-list" id="ordersList"></div>
         <div class="board-actions">
           <button class="btn secondary" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">📖 Как играть?</button>
+          <!-- Сам прибор, без пересказа задания: что на нём лежит, показывает
+               индикатор, а подробности появляются при нажатии. Раньше на дне
+               экрана лежала полоса, которая печатала задание третий раз. -->
+          <button class="tsd-dock" id="tsdHardware" data-action="OPEN_TSD" type="button" aria-label="Открыть ТСД">
+            <img class="tsd-handheld" src="assets/tsd-handheld.webp" alt="" aria-hidden="true">
+            <span class="tsd-indicator" aria-hidden="true"></span>
+          </button>
           <button class="btn secondary" data-action="END_SHIFT">Завершить смену</button>
         </div>
       </section>
@@ -66,15 +68,6 @@
 
     <div class="tsd-backdrop" id="tsdBackdrop" aria-hidden="true"></div>
     <section class="tsd-device" id="tsdDevice" data-open="true" data-screen="briefing" data-signal="new" aria-label="Терминал сбора данных">
-      <span class="tsd-indicator" aria-hidden="true"></span>
-      <button class="tsd-hardware" id="tsdHardware" data-action="OPEN_TSD" type="button" aria-label="Открыть ТСД">
-        <img class="tsd-handheld" src="assets/tsd-handheld.webp" alt="" aria-hidden="true">
-        <span class="tsd-compact-copy" id="tsdCompactCopy">
-          <span class="tsd-compact-kicker" id="tsdCompactKicker">Задание</span>
-          <span class="tsd-compact-task" id="tsdCompactTask">Новое задание</span>
-          <span class="tsd-compact-meta" id="tsdCompactMeta"></span>
-        </span>
-      </button>
       <div class="tsd-screen" id="tsdScreen" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
         <button class="tsd-close" id="tsdClose" data-action="CLOSE_TSD" type="button" aria-label="Убрать ТСД">×</button>
         <div class="tsd-display" id="tsdDisplay">

@@ -107,8 +107,12 @@
         ? `${ZONE_NAMES[order.zone] || order.zone} · паллета ${progressText}`
         : 'Проверьте маршруты и завершите смену';
 
+    const open = mandatoryOpen || Boolean(state.tsd?.open);
+    const canAccept = screen === 'task' && !accepted && Boolean(order);
+    const canReceive = screen === 'inbound' && !awaitingPlacement;
+
     return {
-      open: mandatoryOpen || Boolean(state.tsd?.open),
+      open,
       /* Затемнение перехватывает нажатия, поэтому ставить его на каждый
          открытый экран нельзя: размещение требует нажать зону на схеме
          склада, а задание — паллету. Блокируют только экраны, из которых
@@ -130,8 +134,13 @@
       progressText: inbound ? '' : progressText,
       message: messageByScreen[screen],
       storyKind,
-      canAccept: screen === 'task' && !accepted && Boolean(order),
-      canReceive: screen === 'inbound' && !awaitingPlacement,
+      canAccept,
+      canReceive,
+      /* Прибор в ряду кнопок анимируется, только когда нажатие на него
+         действительно что-то делает: взять заявку или принять привезённую
+         паллету. На размещении задание висит на схеме склада, и мигать
+         терминалом значило бы звать не туда. */
+      attention: !open && (canAccept || canReceive),
       canRestart: screen === 'endless',
       awaitingPlacement,
       placementZone: awaitingPlacement ? inbound.zone : null,

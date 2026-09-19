@@ -65,10 +65,6 @@ const orderLabel = (order) => {
   return `${item.emoji} ${item.name} · ${order.quantity} шт.`;
 };
 const orderMarkup = (order) => `<div class="order-row"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel(order)} · ${zones[order.zone]}</span></div>`;
-/* В сводке заявка занимает одну строку и показывает остаток, а не исходное
-   количество: после частичной отгрузки важно, сколько ещё собирать. */
-const boardOrderMarkup = (state, order) => `<div class="order-row"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel({ ...order, quantity: remainingFor(state, order) })}</span></div>`;
-
 function playWarehouseBeep(kind) {
   if (!audioUnlocked) return;
   const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
@@ -134,6 +130,10 @@ function renderTsd(view, document) {
   const hardware = byId(document, 'tsdHardware');
   hardware.setAttribute('aria-hidden', String(view.open));
   hardware.setAttribute('tabindex', view.open ? '-1' : '0');
+  /* Рядом с прибором ничего не написано, поэтому задание переезжает в
+     подпись кнопки: глазами его видно нажатием, экранным читалкам — сразу. */
+  hardware.setAttribute('aria-label', `ТСД. ${view.compactKicker}: ${view.compactTask}`);
+  hardware.dataset.attention = String(view.attention);
   byId(document, 'tsdBackdrop').setAttribute('aria-hidden', String(!view.blocking));
   byId(document, 'tsdScreen').setAttribute('aria-hidden', String(!view.open));
   byId(document, 'tsdTitle').textContent = view.title;
@@ -147,9 +147,6 @@ function renderTsd(view, document) {
   byId(document, 'tsdOrder').textContent = view.orderText;
   byId(document, 'tsdZone').textContent = view.zoneName ? `Зона: ${view.zoneName}` : '';
   byId(document, 'tsdProgress').textContent = view.progressText;
-  byId(document, 'tsdCompactKicker').textContent = view.compactKicker;
-  byId(document, 'tsdCompactTask').textContent = view.compactTask;
-  byId(document, 'tsdCompactMeta').textContent = view.compactMeta;
   byId(document, 'tsdTaskStore').textContent = view.storeName;
   byId(document, 'tsdTaskOrder').textContent = view.orderText;
   byId(document, 'tsdTaskZone').textContent = view.zoneName;
@@ -246,15 +243,6 @@ function render(nextState, document) {
   byId(document, 'precision').textContent = hasShipped ? `${metrics.precisionPercent}%` : '—';
   byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} палл.`;
   byId(document, 'vehicleName').textContent = selectedVehicle ? labelFor(nextState, selectedVehicle) : 'Выберите машину';
-  /* Очередь — это то, чего нет на ТСД: заявки, кроме той, что уже висит на
-     экране прибора. На смене с одной заявкой сводка дублировала терминал
-     строку в строку, а закрытые заявки печатались как «0 шт.». */
-  const onTerminal = activeOrderFor(nextState);
-  const queue = nextState.orders
-    .filter((order) => !order.cancelled && remainingFor(nextState, order) > 0 && order.id !== onTerminal?.id);
-  byId(document, 'ordersList').innerHTML = queue.map((order) => boardOrderMarkup(nextState, order)).join('');
-  byId(document, 'ordersList').hidden = queue.length === 0;
-  byId(document, 'ordersLabel').hidden = queue.length === 0;
   byId(document, 'guideOrders').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Все заявки закрыты.</p>';
 
   const pause = document.querySelector('[data-action="PAUSE"]');

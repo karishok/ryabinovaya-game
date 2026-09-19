@@ -236,12 +236,15 @@ test('a perfectly played first level now earns three stars', () => {
   assert.deepEqual(report.reasons, ['Смена отработана идеально']);
 });
 
-test('orders screen is populated from current state instead of static level 1 copy', () => {
+test('the order list in the guide is built from current state, not static level 1 copy', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   const app = fs.readFileSync('app.js', 'utf8');
   assert.doesNotMatch(html, /В этой смене одна срочная заявка: «Тушино» ждёт воду из зоны «Сухач»\./);
-  assert.match(html, /id="ordersList"/);
+  /* Очередь под фотографией убрана: заявку, которая сейчас в работе, держит
+     ТСД, а весь список остался в справке — там он и строится из состояния. */
+  assert.doesNotMatch(html, /id="ordersList"/);
+  assert.match(html, /id="guideOrders"/);
   assert.match(app, /nextState\.orders/);
-  assert.match(app, /byId\(document, 'ordersList'\)\.innerHTML/);
+  assert.match(app, /byId\(document, 'guideOrders'\)\.innerHTML/);
   assert.match(app, /orderLabel\(order\)/);
 });

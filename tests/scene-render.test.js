@@ -160,5 +160,8 @@ test('reduced motion uses a bounded opacity state for TSD open and close', () =>
   assert.match(reducedMotion, /opacity:\s*0/);
   assert.match(reducedMotion, /opacity:\s*1/);
   assert.match(reducedMotion, /transition:\s*opacity\s+80ms/);
-  assert.match(reducedMotion, /\.tsd-device\[data-open="true"\] \.tsd-hardware[\s\S]*display:\s*block !important/);
+  /* Прибор больше не крос-фейдится с полосой — он стоит в ряду кнопок.
+     Под запретом движения с него снимается покачивание, а красная точка
+     остаётся: зов должен быть виден и без анимации. */
+  assert.match(reducedMotion, /\.tsd-dock\[data-attention="true"\][\s\S]*animation:\s*none !important/);
 });
