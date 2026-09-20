@@ -140,3 +140,30 @@ test('an unfinished pallet outranks an already routed truck', () => {
   const collecting = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
   assert.equal(warehouseViewFor(collecting).mode, 'collecting');
 });
+
+test('the pallet carries its own goal, so it is readable without opening anything', () => {
+  /* Число «сколько ещё класть» жило на полосе закрытого ТСД; когда полосу
+     убрали, постоянно виден остался только процент заполнения по весу —
+     а это не задание. Теперь цель висит на самой паллете. */
+  const state = startLevel(1);
+  const order = state.orders[0];
+  assert.equal(warehouseViewFor(state).palletGoalText, `ещё ${order.quantity} шт.`);
+
+  const partial = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
+  assert.equal(warehouseViewFor(partial).palletGoalText, `ещё ${order.quantity - 1} шт.`);
+
+  // Собрано всё, что просила заявка: ноль — это «пора грузить», а не пустота.
+  let full = state;
+  for (let i = 0; i < order.quantity; i += 1) {
+    full = reduceAction(full, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
+  }
+  assert.equal(warehouseViewFor(full).palletGoalText, 'готова');
+});
+
+test('the pallet goal keeps quiet while the shift is about receiving', () => {
+  const { LEVELS } = require('../levels.js');
+  const inbound = LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
+  const state = reduceAction(startLevel(inbound), { type: 'CONTINUE_STORY' });
+  // У ворот стоит паллета: звать собирать заявку в этот момент — звать не туда.
+  assert.equal(warehouseViewFor(state).palletGoalText, '');
+});

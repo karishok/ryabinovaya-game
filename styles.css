@@ -405,6 +405,9 @@ button:disabled { cursor: default; opacity: 0.42; }
   content: "";
 }
 /* Сколько паллет уже в кузове — на самой машине, а не на отдельном экране. */
+/* Бейдж цели на самой паллете, а не отдельной панелью: факт и объект, к
+   которому он относится, — в одном месте, и ничего нигде не повторяется. */
+.pallet-badge { position: absolute; top: -11px; left: 50%; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
 .truck-badge { position: absolute; top: -11px; right: 0; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; pointer-events: none; }
 .transport-summary { margin: 10px 0; color: var(--muted); font-size: 12px; }
 .loaded-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; padding: 8px 11px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 12px; background: #24342b; }

@@ -104,7 +104,12 @@ function renderScene(view, document) {
   byId(document, 'sceneOperatorName').textContent = view.operatorName;
   const scenePallet = byId(document, 'scenePallet');
   scenePallet.style.setProperty('--pallet-fill', `${view.palletFillPercent}%`);
-  scenePallet.setAttribute('aria-label', `Текущая паллета заполнена на ${view.palletFillPercent}%`);
+  const palletGoal = byId(document, 'palletGoal');
+  palletGoal.hidden = !view.palletGoalText;
+  palletGoal.textContent = view.palletGoalText;
+  scenePallet.setAttribute('aria-label', view.palletGoalText
+    ? `Текущая паллета: ${view.palletGoalText}, заполнена на ${view.palletFillPercent}%`
+    : `Текущая паллета заполнена на ${view.palletFillPercent}%`);
   const truckBay = byId(document, 'sceneTruckBay');
   truckBay.dataset.routeReady = String(view.routeReady);
   truckBay.dataset.loadedPallets = String(view.loadedPalletCount);

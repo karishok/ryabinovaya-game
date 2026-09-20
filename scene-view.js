@@ -31,6 +31,23 @@
   const pendingInboundFor = (state) => (state.inbound || [])
     .find((pallet) => pallet.status === 'arrived' || pallet.status === 'received') || null;
 
+  /* Цель по сборке обязана быть видна, не открывая ничего: сколько ещё
+     штук класть на паллету. Раньше это число висело на полосе закрытого
+     ТСД, а когда полосу убрали, единственным постоянным указателем осталась
+     заливка паллеты в процентах — вес, а не задание. Считаем от остатка
+     заявки за вычетом того, что уже лежит на текущей паллете. */
+  const palletGoalFor = (state) => {
+    if (pendingInboundFor(state)) return '';
+    const order = activeOrderFor(state);
+    if (!order) return '';
+    const onPallet = (state.pallet?.items || [])
+      .filter((item) => item.sku === order.sku)
+      .reduce((total, item) => total + item.quantity, 0);
+    const left = Math.max(0, order.quantity - loadedQuantityFor(state, order) - onPallet);
+    // Ноль — это не «нечего делать», а «пора грузить», и так и написано.
+    return left ? `ещё ${left} шт.` : 'готова';
+  };
+
   const capacityTargetFor = (state) => {
     const message = String(state.feedback?.message || '');
     if (/паллета/i.test(message)) return 'pallet';
@@ -92,6 +109,7 @@
             : code === 'demand-increase' ? 'zone' : '',
       mode,
       palletFillPercent: Math.min(100, Math.round(((state.pallet?.weight || 0) / (state.pallet?.capacity || 100)) * 100)),
+      palletGoalText: palletGoalFor(state),
       loadedPalletCount: (state.loadedPallets || []).length,
       routeReady,
       routeCanBeShortened: routeCanBeShortened(state),
