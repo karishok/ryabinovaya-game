@@ -66,6 +66,52 @@
       </section>
     </section>
 
+    <!-- Режим «Поток». Отдельный экран, а не надстройка над кампанией: у него
+         другой темп и другие правила, и мешать их в одном DOM — верный способ
+         сломать обоим. -->
+    <section class="screen flow" data-screen="flow">
+      <header class="flow-head" id="flowHead">
+        <div class="flow-clock"><span>Смена</span><strong id="flowClock">3:00</strong></div>
+        <ul class="flow-goals" id="flowGoals"></ul>
+        <button class="flow-leave" data-flow-action="LEAVE" type="button" aria-label="Выйти из смены">×</button>
+      </header>
+
+      <section class="flow-station" id="flowStation">
+        <h2 class="flow-station-name" id="flowStationName">Приёмка</h2>
+
+        <div class="flow-gates" id="flowGates"></div>
+        <p class="flow-queue" id="flowQueue" hidden></p>
+
+        <div class="flow-putaway" id="flowPutaway" hidden>
+          <p class="flow-buffer-count" id="flowBufferCount"></p>
+          <div class="flow-pallets" id="flowPallets"></div>
+          <p class="flow-zone-hint" id="flowZoneHint"></p>
+          <div class="flow-zones" id="flowZones"></div>
+        </div>
+      </section>
+
+      <p class="flow-message" id="flowMessage" hidden role="status"></p>
+
+      <div class="flow-busy" id="flowBusy" hidden>
+        <span class="flow-busy-label" id="flowBusyLabel"></span>
+        <div class="flow-busy-track"><div class="flow-busy-fill" id="flowBusyFill"></div></div>
+      </div>
+
+      <!-- Полоса станций — периферийное зрение: на ней видно давление там,
+           где игрок сейчас не стоит. Без неё переключаться пришлось бы
+           вслепую, и выбор «где стоять» перестал бы быть выбором. -->
+      <nav class="flow-strip" id="flowStrip" aria-label="Станции"></nav>
+
+      <section class="flow-report" id="flowReport" hidden aria-labelledby="flowReportTitle">
+        <h2 id="flowReportTitle">Смена закрыта</h2>
+        <p class="flow-report-verdict" id="flowReportVerdict"></p>
+        <dl class="flow-report-grid" id="flowReportGrid"></dl>
+        <ul class="flow-goals flow-goals-final" id="flowReportGoals"></ul>
+        <button class="btn full-width" data-flow-action="RESTART_FLOW" type="button">Ещё смена</button>
+        <button class="btn secondary full-width" data-flow-action="LEAVE" type="button">Вернуться к кампании</button>
+      </section>
+    </section>
+
     <div class="tsd-backdrop" id="tsdBackdrop" aria-hidden="true"></div>
     <section class="tsd-device" id="tsdDevice" data-open="true" data-screen="briefing" data-signal="new" aria-label="Терминал сбора данных">
       <div class="tsd-screen" id="tsdScreen" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
@@ -111,7 +157,8 @@
                заголовок «Новая смена» с кнопкой, которая ничего не делала. -->
           <section id="tsdEndless" data-tsd-panel="endless" hidden>
             <section class="tsd-panel story-card" id="endlessMode">
-              <p class="story-goal">Все девять смен пройдены. Бесконечный режим ещё в разработке.</p>
+              <p class="story-goal">Все девять смен пройдены. Дальше — «Поток»: склад работает сам, а вы успеваете за ним.</p>
+              <button class="btn full-width" data-flow-action="START_FLOW">Смена «Поток»</button>
               <button class="btn secondary full-width" data-action="RESTART_CAMPAIGN">Пройти кампанию заново</button>
             </section>
           </section>
@@ -197,6 +244,9 @@
   <script src="scene-view.js"></script>
   <script src="tsd-view.js"></script>
   <script src="tsd-signal.js"></script>
+  <script src="flow-engine.js"></script>
+  <script src="flow-view.js"></script>
   <script src="app.js?v=guide-2"></script>
+  <script src="flow-app.js"></script>
 </body>
 </html>

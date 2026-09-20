@@ -561,6 +561,125 @@ button:disabled { cursor: default; opacity: 0.42; }
 .order-row strong, .order-row span { display: block; }
 .order-row span { margin-top: 3px; color: var(--muted); font-size: 12px; }
 
+/* ── Режим «Поток» ──────────────────────────────────────────────────────
+   Одна станция на весь экран плюс полоса давления по остальным: четыре
+   панели рядом на телефоне не помещаются, а без чужого давления выбор
+   «где стоять» делается вслепую. */
+.flow { gap: 10px; padding: 0 12px max(12px, env(safe-area-inset-bottom)); }
+.flow-head {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0 10px;
+  background: #111b16;
+}
+.flow-clock { display: grid; }
+.flow-clock span { color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: 0.1em; text-transform: uppercase; }
+.flow-clock strong { color: var(--cream); font-size: 21px; font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.flow-goals { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.flow-goal { display: flex; align-items: baseline; gap: 6px; font-size: 11px; }
+.flow-goal-mark { flex: none; width: 10px; font-weight: 900; }
+.flow-goal-text { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.flow-goal-value { flex: none; font-variant-numeric: tabular-nums; }
+.flow-goal.is-ok .flow-goal-mark, .flow-goal.is-ok .flow-goal-value { color: var(--chilled); }
+.flow-goal.is-off .flow-goal-mark, .flow-goal.is-off .flow-goal-value { color: var(--terracotta); }
+.flow-leave { width: 38px; min-width: 38px; min-height: 38px; padding: 0; border-radius: 11px; background: #22332a; color: var(--muted); font-size: 18px; }
+
+.flow-station { display: grid; align-content: start; gap: 9px; }
+.flow-station-name { margin: 0; color: var(--cream); font-size: 15px; letter-spacing: -0.02em; }
+.flow-gates, .flow-pallets { display: grid; gap: 7px; }
+.flow-gate, .flow-pallet {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #1b2a22;
+  text-align: left;
+}
+.flow-gate.is-empty, .flow-pallet.is-free { justify-content: center; border-style: dashed; color: var(--muted); font-size: 11px; }
+.flow-buffer-count { font-weight: 800; }
+.flow-gate[disabled], .flow-pallet[disabled] { opacity: 0.45; }
+.flow-gate.is-working, .flow-pallet.is-working { border-color: var(--amber); }
+.flow-gate-body, .flow-pallet-body { display: grid; flex: 1; gap: 2px; min-width: 0; }
+.flow-gate-body strong, .flow-pallet-body strong { overflow: hidden; color: var(--cream); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.flow-gate-goods { color: #d9f0de; font-size: 12px; }
+.flow-gate-meta, .flow-pallet-meta { color: var(--muted); font-size: 11px; }
+
+/* Значок температуры — тот же, что на стеллажах склада: зона читается без
+   надписи, и на приёмке, и на размещении, и на кнопке зоны. */
+.flow-zone-mark {
+  flex: none;
+  min-width: 46px;
+  padding: 7px 5px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--concrete);
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 850;
+  text-align: center;
+}
+.flow-zone-mark[data-zone="chilled"] { border-color: rgba(81, 185, 173, 0.5); color: var(--chilled); }
+.flow-zone-mark[data-zone="frozen"] { border-color: rgba(92, 159, 232, 0.5); color: var(--frozen); }
+.flow-zone-mark[data-zone="dry"] { border-color: rgba(240, 170, 56, 0.45); color: var(--amber); }
+
+.flow-queue, .flow-buffer-count, .flow-zone-hint, .flow-empty { margin: 0; color: var(--muted); font-size: 11px; }
+.flow-putaway { display: grid; gap: 9px; }
+
+/* Полоска срока — единственное место, где видно, сколько паллете осталось.
+   Цвет меняется на половине срока: там же пропадает бонус за скорость. */
+.flow-shelf { display: block; height: 3px; margin-top: 3px; border-radius: 999px; background: rgba(244, 234, 216, 0.16); }
+.flow-shelf i { display: block; height: 100%; border-radius: 999px; background: var(--chilled); transition: width 400ms linear; }
+.flow-pallet.is-warning .flow-shelf i { background: var(--amber); }
+.flow-pallet.is-critical { border-color: rgba(217, 74, 63, 0.75); }
+.flow-pallet.is-critical .flow-shelf i { background: var(--danger); }
+.flow-pallet.is-critical .flow-pallet-meta { color: var(--terracotta); }
+.flow-pallet.is-selected { border-color: var(--cream); background: #24362c; }
+
+.flow-zones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+.flow-zone { display: grid; gap: 4px; justify-items: center; padding: 9px 4px; border: 1px solid var(--line); border-radius: 13px; background: #1b2a22; font-size: 11px; }
+.flow-zone[disabled] { opacity: 0.4; }
+
+.flow-message { margin: 0; padding: 8px 11px; border-radius: 12px; background: #22332a; font-size: 12px; }
+.flow-message[data-kind="error"] { background: #3c2320; color: #ffd9d2; }
+.flow-message[data-kind="success"] { background: #1f3b2e; color: #c8f2d6; }
+
+.flow-busy { display: grid; gap: 5px; margin-top: auto; }
+.flow-busy-label { color: var(--amber); font-size: 11px; font-weight: 800; }
+.flow-busy-track { height: 6px; border-radius: 999px; background: rgba(244, 234, 216, 0.16); }
+.flow-busy-fill { height: 100%; border-radius: 999px; background: var(--amber); transition: width 900ms linear; }
+/* Без занятости полоса не должна съедать прижим низа к полосе станций. */
+.flow-busy[hidden] + .flow-strip { margin-top: auto; }
+
+.flow-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.flow-station-tab { display: grid; gap: 2px; padding: 10px 8px; border: 1px solid var(--line); border-radius: 15px; background: #1b2a22; text-align: left; }
+.flow-station-tab strong { color: var(--cream); font-size: 13px; }
+.flow-station-tab span { color: var(--muted); font-size: 11px; }
+.flow-station-tab.is-here { border-color: rgba(244, 234, 216, 0.55); background: #24362c; }
+.flow-station-tab.is-alert { border-color: rgba(217, 74, 63, 0.8); animation: flow-alert 1400ms ease-in-out infinite; }
+.flow-station-tab.is-alert span { color: var(--terracotta); }
+@keyframes flow-alert {
+  0%, 60%, 100% { box-shadow: 0 0 0 0 rgba(217, 74, 63, 0); }
+  75% { box-shadow: 0 0 0 5px rgba(217, 74, 63, 0.16); }
+}
+
+.flow-report { display: grid; gap: 10px; margin: auto 0; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel-solid); }
+.flow-report h2 { margin: 0; color: var(--cream); font-size: 19px; }
+.flow-report-verdict { margin: 0; color: var(--muted); font-size: 12px; }
+.flow-report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 0; }
+.flow-report-grid div { padding: 8px 10px; border-radius: 12px; background: #1b2a22; }
+.flow-report-grid dt { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.flow-report-grid dd { margin: 2px 0 0; color: var(--cream); font-size: 17px; font-weight: 850; }
+.flow-goals-final .flow-goal { font-size: 12px; }
+.flow-goals-final .flow-goal-text { white-space: normal; }
+
 @keyframes ready-beacon { 50% { transform: translateX(-50%) scale(1.45); } }
 @keyframes zone-pulse { 50% { transform: translateY(-2px) scale(1.05); } }
 @keyframes error-highlight {
