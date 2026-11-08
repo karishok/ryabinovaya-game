@@ -98,6 +98,8 @@ function renderScene(view, document) {
   scene.dataset.vehicleZone = view.selectedVehicleZone || '';
   scene.dataset.event = view.eventCode || '';
   scene.dataset.highlight = view.highlightObject || '';
+  // Что подсвечено, решает следующий шаг, а не последнее действие игрока.
+  scene.dataset.focus = view.focus || '';
   // Ворота мигают только когда порядок остановок ещё можно сократить.
   scene.dataset.routeAttention = String(view.routeCanBeShortened);
   byId(document, 'sceneStatus').textContent = view.statusText;
@@ -117,14 +119,41 @@ function renderScene(view, document) {
   dock.hidden = view.inboundCount === 0;
   dock.dataset.awaiting = String(Boolean(view.placementZone));
   byId(document, 'dockBadge').textContent = String(view.inboundCount);
+  scenePallet.classList.toggle('is-focus', view.focus === 'pallet');
+  truckBay.classList.toggle('is-focus', view.focus === 'truck');
+  dock.classList.toggle('is-focus', view.focus === 'dock');
   document.querySelectorAll('[data-scene-zone]').forEach((zone) => {
     const active = zone.dataset.sceneZone === view.activeZone;
     const selected = zone.dataset.sceneZone === view.selectedZone;
+    zone.classList.toggle('is-focus', view.focus === 'zone' && zone.dataset.sceneZone === view.placementZone);
     zone.classList.toggle('is-active', active);
     zone.classList.toggle('is-selected', selected && !view.placementZone);
     zone.classList.toggle('is-target', Boolean(view.placementZone));
     zone.setAttribute('aria-current', String(active));
   });
+}
+
+/* Карточка «Сейчас»: заголовок, детали и кнопка следующего шага. Кнопка
+   несёт тот же data-action, что и объект на схеме, поэтому проходит через
+   общий обработчик кликов без отдельной ветки. */
+function renderNowCard(step, document) {
+  const card = byId(document, 'nowCard');
+  if (!card) return;
+  card.hidden = !step;
+  if (!step) return;
+  card.dataset.step = step.key;
+  byId(document, 'nowTitle').textContent = step.title;
+  byId(document, 'nowDetail').textContent = step.detail;
+  const button = byId(document, 'nowAction');
+  button.textContent = step.actionLabel;
+  button.dataset.action = step.action;
+  if (step.zone) {
+    button.dataset.zone = step.zone;
+    button.dataset.sceneZone = step.zone;
+  } else {
+    delete button.dataset.zone;
+    delete button.dataset.sceneZone;
+  }
 }
 
 function renderTsd(view, document) {
@@ -268,7 +297,11 @@ function render(nextState, document) {
     const unlocked = nextState.unlockedZones.includes(zone.dataset.sceneZone);
     zone.classList.toggle('locked', !unlocked);
     zone.disabled = !unlocked;
+    /* Закрытой зоны на схеме нет вовсе: полупрозрачная кнопка всё равно
+       читалась как «куда-то надо нажать» на уровне с одной зоной. */
+    zone.hidden = !unlocked;
   });
+  renderNowCard(sceneView.nextStep, document);
 
   byId(document, 'itemRows').innerHTML = items.filter((item) => item.zone === nextState.pallet.zone).map((item) => `<div class="item-row">
     <span class="item-emoji">${item.emoji}</span><div><strong>${item.name}</strong><small>${item.weightPerUnit} кг · ${zones[item.zone]}</small></div>

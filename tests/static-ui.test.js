@@ -179,7 +179,7 @@ test('the game is one screen: no bottom navigation, nothing hidden under the TSD
      прижат к низу страницы. Резерв в 128px под полосу стал бы пустотой,
      поэтому его сменил отступ безопасной зоны. */
   assert.doesNotMatch(css, /padding:\s*0 0 128px/);
-  assert.match(css, /\.shift-board\s*\{[^}]*margin-top:\s*auto/s);
+  assert.match(css, /\.board-actions\s*\{[^}]*margin-top:\s*auto/s);
 });
 
 test('everything the removed tabs hosted has a new home', () => {

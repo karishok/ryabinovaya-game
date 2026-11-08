@@ -31,13 +31,15 @@
         <!-- Зона помечается температурой стеллажа, а не подписью во всю
              высоту кадра: раньше хотспот был прямоугольником на полкадра с
              табличкой у нижней кромки. Значок стоит в центре своего ряда. -->
-        <button class="scene-zone-sign scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry" aria-label="Зона Сухач, +18 градусов"><b>+18°</b></button>
-        <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled" aria-label="Зона Охлаждёнка, +4 градуса"><b>+4°</b></button>
-        <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen" aria-label="Зона Заморозка, −18 градусов"><b>−18°</b></button>
+        <!-- Вывеска называет зону словом и температурой вместе: в задании
+             написано «Сухач», и игроку не нужно переводить это в «+18°». -->
+        <button class="scene-zone-sign scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry" aria-label="Зона Сухач, +18 градусов"><b>+18°</b><small>Сухач</small></button>
+        <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled" aria-label="Зона Охлаждёнка, +4 градуса"><b>+4°</b><small>Охлаждёнка</small></button>
+        <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen" aria-label="Зона Заморозка, −18 градусов"><b>−18°</b><small>Заморозка</small></button>
 
         <button class="scene-dock scene-object" id="sceneDock" data-action="OPEN_TSD" type="button" hidden aria-label="Открыть задание приёмки"><span class="dock-badge" id="dockBadge">1</span><span class="scene-object-hint" aria-hidden="true">Приёмка</span></button>
-        <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="pallet-badge" id="palletGoal" hidden></span><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
-        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
+        <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="pallet-badge" id="palletGoal" hidden></span><span class="scene-object-hint" aria-hidden="true">Паллета</span></button>
+        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="scene-object-hint" aria-hidden="true">Фургон</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
 
@@ -52,6 +54,15 @@
       <section class="shift-board" id="shiftBoard" aria-label="Сводка смены">
         <!-- Строки статуса здесь нет: что делать сейчас, говорит полоса ТСД,
              а что только что случилось — тост поверх сцены. -->
+        <!-- Карточка «Сейчас» — единственный постоянный ответ на вопрос «куда
+             нажать». Объект на схеме подсвечен тем же шагом, но схему можно
+             не разглядывать: большая кнопка делает то же самое. -->
+        <div class="now-card" id="nowCard" data-step="" aria-live="polite" aria-label="Текущий шаг" hidden>
+          <small class="now-kicker">Сейчас</small>
+          <strong class="now-title" id="nowTitle"></strong>
+          <span class="now-detail" id="nowDetail"></span>
+          <button class="now-cta" id="nowAction" type="button" data-action="OPEN_BUILDER"></button>
+        </div>
         <div class="board-actions">
           <button class="btn secondary" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">📖 Как играть?</button>
           <!-- Сам прибор, без пересказа задания: что на нём лежит, показывает
@@ -183,7 +194,7 @@
                      как на стеллаже, поэтому кнопке хватает узкой колонки. -->
                 <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry"><b>+18°</b><small>Сухач</small></button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled"><b>+4°</b><small>Охлаждёнка</small></button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen"><b>−18°</b><small>Заморозка</small></button></div>
               </details>
-              <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b><small id="capacityTarget"></small></div><button class="btn" data-action="LOAD_PALLET">Поставить в отгрузку</button></div>
+              <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b><small id="capacityTarget"></small></div><button class="btn" data-action="LOAD_PALLET">Погрузить в фургон</button></div>
             </div>
           </section>
           <section id="vehicleModal" data-tsd-panel="vehicles" hidden aria-hidden="true">
@@ -207,11 +218,11 @@
             <section id="guideModal" class="guide" aria-hidden="true">
               <section class="tsd-panel guide" id="guideDialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
                 <div class="modal-head"><h2 id="guideTitle">Как играть?</h2><button class="close" data-action="CLOSE_GUIDE" aria-label="Вернуться к смене">×</button></div>
-                <p class="guide-intro">Задания приходят на ТСД. Их два вида: принять поставку и собрать заявку на отгрузку.</p>
+                <p class="guide-intro">Что делать сейчас, всегда написано в карточке «Сейчас» под схемой — её кнопка выполняет следующий шаг. Задания приходят на ТСД. Их два вида: принять поставку и собрать заявку на отгрузку.</p>
                 <ol class="guide-steps">
                   <li><strong>Разбери приёмку.</strong> Если у ворот стоит паллета, ТСД покажет накладную. Нажми «Принять паллету», а потом — вывеску нужной зоны на схеме склада. Зона написана в накладной; ошибка портит товар.</li>
                   <li><strong>Собери паллету по заявке.</strong> Нажми паллету на схеме. Даркстор и зона уже подставлены из задания, остаётся кнопкой «+» набрать количество.</li>
-                  <li><strong>Поставь её в отгрузку.</strong> Склад сам подберёт фургон нужной зоны со свободным местом — он подписан внизу сборки. Адрес сразу попадает в маршрут.</li>
+                  <li><strong>Погрузи её в фургон.</strong> Склад сам подберёт фургон нужной зоны со свободным местом — он подписан внизу сборки. Адрес сразу попадает в маршрут.</li>
                   <li><strong>Если заявка не влезает</strong> в одну паллету или машину, отправь что набралось и собери остаток: он уедет следующим фургоном.</li>
                   <li><strong>Проверь порядок остановок.</strong> Нажми машину на схеме: стрелками можно переставить адреса. Чем короче рейс, тем выше «Вовремя».</li>
                   <li><strong>Заверши смену</strong> кнопкой под схемой. Ждать таймер не нужно.</li>

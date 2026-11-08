@@ -7,6 +7,8 @@
   else root.RyabinovayaSceneView = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData, engine) {
   const ZONE_NAMES = levelData.ZONE_NAMES;
+  const STORE_NAMES = levelData.STORE_NAMES;
+  const ZONE_MARKS = levelData.ZONE_MARKS;
 
   /* Маршрут заслуживает внимания игрока только пока его можно сократить.
      Раньше ворота отгрузки мигали всю смену подряд — с первой погруженной
@@ -55,6 +57,96 @@
     return 'truck';
   };
 
+  /* Ровно один ответ на вопрос «что сейчас делать». Раньше подсветка на
+     схеме включалась по уже сделанному действию: паллета загоралась, когда на
+     ней появлялся вес, ворота — на секунду после погрузки. В стартовом
+     состоянии, где игрок как раз не знает, куда нажать, не горело ничего.
+     Здесь шаг считается от задачи, а не от прошлого жеста, и у него всегда
+     есть кнопка, которая его выполняет — даже если объект на схеме не нашли. */
+  function nextStepFor(state) {
+    if (state.phase !== 'shift') return null;
+    const inbound = pendingInboundFor(state);
+    if (inbound) {
+      const item = engine.itemBySku(inbound.sku);
+      const zoneName = ZONE_NAMES[inbound.zone] || inbound.zone;
+      if (inbound.status === 'arrived') {
+        return {
+          key: 'receive',
+          title: 'Примите поставку',
+          detail: `${inbound.supplier}: ${item?.name || inbound.sku} · ${inbound.quantity} шт. → зона «${zoneName}»`,
+          actionLabel: 'Открыть накладную',
+          action: 'OPEN_TSD',
+          focus: 'dock',
+        };
+      }
+      return {
+        key: 'place',
+        title: `Разместите паллету в зоне «${zoneName}»`,
+        detail: `Нажмите вывеску ${ZONE_MARKS[inbound.zone] || ''} на схеме — другая зона испортит товар`.replace('  ', ' '),
+        actionLabel: `В зону «${zoneName}»`,
+        action: 'SELECT_ZONE',
+        zone: inbound.zone,
+        focus: 'zone',
+      };
+    }
+    const order = activeOrderFor(state);
+    if (order) {
+      const item = engine.itemBySku(order.sku);
+      const storeName = STORE_NAMES[order.storeId] || order.storeId;
+      const zoneName = ZONE_NAMES[order.zone] || order.zone;
+      const onPallet = (state.pallet?.items || [])
+        .filter((entry) => entry.sku === order.sku)
+        .reduce((total, entry) => total + entry.quantity, 0);
+      const left = Math.max(0, order.quantity - loadedQuantityFor(state, order) - onPallet);
+      if (left > 0) {
+        return {
+          key: 'collect',
+          title: onPallet ? `Доберите паллету для ${storeName}` : `Соберите паллету для ${storeName}`,
+          detail: `${item?.name || order.sku} · ещё ${left} шт. · зона «${zoneName}»`,
+          actionLabel: onPallet ? 'Продолжить сборку' : 'Собрать паллету',
+          action: 'OPEN_BUILDER',
+          focus: 'pallet',
+        };
+      }
+      return {
+        key: 'load',
+        title: 'Паллета готова — погрузите её',
+        detail: `${state.pallet?.weight || 0} кг → фургон зоны «${zoneName}», адрес ${storeName}`,
+        actionLabel: 'Погрузить в фургон',
+        action: 'LOAD_PALLET',
+        focus: 'pallet',
+      };
+    }
+    if ((state.pallet?.weight || 0) > 0) {
+      return {
+        key: 'load',
+        title: 'Паллета готова — погрузите её',
+        detail: `${state.pallet.weight} кг → фургон зоны «${ZONE_NAMES[state.pallet.zone] || state.pallet.zone}»`,
+        actionLabel: 'Погрузить в фургон',
+        action: 'LOAD_PALLET',
+        focus: 'pallet',
+      };
+    }
+    if (routeCanBeShortened(state)) {
+      return {
+        key: 'route',
+        title: 'Маршрут можно сократить',
+        detail: 'Переставьте остановки так, чтобы рейс стал короче',
+        actionLabel: 'Открыть маршрут',
+        action: 'OPEN_VEHICLES',
+        focus: 'truck',
+      };
+    }
+    return {
+      key: 'finish',
+      title: 'Все заявки собраны',
+      detail: 'Фургоны уедут по окончании смены — можно закрыть её сейчас',
+      actionLabel: 'Завершить смену',
+      action: 'END_SHIFT',
+      focus: 'finish',
+    };
+  }
+
   function warehouseViewFor(state) {
     const order = activeOrderFor(state);
     const inbound = pendingInboundFor(state);
@@ -88,7 +180,11 @@
       blocked: state.feedback?.message || 'Не хватает свободного места.',
     };
 
+    const nextStep = nextStepFor(state);
+
     return {
+      nextStep,
+      focus: nextStep?.focus || '',
       /* Во время размещения подсвечивается зона из накладной, а не зона
          заявки: игрок должен попасть именно в неё. */
       placementZone: awaitingPlacement ? inbound.zone : null,
@@ -119,5 +215,5 @@
     };
   }
 
-  return { warehouseViewFor };
+  return { warehouseViewFor, nextStepFor };
 });

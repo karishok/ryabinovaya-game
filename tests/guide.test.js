@@ -93,7 +93,7 @@ test('game shell provides a reachable, accessible guide with the core shift step
   /* Гайд обязан называть шаги смены её словами: приёмку, размещение,
      сборку и завершение. «Построить маршрут» ушло — маршрут строится сам
      при погрузке, игрок только переставляет остановки. */
-  for (const label of ['Как играть?', 'Принять паллету', 'вывеску нужной зоны', 'Поставить в отгрузку', 'остановок', 'Заверши смену']) {
+  for (const label of ['Как играть?', 'Принять паллету', 'вывеску нужной зоны', 'Погрузить в фургон', 'остановок', 'Заверши смену']) {
     assert.ok(html.includes(label), `guide should explain: ${label}`);
   }
   assert.match(html, /data-action="OPEN_GUIDE"/);
