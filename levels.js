@@ -153,7 +153,7 @@
          вырастает; Тушино отменяет заявку, когда её паллета уже в кузове,
          и её приходится снять. */
       events: [
-        { type: 'pallet-arrived', afterLoadedPallets: 1, pallet: arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат') },
+        { type: 'pallet-arrived', afterLoadedPallets: 1, orAtSecond: 30, pallet: arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат') },
         { type: 'demand-increase', orderId: 'order-west', quantity: 2, afterLoadedPallets: 2 },
         { type: 'order-cancelled', orderId: 'order-north', afterLoadedPallets: 3 },
       ],
@@ -182,7 +182,7 @@
       inbound: [arrival('in-banana', chilled, 'banana', 3, 'Фрутлайн')],
       stock: { chilled: { banana: 0 }, frozen: { 'ice-cream': 0 } },
       events: [
-        { type: 'pallet-arrived', afterLoadedPallets: 2, pallet: arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат') },
+        { type: 'pallet-arrived', afterLoadedPallets: 2, orAtSecond: 45, pallet: arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат') },
         { type: 'demand-increase', orderId: 'order-central', quantity: 2, afterLoadedPallets: 3 },
         { type: 'order-cancelled', orderId: 'order-east', afterLoadedPallets: 6 },
       ],

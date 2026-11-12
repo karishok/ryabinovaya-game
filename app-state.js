@@ -174,6 +174,9 @@
      Прогресс надёжнее: смену можно закрыть за пятнадцать секунд, и событие,
      назначенное на 120-ю секунду, не наступало никогда. */
   const eventIsDue = (event, state) => {
+    /* Запасной срок: фура «в пути» обязана приехать и тому, кто решил её
+       просто подождать, а не только тому, кто грузит другие заявки. */
+    if (typeof event.orAtSecond === 'number' && (state.elapsedSeconds || 0) >= event.orAtSecond) return true;
     if (typeof event.afterLoadedPallets === 'number') return (state.loadedPallets || []).length >= event.afterLoadedPallets;
     if (typeof event.afterPlacedPallets === 'number') return (state.inbound || []).filter((pallet) => pallet.status === 'placed').length >= event.afterPlacedPallets;
     if (typeof event.atSecond === 'number') return (state.elapsedSeconds || 0) >= event.atSecond;

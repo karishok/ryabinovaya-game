@@ -180,7 +180,7 @@ test('the order board reports state: progress, missing stock and a cancelled pal
   let state = begin(5);
   let board = orderBoardFor(state);
   assert.deepEqual(board.map((row) => row.status), ['open', 'open', 'open', 'open']);
-  assert.equal(board.at(-1).note, 'нет на складе', 'мороженое ещё в пути');
+  assert.equal(board.at(-1).note, 'фура в пути', 'мороженого нет, но оно едет — это не тупик');
 
   // Игрок без подсказок: вода, хлеб, хлеб — и Тушино отменяет заявку.
   const ship = (sku, weightPerUnit, storeId) => {
@@ -205,6 +205,40 @@ test('the order board reports state: progress, missing stock and a cancelled pal
   const [orphan] = orphanPalletsFor(state);
   state = reduceAction(state, { type: 'UNLOAD_PALLET', vehicleId: orphan.vehicleId, palletIndex: orphan.palletIndex });
   assert.equal(orderBoardFor(state).find((row) => row.orderId === 'order-north').alert, false);
+});
+
+test('the board says where missing goods are: on the road, at the dock, or lost', () => {
+  const { orderBoardFor } = require('../scene-view.js');
+  const iceNote = (state) => orderBoardFor(state).find((row) => row.orderId === 'order-central').note;
+  let state = begin(5);
+  assert.equal(iceNote(state), 'фура в пути');
+
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = tick(reduceAction(state, { type: 'LOAD_PALLET' }), 1);
+  assert.equal(iceNote(state), 'стоит на приёмке', 'фура приехала после первой погрузки');
+
+  state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+  const spoiled = reduceAction(state, { type: 'PLACE_PALLET', zone: 'dry' });
+  assert.equal(iceNote(spoiled), 'поставка испорчена', 'ошибка зоны — заявку уже не закрыть, и доска это говорит');
+
+  const placed = reduceAction(state, { type: 'PLACE_PALLET', zone: 'frozen' });
+  assert.equal(iceNote(placed), '', 'товар в зоне — заявку можно собирать');
+});
+
+test('a truck that is on the road also arrives for a player who just waits', () => {
+  const { orderBoardFor } = require('../scene-view.js');
+  let state = begin(5);
+  state = tick(state, 29);
+  assert.equal(state.inbound.length, 0);
+  state = tick(state, 1);
+  assert.equal(state.inbound.length, 1, 'через полминуты фура приезжает сама, без единой погрузки');
+  assert.equal(orderBoardFor(state).find((row) => row.orderId === 'order-central').note, 'стоит на приёмке');
+  // И не приезжает второй раз, когда наконец погружена первая паллета.
+  state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+  state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'frozen' });
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = tick(reduceAction(state, { type: 'LOAD_PALLET' }), 1);
+  assert.equal(state.inbound.length, 1);
 });
 
 test('a guided shift still tells the player to unload a cancelled pallet', () => {

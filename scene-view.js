@@ -190,6 +190,18 @@
   /* Доска заявок для смен без поводыря. Она показывает состояние, а не шаг:
      что заказано, сколько уже в кузове, чего нет на складе, что отменено.
      Какую заявку брать и что делать с отменённой, решает игрок. */
+  /* «Нет на складе» не отвечало на главный вопрос: ждать или это тупик.
+     Доска говорит, где товар на самом деле — едет, стоит у ворот или погиб. */
+  function missingStockNote(state, sku) {
+    const inbound = (state.inbound || []).filter((pallet) => pallet.sku === sku);
+    if (inbound.some((pallet) => pallet.status === 'arrived' || pallet.status === 'received')) return 'стоит на приёмке';
+    const onTheWay = (state.scheduledEvents || []).some((event, index) => event.type === 'pallet-arrived'
+      && event.pallet?.sku === sku && !(state.appliedEventIndexes || []).includes(index));
+    if (onTheWay) return 'фура в пути';
+    if (inbound.some((pallet) => pallet.status === 'spoiled')) return 'поставка испорчена';
+    return 'нет на складе';
+  }
+
   function orderBoardFor(state) {
     if (state.phase !== 'shift') return null;
     return (state.orders || []).map((order) => {
@@ -199,7 +211,7 @@
       const noStock = status === 'open' && engine.availableStock(state.stock, order.zone, order.sku) === 0;
       const note = status === 'cancelled'
         ? (loaded > 0 ? `отменена · в кузове ${loaded} шт.` : 'отменена')
-        : noStock ? 'нет на складе' : '';
+        : noStock ? missingStockNote(state, order.sku) : '';
       return {
         orderId: order.id,
         storeName: STORE_NAMES[order.storeId] || order.storeId,
