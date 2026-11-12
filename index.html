@@ -206,15 +206,13 @@
             <div class="tsd-panel" id="tsdVehicles" role="dialog" aria-modal="true" aria-labelledby="vehicleTitle">
               <div class="modal-head"><h2 class="sr-only" id="vehicleTitle">Машины и маршрут</h2><p class="panel-task" id="vehicleTask"></p><button class="close" data-action="CLOSE_VEHICLES" aria-label="Закрыть">×</button></div>
               <div id="vehicleRows"></div>
-              <!-- Снятие паллеты: без него набитый лишним кузов было не
-                   разгрузить, и смена становилась непроходимой. -->
-              <div class="select-label" id="loadedLabel">В кузове</div>
-              <div id="loadedPallets"></div>
-              <div class="select-label" id="routeMapLabel">Карта доставки</div>
+              <!-- Остановки и груз — один список: строка остановки несёт и её
+                   паллеты, и стрелки порядка, и «Снять». Раньше адреса
+                   печатались дважды — в «В кузове» и в «Порядке остановок». -->
+              <div class="select-label" id="routeStopsLabel">Остановки и груз</div>
+              <div id="routeStops"></div>
               <div class="route-map" id="routeMap"></div>
               <p class="route-summary" id="routeSummary"></p>
-              <div class="select-label" id="routeStopsLabel">Порядок остановок</div>
-              <div id="routeStops"></div>
               <div class="tsd-sticky-action"><button class="btn full-width" id="routeButton" data-action="SET_ROUTE">Маршрут пока пуст</button></div>
             </div>
           </section>

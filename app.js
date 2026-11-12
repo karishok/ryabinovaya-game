@@ -427,19 +427,33 @@ function render(nextState, document) {
     group.quantity += (pallet.items || []).reduce((total, item) => total + item.quantity, 0);
     group.lastIndex = index;
   });
-  byId(document, 'loadedLabel').textContent = inBay.length ? `В кузове · ${inBay.reduce((total, pallet) => total + pallet.weight, 0)} кг` : 'В кузове';
-  byId(document, 'loadedPallets').innerHTML = bayGroups.length
-    ? bayGroups.map((group) => `<div class="loaded-row${group.orphan ? ' is-orphan' : ''}"><span><strong>${stores[group.storeId] || group.storeId}${group.orphan ? ' · заявка отменена' : ''}</strong><small>${group.goods || 'пусто'} · ${group.quantity} шт. · ${group.weight} кг${group.count > 1 ? ` · ${group.count} паллеты` : ''}</small></span><button class="btn ${group.orphan ? '' : 'secondary'}" data-action="UNLOAD_PALLET" data-vehicle-id="${selectedVehicle.id}" data-pallet-index="${group.lastIndex}">${group.count > 1 ? 'Снять 1' : 'Снять'}</button></div>`).join('')
-    : '<p class="empty-route">Кузов пуст.</p>';
-
   const routeStops = nextState.routeStops || [];
-  /* Карта и перестановка нужны, когда остановок хотя бы две. С одной
-     остановкой они занимали пол-экрана и не давали ничего решить. */
+  /* Карта и стрелки нужны, когда остановок хотя бы две: с одной они
+     занимали пол-экрана и не давали ничего решить. */
   const reorderable = routeStops.length > 1;
-  for (const id of ['routeMapLabel', 'routeMap', 'routeStopsLabel', 'routeStops']) byId(document, id).hidden = !reorderable;
-  byId(document, 'routeMap').innerHTML = reorderable ? routeMapSvg(nextState, routeStops) : '';
+  const routeMap = byId(document, 'routeMap');
+  routeMap.hidden = !reorderable;
+  routeMap.innerHTML = reorderable ? routeMapSvg(nextState, routeStops) : '';
   byId(document, 'routeSummary').innerHTML = routeSummaryHtml(routeStops, sceneView.guided);
-  byId(document, 'routeStops').innerHTML = routeStops.length ? routeStops.map((storeId, index) => `<div class="route-stop"><span>${index + 1}. ${stores[storeId] || storeId} <b class="leg">${engine.legMinutes(index === 0 ? 'depot' : routeStops[index - 1], storeId)} мин</b></span><span><button data-action="MOVE_STOP" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Выше">↑</button><button data-action="MOVE_STOP" data-index="${index}" data-direction="1" ${index === routeStops.length - 1 ? 'disabled' : ''} aria-label="Ниже">↓</button></span></div>`).join('') : '<p class="empty-route">Загрузите паллеты для добавления остановок.</p>';
+  byId(document, 'routeStopsLabel').textContent = inBay.length
+    ? `Остановки и груз · ${inBay.reduce((total, pallet) => total + pallet.weight, 0)} кг`
+    : 'Остановки и груз';
+  const loadLine = (group, leg = '') => `<small>${leg}${group.goods || 'пусто'} · ${group.quantity}&nbsp;шт. · ${group.weight}&nbsp;кг${group.count > 1 ? ` · ${group.count}&nbsp;паллеты` : ''}${group.orphan ? '<em>заявка отменена</em>' : ''}</small>`;
+  const unloadButton = (group) => `<button class="stop-unload${group.orphan ? ' is-orphan' : ''}" data-action="UNLOAD_PALLET" data-vehicle-id="${selectedVehicle.id}" data-pallet-index="${group.lastIndex}">${group.count > 1 ? 'Снять 1' : 'Снять'}</button>`;
+  // Адрес без остановки в маршруте быть не должен, но груз не прячем и тогда.
+  const stopIds = [...routeStops, ...bayGroups.map((group) => group.storeId).filter((storeId) => !routeStops.includes(storeId))]
+    .filter((storeId, index, list) => list.indexOf(storeId) === index);
+  byId(document, 'routeStops').innerHTML = stopIds.length ? stopIds.map((storeId) => {
+    const index = routeStops.indexOf(storeId);
+    const [first, ...rest] = bayGroups.filter((group) => group.storeId === storeId);
+    // Плечо стоит в строке груза: заголовок остановки остаётся коротким и не переносится.
+    const leg = index >= 0 ? `<b class="leg">${engine.legMinutes(index === 0 ? 'depot' : routeStops[index - 1], storeId)}&nbsp;мин</b> · ` : '';
+    const arrows = reorderable && index >= 0
+      ? `<button class="stop-move" data-action="MOVE_STOP" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Выше">↑</button><button class="stop-move" data-action="MOVE_STOP" data-index="${index}" data-direction="1" ${index === routeStops.length - 1 ? 'disabled' : ''} aria-label="Ниже">↓</button>`
+      : '';
+    const extra = rest.map((group) => `<div class="stop-extra${group.orphan ? ' is-orphan' : ''}"><span>${loadLine(group)}</span>${unloadButton(group)}</div>`).join('');
+    return `<div class="route-stop${first?.orphan ? ' is-orphan' : ''}"><div class="stop-main"><span class="stop-text"><strong>${index >= 0 ? `${index + 1}. ` : ''}${stores[storeId] || storeId}</strong>${first ? loadLine(first, leg) : `<small>${leg}</small>`}</span><span class="stop-actions">${arrows}${first ? unloadButton(first) : ''}</span></div>${extra}</div>`;
+  }).join('') : '<p class="empty-route">Кузов пуст.</p>';
   byId(document, 'routeButton').textContent = routeStops.length
     ? `Готово · рейс ${engine.buildRoute(null, routeStops).minutes} мин`
     : 'Остановок пока нет';
