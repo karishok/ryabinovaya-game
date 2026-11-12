@@ -765,6 +765,27 @@ button.order-line:hover, button.order-line:focus-visible { border-color: var(--c
 .flow-zone { display: grid; gap: 4px; justify-items: center; padding: 9px 4px; border: 1px solid var(--line); border-radius: 13px; background: #1b2a22; font-size: 11px; }
 .flow-zone[disabled] { opacity: 0.4; }
 
+/* Отбор и погрузка. */
+.flow-outbound { display: grid; gap: 8px; }
+.flow-stock { margin: 0; color: var(--muted); font-size: 11px; }
+.flow-staging { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.flow-staging .flow-pallet { padding: 7px 8px; }
+.flow-staging .flow-pallet.is-free { min-height: 44px; }
+.flow-vans { display: grid; gap: 6px; }
+.flow-van { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 14px; background: #1b2a22; text-align: left; }
+.flow-van[disabled] { opacity: 0.55; }
+.flow-van.is-ready { border-color: rgba(244, 234, 216, 0.5); background: #24362c; }
+.flow-van.is-working { border-color: var(--amber); }
+.flow-van-body { display: grid; flex: 1; gap: 1px; min-width: 0; }
+.flow-van-body strong { overflow: hidden; color: var(--cream); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.flow-van-meta { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.flow-van-action { flex: none; max-width: 46%; color: var(--muted); font-size: 11px; font-weight: 800; text-align: right; }
+.flow-van.is-ready .flow-van-action { padding: 6px 10px; border-radius: 10px; background: #c9dacb; color: #122219; font-size: 12px; }
+/* Срочность фургона — в цвете срока: он уйдёт пустым, и это сорванная заявка. */
+.flow-van.is-warning .flow-van-meta { color: var(--amber); }
+.flow-van.is-critical { border-color: rgba(217, 74, 63, 0.75); }
+.flow-van.is-critical .flow-van-meta { color: var(--terracotta); font-weight: 800; }
+
 .flow-message { margin: 0; padding: 8px 11px; border-radius: 12px; background: #22332a; font-size: 12px; }
 .flow-message[data-kind="error"] { background: #3c2320; color: #ffd9d2; }
 .flow-message[data-kind="success"] { background: #1f3b2e; color: #c8f2d6; }
@@ -776,8 +797,11 @@ button.order-line:hover, button.order-line:focus-visible { border-color: var(--c
 /* Без занятости полоса не должна съедать прижим низа к полосе станций. */
 .flow-busy[hidden] + .flow-strip { margin-top: auto; }
 
-.flow-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.flow-station-tab { display: grid; gap: 2px; padding: 10px 8px; border: 1px solid var(--line); border-radius: 15px; background: #1b2a22; text-align: left; }
+/* Четыре станции — сеткой два на два: в один ряд «Размещение» не помещалось,
+   а кнопки становились слишком узкими для пальца. Верхний ряд — вход на
+   склад, нижний — выход. */
+.flow-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.flow-station-tab { display: grid; gap: 1px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 15px; background: #1b2a22; text-align: left; }
 .flow-station-tab strong { color: var(--cream); font-size: 13px; }
 .flow-station-tab span { color: var(--muted); font-size: 11px; }
 .flow-station-tab.is-here { border-color: rgba(244, 234, 216, 0.55); background: #24362c; }
