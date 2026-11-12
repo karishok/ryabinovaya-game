@@ -119,7 +119,7 @@ test('every declared mechanic is actually exercised by its level data', () => {
   const weightOf = (sku) => engine.itemBySku(sku).weightPerUnit;
 
   const inboundLevels = LEVELS.filter((level) => (level.inbound || []).length > 0);
-  assert.deepEqual(inboundLevels.map((level) => level.newMechanic), ['inbound-receive', 'three-zones', 'exam']);
+  assert.deepEqual(inboundLevels.map((level) => level.newMechanic), ['inbound-receive', 'late-delivery', 'exam']);
   for (const level of inboundLevels) {
     for (const pallet of level.inbound) {
       assert.equal(engine.availableStock(engine.stockFrom(level.stock), pallet.zone, pallet.sku), 0,
@@ -167,11 +167,11 @@ test('every ordered zone has a truck able to carry the whole demand', () => {
       const weight = quantity * engine.itemBySku(order.sku).weightPerUnit;
       weightByZone.set(order.zone, (weightByZone.get(order.zone) || 0) + weight);
     }
-    // Машина, приезжающая по событию, до него недоступна — на неё не рассчитываем.
-    const delayed = new Set((level.events || []).filter((event) => event.type === 'vehicle-ready').map((event) => event.vehicleId));
+    /* Фургон из рейса считаем: у его возвращения есть запасной срок, так что
+       он приедет при любой игре. Раньше таких машин в сменах не было, и
+       рассчитывать на них было нельзя. */
     const capacityByZone = new Map();
     for (const vehicle of level.vehicles) {
-      if (delayed.has(vehicle.id)) continue;
       capacityByZone.set(vehicle.zone, (capacityByZone.get(vehicle.zone) || 0) + vehicle.capacity);
     }
 

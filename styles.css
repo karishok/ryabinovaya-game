@@ -476,11 +476,18 @@ button.order-line:hover, button.order-line:focus-visible { border-color: var(--c
 .order-line.is-alert { opacity: 1; border-color: rgba(240, 170, 56, 0.55); }
 .order-line.is-alert .order-detail { color: #ffd98a; }
 
+.order-board.is-dense { gap: 4px; padding: 8px; }
+.order-board.is-dense .order-board-rows { gap: 4px; }
+.order-board.is-dense .order-line { min-height: 36px; padding: 3px 8px; gap: 0; }
+.order-board.is-dense .order-top strong, .order-board.is-dense .order-progress { font-size: 12px; }
+
 /* На коротком экране шесть заявок часа пик выталкивали ряд кнопок за край. */
 @media (max-height: 780px) {
   .order-board { padding: 8px; }
   .order-board-kicker { display: none; }
   .order-line { min-height: 38px; padding: 4px 9px; }
+  .order-board.is-dense .order-line { min-height: 32px; padding: 2px 8px; }
+  .order-board.is-dense .order-detail { line-height: 1.15; }
 }
 
 /* Карточка «Сейчас» занимает место, которое раньше пустовало под сценой. */

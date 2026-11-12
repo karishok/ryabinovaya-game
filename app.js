@@ -189,6 +189,8 @@ function renderOrderBoard(rows, document) {
   if (!board) return;
   board.hidden = !rows;
   if (!rows) return;
+  // Восемь заявок «Большого развоза» в обычных строках не помещаются под схемой.
+  board.classList.toggle('is-dense', rows.length > 6);
   byId(document, 'orderBoardRows').innerHTML = rows.map((row) => {
     const progress = row.status === 'cancelled' ? '' : `<b class="order-progress">${row.loaded} / ${row.quantity}${row.status === 'done' ? ' ✓' : ''}</b>`;
     const detail = row.status === 'cancelled'
@@ -366,7 +368,7 @@ function render(nextState, document) {
   const pick = vehicleForPallet(nextState, nextState.pallet, nextState.selectedVehicleId);
   const targetMessages = {
     'fleet-full': 'все фургоны зоны загружены',
-    'vehicle-not-ready': 'фургон зоны ещё в рейсе',
+    'vehicle-not-ready': 'в готовые фургоны не влезает, ещё один в рейсе',
     'no-vehicle': 'фургона этой зоны в смене нет',
   };
   byId(document, 'capacityTarget').textContent = pick.vehicle

@@ -129,9 +129,10 @@ test('putting a pallet on the wrong rack costs a spoiled pallet and the order be
 
 test('a pallet abandoned on the dock is named in the report', () => {
   const outcome = shiftOutcome(shift(receiveLevel));
-  assert.equal(outcome.inboundTotal, 1);
+  assert.equal(outcome.inboundTotal, 3);
   assert.equal(outcome.inboundPlaced, 0);
-  assert.deepEqual(outcome.inboundLeftOnDock, [{ itemName: 'Вода 1,5 л', zoneName: 'Сухач' }]);
+  assert.equal(outcome.inboundLeftOnDock.length, 3);
+  assert.deepEqual(outcome.inboundLeftOnDock[0], { itemName: 'Вода 1,5 л', zoneName: 'Сухач' });
 
   const report = finishShift(shift(receiveLevel)).report;
   assert.ok(report.reasons.some((reason) => /На приёмке осталось паллет/.test(reason)));
@@ -151,7 +152,7 @@ test('the sorting shift queues every dock pallet and keeps the delivery order wa
     state = reduceAction(state, { type: 'PLACE_PALLET', zone: zones.at(-1) });
   }
 
-  assert.deepEqual(zones, ['chilled', 'frozen', 'dry'], 'паллеты разбираются в порядке прибытия');
+  assert.deepEqual(zones, ['dry', 'chilled', 'frozen'], 'паллеты разбираются в порядке прибытия');
   assert.equal(warehouseViewFor(state).inboundCount, 0);
   assert.equal(terminalViewFor(state).screen, 'current');
   // Только теперь появляется обычное задание на отгрузку.
@@ -193,7 +194,7 @@ test('a chilled pallet rides in the chilled van even when a dry one is selected'
   /* Раньше такая погрузка «портила» паллету, хотя в центре её просто не
      примут в кузов чужой зоны. Теперь склад сам ставит её к своей машине. */
   // Смена с тремя зонами, где молоко уже лежит на складе, а не едет на приёмку.
-  let state = shift(LEVELS.find((level) => level.teaches.includes('route')).id);
+  let state = shift(LEVELS.find((level) => level.teaches.includes('capacity')).id);
   state = reduceAction(state, { type: 'SELECT_VEHICLE', vehicleId: 'dry-1' });
   state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'chilled' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity: 1 });
@@ -296,7 +297,8 @@ test('unloading returns the goods to the rack they were picked from', () => {
 });
 
 test('unloading a pallet keeps the other stops of the same truck', () => {
-  const route = LEVELS.find((level) => level.teaches.includes('route')).id;
+  // Смена, где сухой товар лежит на складе, а не едет на приёмку.
+  const route = LEVELS.find((level) => level.teaches.includes('capacity')).id;
   let state = shift(route);
   const put = (storeId, sku, weightPerUnit, quantity) => {
     state = reduceAction(state, { type: 'SELECT_STORE', storeId });

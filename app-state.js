@@ -96,9 +96,11 @@
     if (preferred && roomIn(preferred) >= pallet.weight) return { vehicle: preferred };
     const withRoom = fleet.find((vehicle) => roomIn(vehicle) >= pallet.weight);
     if (withRoom) return { vehicle: withRoom };
-    if (fleet.length > 0) return { reason: 'fleet-full' };
+    /* Если фургон зоны ещё в рейсе, «все фургоны полны, снимите лишнее»
+       было бы неправдой: место появится само, когда он вернётся. */
     const waiting = (state.vehicles || []).some((vehicle) => vehicle.zone === pallet.zone && vehicle.ready === false);
-    return { reason: waiting ? 'vehicle-not-ready' : 'no-vehicle' };
+    if (waiting) return { reason: 'vehicle-not-ready' };
+    return { reason: fleet.length > 0 ? 'fleet-full' : 'no-vehicle' };
   }
   const initialTsdState = () => ({
     open: true,
@@ -154,7 +156,10 @@
     if (event.type === 'demand-increase') {
       return feedback('info', 'demand-increase', `${storeOf(orderOf(event.orderId))} дозаказал: ещё ${event.quantity} шт.`);
     }
-    if (event.type === 'vehicle-ready') return feedback('info', 'vehicle-ready', 'Дополнительная машина готова к загрузке.');
+    if (event.type === 'vehicle-ready') {
+      const vehicle = (state?.vehicles || []).find((entry) => entry.id === event.vehicleId);
+      return feedback('info', 'vehicle-ready', `«${vehicleLabel(state, vehicle)}» вернулся из рейса и готов к загрузке.`);
+    }
     if (event.type === 'pallet-arrived') {
       const item = engine.itemBySku(event.pallet?.sku);
       return feedback('info', 'pallet-arrived', `На приёмку пришла фура: ${item?.name || 'поставка'}.`);
@@ -490,7 +495,7 @@
              что советовать «отправьте и дождитесь» было обещанием действия,
              которого нет. Полный парк означает перебор по весу. */
           'fleet-full': `Все фургоны зоны «${zoneName}» полны. Откройте машины на схеме и снимите лишнюю паллету — товар вернётся в зону.`,
-          'vehicle-not-ready': `Фургон зоны «${zoneName}» ещё в рейсе, он будет готов позже.`,
+          'vehicle-not-ready': `В готовые фургоны зоны «${zoneName}» эта паллета не влезает, а ещё один в рейсе. Он вернётся позже — займитесь пока другой заявкой.`,
           'no-vehicle': `Для зоны «${zoneName}» в смене нет фургона.`,
         };
         return withFeedback(state, feedback('error', pick.reason, messages[pick.reason]));

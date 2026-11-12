@@ -80,19 +80,17 @@ test('successfully loading a pallet marks the next task on the TSD', () => {
 
 test('a progress-triggered demand change lands once and puts the order back in the queue', () => {
   let state = { ...startLevel(levelWith('dynamic-demand')), phase: 'shift' };
-  state = ship(state, 'north', 'dry', 'water', 12, 2, 'dry-1');
-  state = ship(state, 'west', 'dry', 'bread', 6, 2, 'dry-1');
+  state = ship(state, 'north', 'dry', 'water', 12, 6, 'dry-1');
   const next = tick(state, 1);
 
-  assert.equal(next.orders.find((order) => order.id === 'order-west').quantity, 4);
-  // На этой смене до заявки успевает приехать опоздавшая фура.
-  assert.deepEqual(next.events.map((event) => event.type), ['pallet-arrived', 'demand-increase']);
+  assert.equal(next.orders.find((order) => order.id === 'order-north').quantity, 10);
+  assert.deepEqual(next.events.map((event) => event.type), ['demand-increase']);
   assert.equal(next.feedback.code, 'demand-increase');
-  assert.match(next.feedback.message, /Саларьево.*ещё 2 шт/);
+  assert.match(next.feedback.message, /Тушино.*ещё 4 шт/);
   /* Главное: выросшая заявка снова становится текущим заданием. Раньше
      магазин считался закрытым по факту первой паллеты, и добрать остаток
      штатным путём было нельзя. */
-  assert.equal(activeOrderFor(next).id, 'order-west');
+  assert.equal(activeOrderFor(next).id, 'order-north');
   assert.deepEqual(next.events.map((event) => event.type), tick(next, 1).events.map((event) => event.type));
 });
 

@@ -34,17 +34,24 @@
     frozen: '−18°',
   });
 
-  /* Шесть смен: четыре знакомят с правилами, две проверяют их на живом
-     складе. Раньше правил было по одному на смену, и знакомство растягивалось
-     на девять раундов, первые из которых проходились за пятнадцать секунд.
-     Теперь обучающая смена несёт два родственных правила:
-     отгрузка → приёмка и адреса → зоны на отборе и на размещении →
-     маршрут и вместимость. Дальше правила не добавляются — меняется план:
-     фура опаздывает, заявка растёт, заявку отменяют, и уже погруженное
-     приходится снимать.
-     newMechanic — имя смены для кода; teaches — правила, которые она вводит.
+  /* Десять смен: две вводные и восемь рабочих. Вводные ведёт карточка
+     «Сейчас»: первая показывает сборку и погрузку, вторая — всё остальное
+     разом: приёмку, зоны, адреса и порядок остановок. Раньше знакомство
+     занимало девять, потом четыре раунда, и первые проходились за
+     пятнадцать секунд. С третьей смены подсказок нет, и у каждой свой
+     поворот: кузов не вмещает заявку, фура опаздывает, заявки растут,
+     заявки отменяют, фургон ещё в рейсе, рейсы длинные — и под конец всё
+     это вместе.
+     newMechanic — имя смены для кода; teaches — что она вводит.
      guided: false — смена без поводыря: карточка «Сейчас» молчит, объекты
-     не подсвечиваются, вместо них под схемой лежит доска заявок. */
+     не подсвечиваются, вместо них под схемой лежит доска заявок.
+     События привязаны к прогрессу (afterLoadedPallets), а не к секундам:
+     смену можно закрыть за минуту, и расписание по таймеру не наступало.
+     У приездов есть запасной срок (orAtSecond) — для того, кто ждёт. */
+  const late = (afterLoadedPallets, orAtSecond, pallet) => ({ type: 'pallet-arrived', afterLoadedPallets, orAtSecond, pallet });
+  const more = (afterLoadedPallets, orderId, quantity) => ({ type: 'demand-increase', orderId, quantity, afterLoadedPallets });
+  const cancel = (afterLoadedPallets, orderId) => ({ type: 'order-cancelled', orderId, afterLoadedPallets });
+
   const LEVELS = [
     {
       id: 1,
@@ -59,66 +66,50 @@
       events: [],
       goal: 'Соберите паллету, погрузите её в фургон и закройте смену.',
       storyBefore: 'Добро пожаловать в центр «Рябиновая». Начнём с одной заявки.',
-      storyAfter: 'Первая заявка закрыта. Теперь посмотрим, откуда на складе товар.',
+      storyAfter: 'Первая заявка закрыта. Следующая смена — уже настоящая: приёмка, три зоны и дорога.',
     },
     {
       id: 2,
-      title: 'Приёмка и два адреса',
+      title: 'Три зоны и маршрут',
       newMechanic: 'inbound-receive',
-      teaches: ['inbound-receive', 'two-stores'],
-      durationSeconds: 210,
-      unlockedZones: [dry],
-      vehicles: [vehicle('dry-1', dry)],
-      stores: [store('north', dry), store('west', dry)],
+      teaches: ['inbound-receive', 'two-stores', 'three-zones', 'inbound-sorting', 'route'],
+      durationSeconds: 300,
+      unlockedZones: [dry, frozen, chilled],
+      vehicles: [vehicle('dry-1', dry), vehicle('frozen-1', frozen), vehicle('chilled-1', chilled)],
+      stores: [store('north', dry), store('west', dry), store('central', dry), store('east', chilled)],
+      /* Одна большая вводная вместо четырёх. Три фуры на приёмке — три
+         решения о зоне, которые никто не подскажет. Сухой фургон собирает
+         три адреса в порядке погрузки, а он длиннее лучшего. */
       initialOrders: [
         order('order-north', 'north', dry, 'water', 4),
         order('order-west', 'west', dry, 'bread', 3),
-      ],
-      inbound: [arrival('in-water', dry, 'water', 4, 'Аквалайн')],
-      stock: { dry: { water: 0 } },
-      events: [],
-      goal: 'Примите воду с фуры, затем соберите две паллеты: одна паллета — один даркстор.',
-      storyBefore: 'На приёмке стоит фура с водой, а на складе её нет. Сначала приёмка — потом отгрузка. И дарксторов теперь два.',
-      storyAfter: 'Товар принят, оба адреса закрыты. Открываем холодные зоны.',
-    },
-    {
-      id: 3,
-      title: 'Три зоны',
-      newMechanic: 'three-zones',
-      teaches: ['three-zones', 'inbound-sorting'],
-      durationSeconds: 270,
-      unlockedZones: [dry, frozen, chilled],
-      vehicles: [vehicle('dry-1', dry), vehicle('frozen-1', frozen), vehicle('chilled-1', chilled)],
-      stores: [store('north', dry), store('central', frozen), store('east', chilled)],
-      initialOrders: [
-        order('order-north', 'north', dry, 'water', 2),
-        order('order-central', 'central', frozen, 'ice-cream', 2),
+        order('order-central', 'central', dry, 'bread', 2),
         order('order-east', 'east', chilled, 'milk', 2),
+        order('order-central-ice', 'central', frozen, 'ice-cream', 2),
       ],
       inbound: [
+        arrival('in-water', dry, 'water', 4, 'Аквалайн'),
         arrival('in-milk', chilled, 'milk', 2, 'Молочный дом'),
         arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат'),
-        arrival('in-water', dry, 'water', 2, 'Аквалайн'),
       ],
       stock: { dry: { water: 0 }, chilled: { milk: 0 }, frozen: { 'ice-cream': 0 } },
       events: [],
-      goal: 'Сами решите, в какую зону поставить каждую поставку, и отправьте каждую заявку своим фургоном.',
-      storyBefore: 'Склад растёт: сухач, охлаждёнка и заморозка. Три фуры на приёмке. Какому товару какая температура — решайте сами: чужая зона портит паллету.',
-      storyAfter: 'Три зоны работают без потерь. Дальше — дорога.',
+      goal: 'Примите три фуры и сами решите, что в какую зону. Потом соберите заявки и сократите рейс сухого фургона.',
+      storyBefore: 'На приёмке три фуры, а на складе этого товара нет: сначала приёмка, потом отгрузка. Какому товару какая температура — решайте сами, чужая зона портит паллету. Одна паллета — один даркстор.',
+      storyAfter: 'Правила вы знаете. Дальше подсказок не будет: заявки — на доске под схемой, а у каждой смены свой поворот.',
     },
     {
-      id: 4,
-      title: 'Маршрут и кузов',
-      newMechanic: 'route-capacity',
-      teaches: ['route', 'capacity'],
+      id: 3,
+      title: 'Полный кузов',
+      guided: false,
+      newMechanic: 'capacity',
+      teaches: ['capacity'],
       durationSeconds: 300,
       unlockedZones: [dry, frozen, chilled],
       vehicles: [vehicle('dry-1', dry), vehicle('dry-2', dry), vehicle('chilled-1', chilled)],
       stores: [store('north', dry), store('central', dry), store('west', dry), store('east', chilled)],
       /* Вода не влезает ни в паллету, ни в одну машину: 96 кг уходят первым
-         фургоном, остаток — вторым, и туда же попадают ещё два адреса.
-         Так вторая машина собирает три остановки в порядке погрузки, а он
-         длиннее лучшего, — оба правила смены встречаются в одном кузове. */
+         фургоном, остаток — вторым, и туда же попадают ещё два адреса. */
       initialOrders: [
         order('order-north', 'north', dry, 'water', 10),
         order('order-central', 'central', dry, 'bread', 2),
@@ -126,16 +117,150 @@
         order('order-east', 'east', chilled, 'milk', 2),
       ],
       events: [],
-      goal: '120 кг воды не влезут в одну паллету — разделите заявку. Потом сократите рейс второго фургона.',
-      storyBefore: 'Тушино заказало десять упаковок воды: паллета держит 100 кг, фургон — тоже. А второй фургон объедет три адреса, и порядок остановок решает, успеет ли он вовремя.',
-      storyAfter: 'Заявка разошлась по двум машинам, рейс сокращён. Правила вы знаете — теперь план начнёт меняться.',
+      goal: 'Подсказок больше нет: нажмите заявку на доске, чтобы собрать под неё паллету. 120 кг воды придётся делить.',
+      storyBefore: 'Тушино заказало десять упаковок воды. Паллета держит 100 кг, фургон — тоже: заявку придётся разделить на две паллеты и два фургона. И проверьте, как второй фургон объезжает адреса.',
+      storyAfter: 'Заявка разошлась по двум машинам. Дальше товар будет приезжать не к началу смены.',
+    },
+    {
+      id: 4,
+      title: 'Фура в пути',
+      guided: false,
+      newMechanic: 'late-delivery',
+      teaches: ['late-delivery'],
+      durationSeconds: 300,
+      unlockedZones: [dry, frozen, chilled],
+      vehicles: [vehicle('dry-1', dry), vehicle('frozen-1', frozen), vehicle('chilled-1', chilled)],
+      stores: [store('north', dry), store('west', dry), store('east', chilled), store('central', frozen)],
+      initialOrders: [
+        order('order-north', 'north', dry, 'water', 2),
+        order('order-west', 'west', dry, 'bread', 2),
+        order('order-east-banana', 'east', chilled, 'banana', 3),
+        order('order-central', 'central', frozen, 'ice-cream', 2),
+        order('order-east', 'east', chilled, 'milk', 2),
+      ],
+      inbound: [arrival('in-banana', chilled, 'banana', 3, 'Фрутлайн')],
+      stock: { chilled: { banana: 0, milk: 0 }, frozen: { 'ice-cream': 0 } },
+      events: [
+        late(1, 30, arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат')),
+        late(3, 60, arrival('in-milk', chilled, 'milk', 2, 'Молочный дом')),
+      ],
+      goal: 'Бананы уже на приёмке, мороженое и молоко ещё едут. Собирайте то, что есть, и не пропустите фуры.',
+      storyBefore: 'Сегодня товар приезжает по ходу смены: бананы стоят у ворот, а фуры с мороженым и молоком в пути. Доска заявок скажет, чего ещё нет на складе.',
+      storyAfter: 'Фуры приняты, заявки закрыты. Теперь меняться начнут сами заявки.',
     },
     {
       id: 5,
-      title: 'План меняется',
+      title: 'Дозаказ',
       guided: false,
       newMechanic: 'dynamic-demand',
-      teaches: ['dynamic-demand', 'late-delivery', 'cancellation'],
+      teaches: ['dynamic-demand'],
+      durationSeconds: 300,
+      unlockedZones: [dry, frozen, chilled],
+      vehicles: [vehicle('dry-1', dry), vehicle('dry-2', dry), vehicle('chilled-1', chilled)],
+      stores: [store('north', dry), store('west', dry), store('central', dry), store('east', chilled)],
+      /* Первый дозаказ делает воду тяжелее паллеты: добор уходит вторым
+         фургоном, и за ним туда же встают остальные сухие адреса. */
+      initialOrders: [
+        order('order-north', 'north', dry, 'water', 6),
+        order('order-west', 'west', dry, 'bread', 2),
+        order('order-central', 'central', dry, 'bread', 3),
+        order('order-east', 'east', chilled, 'milk', 2),
+      ],
+      events: [
+        more(1, 'order-north', 4),
+        more(4, 'order-west', 2),
+        more(6, 'order-east', 3),
+      ],
+      goal: 'Дарксторы дозаказывают на ходу. Закрытая заявка может открыться снова — следите за доской.',
+      storyBefore: 'Дарксторы сегодня дозаказывают прямо во время смены. Заявка, которую вы уже закрыли, может вернуться на доску с новым числом.',
+      storyAfter: 'Все дозаказы уехали. А теперь заявки начнут не расти, а исчезать.',
+    },
+    {
+      id: 6,
+      title: 'Отмена',
+      guided: false,
+      newMechanic: 'cancellation',
+      teaches: ['cancellation'],
+      durationSeconds: 300,
+      unlockedZones: [dry, frozen, chilled],
+      vehicles: [vehicle('dry-1', dry), vehicle('frozen-1', frozen), vehicle('chilled-1', chilled)],
+      stores: [store('north', dry), store('central', dry), store('west', dry), store('east', chilled)],
+      /* Отменяют то, что уже погружено: первую заявку смены и молоко. Груз
+         отменённой заявки едет мёртвым весом, пока его не снимут. */
+      initialOrders: [
+        order('order-north', 'north', dry, 'water', 3),
+        order('order-central', 'central', dry, 'bread', 2),
+        order('order-west', 'west', dry, 'bread', 3),
+        order('order-east', 'east', chilled, 'milk', 2),
+        order('order-east-ice', 'east', frozen, 'ice-cream', 2),
+      ],
+      events: [
+        cancel(3, 'order-north'),
+        // Четыре, а не пять: снятая паллета уменьшает счёт погруженных.
+        cancel(4, 'order-east'),
+      ],
+      goal: 'Заявки будут отменять, когда паллета уже в кузове. Лишний груз режет точность — в фургоне его можно снять.',
+      storyBefore: 'Диспетчер предупреждает: сегодня дарксторы отменяют заявки. Если паллета отменённой заявки уже в кузове, она едет зря — это деньги и точность.',
+      storyAfter: 'Лишнего вы не повезли. Следующая смена — без одного фургона.',
+    },
+    {
+      id: 7,
+      title: 'Фургон в рейсе',
+      guided: false,
+      newMechanic: 'late-vehicle',
+      teaches: ['late-vehicle'],
+      durationSeconds: 300,
+      unlockedZones: [dry, frozen, chilled],
+      vehicles: [vehicle('dry-1', dry), vehicle('dry-2', dry), vehicle('frozen-1', frozen), vehicle('chilled-1', chilled)],
+      stores: [store('north', dry), store('west', dry), store('central', dry), store('east', chilled)],
+      /* Сухого груза на 150 кг, а готов один фургон на 100. Вода забирает
+         его почти целиком, хлеб ждёт второй — тот вернётся из рейса после
+         трёх погрузок или через сорок секунд. */
+      initialOrders: [
+        order('order-north', 'north', dry, 'water', 8),
+        order('order-west', 'west', dry, 'bread', 5),
+        order('order-central', 'central', dry, 'bread', 4),
+        order('order-east', 'east', chilled, 'milk', 2),
+        order('order-north-ice', 'north', frozen, 'ice-cream', 2),
+      ],
+      events: [{ type: 'vehicle-ready', vehicleId: 'dry-2', afterLoadedPallets: 3, orAtSecond: 40 }],
+      goal: 'Второй сухой фургон ещё в рейсе. Загрузите то, что можно увезти сейчас, остальное — когда он вернётся.',
+      storyBefore: 'Сухого груза сегодня на полтора фургона, а у ворот стоит один: второй вернётся из рейса позже. Не всё, что собрано, получится погрузить сразу.',
+      storyAfter: 'Оба фургона ушли полными. Дальше — длинные рейсы.',
+    },
+    {
+      id: 8,
+      title: 'Большой развоз',
+      guided: false,
+      newMechanic: 'long-routes',
+      teaches: ['long-routes'],
+      durationSeconds: 300,
+      unlockedZones: [dry, frozen, chilled],
+      vehicles: [vehicle('dry-1', dry), vehicle('chilled-1', chilled), vehicle('frozen-1', frozen)],
+      stores: [store('north', dry), store('east', dry), store('west', dry), store('central', dry)],
+      /* Восемь мелких заявок: сухой фургон объезжает все четыре адреса,
+         охлаждёнка — три. Порядок погрузки у обоих далёк от лучшего. */
+      initialOrders: [
+        order('order-north', 'north', dry, 'water', 2),
+        order('order-east', 'east', dry, 'bread', 2),
+        order('order-west', 'west', dry, 'bread', 2),
+        order('order-central', 'central', dry, 'water', 2),
+        order('order-north-banana', 'north', chilled, 'banana', 2),
+        order('order-west-milk', 'west', chilled, 'milk', 2),
+        order('order-east-milk', 'east', chilled, 'milk', 2),
+        order('order-central-ice', 'central', frozen, 'ice-cream', 2),
+      ],
+      events: [],
+      goal: 'Восемь заявок, три фургона, до четырёх остановок в рейсе. Соберите всё и проверьте порядок остановок у каждого.',
+      storyBefore: 'Сегодня много мелких заявок по всему городу. Фургон едет по адресам в том порядке, в каком вы грузили, — и это почти никогда не лучший порядок.',
+      storyAfter: 'Рейсы сокращены. Осталось сложить всё вместе.',
+    },
+    {
+      id: 9,
+      title: 'План меняется',
+      guided: false,
+      newMechanic: 'mixed-plan',
+      teaches: ['mixed-plan'],
       durationSeconds: 300,
       unlockedZones: [dry, frozen, chilled],
       vehicles: [vehicle('dry-1', dry), vehicle('frozen-1', frozen), vehicle('chilled-1', chilled)],
@@ -147,22 +272,17 @@
         order('order-central', 'central', frozen, 'ice-cream', 2),
       ],
       stock: { frozen: { 'ice-cream': 0 } },
-      /* События привязаны к прогрессу, а не к секундам: смену можно закрыть
-         за минуту, и расписание по таймеру никогда не срабатывало.
-         Мороженого на складе нет — фура с ним опаздывает; заявка Саларьево
-         вырастает; Тушино отменяет заявку, когда её паллета уже в кузове,
-         и её приходится снять. */
       events: [
-        { type: 'pallet-arrived', afterLoadedPallets: 1, orAtSecond: 30, pallet: arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат') },
-        { type: 'demand-increase', orderId: 'order-west', quantity: 2, afterLoadedPallets: 2 },
-        { type: 'order-cancelled', orderId: 'order-north', afterLoadedPallets: 3 },
+        late(1, 30, arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат')),
+        more(2, 'order-west', 2),
+        cancel(3, 'order-north'),
       ],
-      goal: 'Подсказок больше нет: заявки — на доске под схемой. План изменится на ходу; лишнего в кузове быть не должно.',
-      storyBefore: 'Правила вы знаете, дальше — сами. Диспетчер предупреждает: фура с мороженым в пути, а дарксторы сегодня меняют заявки на ходу. Лишний груз в кузове — это деньги и точность.',
+      goal: 'Фура опоздает, одна заявка вырастет, другую отменят. Лишнего в кузове быть не должно.',
+      storyBefore: 'Сегодня всё сразу: фура с мороженым в пути, дарксторы дозаказывают и отменяют на ходу.',
       storyAfter: 'Вы перестроили план на ходу и не повезли лишнего. Осталась смена в час пик.',
     },
     {
-      id: 6,
+      id: 10,
       title: 'Час пик',
       guided: false,
       newMechanic: 'exam',
@@ -182,11 +302,11 @@
       inbound: [arrival('in-banana', chilled, 'banana', 3, 'Фрутлайн')],
       stock: { chilled: { banana: 0 }, frozen: { 'ice-cream': 0 } },
       events: [
-        { type: 'pallet-arrived', afterLoadedPallets: 2, orAtSecond: 45, pallet: arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат') },
-        { type: 'demand-increase', orderId: 'order-central', quantity: 2, afterLoadedPallets: 3 },
-        { type: 'order-cancelled', orderId: 'order-east', afterLoadedPallets: 6 },
+        late(2, 45, arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат')),
+        more(3, 'order-central', 2),
+        cancel(6, 'order-east'),
       ],
-      goal: 'Закройте все заявки без подсказок: приёмка, зоны, вместимость, маршрут и перемены плана действуют сразу.',
+      goal: 'Закройте все заявки: приёмка, зоны, вместимость, маршрут и перемены плана действуют сразу.',
       storyBefore: 'Час пик: бананы на приёмке, мороженое в пути, вода не влезает в кузов, а дарксторы меняют заявки. Всё, что вы умеете, — одновременно.',
       storyAfter: 'Час пик пройден. Центр «Рябиновая» готов к потоку.',
     },

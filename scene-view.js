@@ -7,7 +7,7 @@
   if (isNode) module.exports = api;
   else root.RyabinovayaSceneView = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData, engine, appState) {
-  const { orphanPalletsFor, vehicleLabel } = appState;
+  const { orphanPalletsFor, vehicleLabel, vehicleForPallet } = appState;
   const ZONE_NAMES = levelData.ZONE_NAMES;
   const STORE_NAMES = levelData.STORE_NAMES;
   const ZONE_MARKS = levelData.ZONE_MARKS;
@@ -46,6 +46,13 @@
     .filter((order) => !order.cancelled && order.quantity - loadedQuantityFor(state, order) > 0)
     .find((order) => order.storeId === state.pallet?.storeId && order.zone === state.pallet?.zone)
     || activeOrderFor(state);
+
+  // Открытая заявка, которую можно выполнить сейчас: есть товар и есть фургон.
+  const workableOrderFor = (state) => (state.orders || [])
+    .filter((order) => !order.cancelled && order.quantity - loadedQuantityFor(state, order) > 0)
+    .find((order) => engine.availableStock(state.stock, order.zone, order.sku) > 0
+      && Boolean(vehicleForPallet(state, { zone: order.zone, weight: engine.itemBySku(order.sku)?.weightPerUnit || 0 }).vehicle))
+    || null;
 
   const palletGoalFor = (state) => {
     if (pendingInboundFor(state)) return '';
@@ -115,7 +122,22 @@
         focus: 'truck',
       };
     }
-    const order = activeOrderFor(state);
+    /* Заявка шага — та, что уже на паллете, а иначе первая, которую можно
+       выполнить прямо сейчас: товар есть в зоне и есть готовый фургон с
+       местом. Заявку, чья фура ещё в пути или чей фургон в рейсе, шаг
+       пропускает, а не упирается в неё. */
+    const building = (state.pallet?.weight || 0) > 0;
+    const order = building ? palletOrderFor(state) : workableOrderFor(state);
+    if (!order && !building && activeOrderFor(state)) {
+      return {
+        key: 'wait',
+        title: 'Ждём: товар в пути или фургон в рейсе',
+        detail: 'Оставшиеся заявки пока нечем собрать или не на чем увезти',
+        actionLabel: '',
+        action: null,
+        focus: '',
+      };
+    }
     if (order) {
       const item = engine.itemBySku(order.sku);
       const storeName = STORE_NAMES[order.storeId] || order.storeId;
@@ -131,6 +153,7 @@
       if (left > 0 && palletFull) {
         return {
           key: 'load',
+          orderId: order.id,
           title: 'Паллета полная — погрузите её',
           detail: `${state.pallet.weight} кг из ${state.pallet.capacity || 100}. Остаток заявки (${left} шт.) пойдёт следующей паллетой`,
           actionLabel: 'Погрузить в фургон',
@@ -141,6 +164,7 @@
       if (left > 0) {
         return {
           key: 'collect',
+          orderId: order.id,
           title: onPallet ? `Доберите паллету: ${storeName}` : `Соберите паллету: ${storeName}`,
           detail: `${item?.name || order.sku} · ещё ${left} шт. · зона «${zoneName}»`,
           actionLabel: onPallet ? 'Продолжить сборку' : 'Собрать паллету',
@@ -150,6 +174,7 @@
       }
       return {
         key: 'load',
+        orderId: order.id,
         title: 'Паллета готова — погрузите её',
         detail: `${state.pallet?.weight || 0} кг → фургон зоны «${zoneName}», адрес ${storeName}`,
         actionLabel: 'Погрузить в фургон',
