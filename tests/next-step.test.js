@@ -66,11 +66,11 @@ test('the scene view carries the focus of the step so the hotspot can light up',
   assert.equal(view.nextStep.key, 'collect');
 });
 
-/* Игрок, который не думает: нажимает только то, что предлагает карточка.
-   Если так проходится каждая смена на три звезды — карточка нигде не
-   заводит в тупик и не называет шаг, который нельзя выполнить. Думать
-   игроку остаётся там, где карточка только открывает экран: количество
-   на паллете, порядок остановок, какую паллету снять. */
+/* Игрок, который не думает: делает только то, что называет nextStepFor.
+   Если так проходится каждая смена на три звезды — шаг нигде не заводит в
+   тупик и не называет действие, которое нельзя выполнить. На сменах без
+   поводыря карточка этот шаг не показывает, но расчёт остаётся тем же, и
+   тест доказывает, что смена решаема. */
 const engine = require('../game-engine.js');
 const { LEVELS } = require('../levels.js');
 const { tick, finishShift, activeOrderFor, remainingFor, orphanPalletsFor } = require('../app-state.js');
@@ -139,4 +139,93 @@ test('a pallet that cannot take one more unit is loaded, not topped up', () => {
   const step = nextStepFor(state);
   assert.equal(step.key, 'load');
   assert.match(step.detail, /Остаток заявки \(2 шт\.\)/);
+});
+
+/* Смены без поводыря: правила уже известны, и карточка «Сейчас» молчит.
+   Вместо шага игрок видит состояние — доску заявок — и решает сам. */
+const unguided = LEVELS.filter((level) => level.guided === false).map((level) => level.id);
+
+test('only the two live shifts drop the guidance, and they are the last two', () => {
+  assert.deepEqual(unguided, [5, 6]);
+});
+
+test('an unguided shift shows no step, no focus and no zone or route hint', () => {
+  for (const levelId of unguided) {
+    let state = begin(levelId);
+    let view = warehouseViewFor(state);
+    assert.equal(view.guided, false);
+    assert.equal(view.nextStep, null);
+    assert.equal(view.focus, '');
+    assert.equal(view.activeZone, null);
+    assert.equal(view.routeCanBeShortened, false);
+    assert.ok(Array.isArray(view.orderBoard) && view.orderBoard.length === state.orders.length);
+  }
+  // На приёмке зона-цель не выделена: она написана в накладной.
+  let state = begin(6);
+  state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+  const placing = warehouseViewFor(state);
+  assert.equal(placing.placementZone, 'chilled', 'вывески остаются кнопками размещения');
+  assert.equal(placing.activeZone, null, 'но нужная среди них не подсвечена');
+});
+
+test('a guided shift has the card and no board', () => {
+  const view = warehouseViewFor(begin(4));
+  assert.equal(view.guided, true);
+  assert.equal(view.orderBoard, null);
+  assert.equal(view.nextStep.key, 'collect');
+});
+
+test('the order board reports state: progress, missing stock and a cancelled pallet still in the truck', () => {
+  const { orderBoardFor } = require('../scene-view.js');
+  let state = begin(5);
+  let board = orderBoardFor(state);
+  assert.deepEqual(board.map((row) => row.status), ['open', 'open', 'open', 'open']);
+  assert.equal(board.at(-1).note, 'нет на складе', 'мороженое ещё в пути');
+
+  // Игрок без подсказок: вода, хлеб, хлеб — и Тушино отменяет заявку.
+  const ship = (sku, weightPerUnit, storeId) => {
+    state = reduceAction(state, { type: 'SELECT_STORE', storeId });
+    state = reduceAction(state, { type: 'ADD_ITEM', sku, zone: 'dry', weightPerUnit, quantity: 2 });
+    state = tick(reduceAction(state, { type: 'LOAD_PALLET' }), 1);
+  };
+  ship('water', 12, 'north');
+  ship('bread', 6, 'west');
+  ship('bread', 6, 'west');
+
+  board = orderBoardFor(state);
+  const north = board.find((row) => row.orderId === 'order-north');
+  assert.equal(north.status, 'cancelled');
+  assert.equal(north.alert, true);
+  assert.match(north.note, /в кузове 2 шт\./);
+  assert.equal(board.find((row) => row.orderId === 'order-west').status, 'done');
+  // Диспетчер сообщает факт, а что делать с паллетой — решает игрок.
+  assert.equal(state.feedback.code, 'order-cancelled');
+  assert.doesNotMatch(state.feedback.message, /снимите/);
+
+  const [orphan] = orphanPalletsFor(state);
+  state = reduceAction(state, { type: 'UNLOAD_PALLET', vehicleId: orphan.vehicleId, palletIndex: orphan.palletIndex });
+  assert.equal(orderBoardFor(state).find((row) => row.orderId === 'order-north').alert, false);
+});
+
+test('a guided shift still tells the player to unload a cancelled pallet', () => {
+  // То же событие на смене с поводырём называет действие прямо.
+  let state = { ...begin(5), levelId: 4 };
+  state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
+  state = reduceAction(state, { type: 'LOAD_PALLET' });
+  state = { ...state, scheduledEvents: [{ type: 'order-cancelled', orderId: 'order-north', afterLoadedPallets: 1 }], appliedEventIndexes: [] };
+  state = tick(state, 1);
+  assert.match(state.feedback.message, /снимите/);
+  assert.equal(nextStepFor(state).key, 'unload');
+});
+
+test('the board, the order pick and the dock hotspot exist on the page', () => {
+  const fs = require('node:fs');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const app = fs.readFileSync('app.js', 'utf8');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  assert.match(html, /id="orderBoard"[^>]*hidden/);
+  assert.match(app, /data-action="PICK_ORDER"/);
+  assert.match(app, /action === 'PICK_ORDER'/);
+  // Ворота приёмки обязаны позиционироваться как остальные хотспоты.
+  assert.match(css, /\.scene-pallet,\s*\.truck-bay,\s*\.scene-dock\s*\{\s*position:\s*absolute/);
 });

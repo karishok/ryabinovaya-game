@@ -160,7 +160,9 @@
     if (event.type === 'store-reception-change') return feedback('info', 'store-reception-change', 'Даркстор изменил окно приёмки.');
     if (event.type === 'order-cancelled') {
       const order = orderOf(event.orderId);
-      const inTruck = order && orphanPalletsFor(state).length > 0;
+      // На смене без поводыря диспетчер сообщает факт, а вывод делает игрок.
+      const guided = levelFor(state.levelId)?.guided !== false;
+      const inTruck = guided && order && orphanPalletsFor(state).length > 0;
       return feedback('info', 'order-cancelled', inTruck
         ? `${storeOf(order)} отменил заявку. Его паллета уже в кузове — снимите её.`
         : `${storeOf(order)} отменил заявку.`);

@@ -40,9 +40,16 @@
      ТСД, а когда полосу убрали, единственным постоянным указателем осталась
      заливка паллеты в процентах — вес, а не задание. Считаем от остатка
      заявки за вычетом того, что уже лежит на текущей паллете. */
+  /* Заявка, под которую адресована паллета. На смене без поводыря игрок сам
+     выбирает заявку с доски, и первая открытая по списку — уже не она. */
+  const palletOrderFor = (state) => (state.orders || [])
+    .filter((order) => !order.cancelled && order.quantity - loadedQuantityFor(state, order) > 0)
+    .find((order) => order.storeId === state.pallet?.storeId && order.zone === state.pallet?.zone)
+    || activeOrderFor(state);
+
   const palletGoalFor = (state) => {
     if (pendingInboundFor(state)) return '';
-    const order = activeOrderFor(state);
+    const order = palletOrderFor(state);
     if (!order) return '';
     const onPallet = (state.pallet?.items || [])
       .filter((item) => item.sku === order.sku)
@@ -178,6 +185,37 @@
     };
   }
 
+  const guidedFor = (state) => levelData.LEVELS.find((level) => level.id === state.levelId)?.guided !== false;
+
+  /* Доска заявок для смен без поводыря. Она показывает состояние, а не шаг:
+     что заказано, сколько уже в кузове, чего нет на складе, что отменено.
+     Какую заявку брать и что делать с отменённой, решает игрок. */
+  function orderBoardFor(state) {
+    if (state.phase !== 'shift') return null;
+    return (state.orders || []).map((order) => {
+      const item = engine.itemBySku(order.sku);
+      const loaded = loadedQuantityFor(state, order);
+      const status = order.cancelled ? 'cancelled' : loaded >= order.quantity ? 'done' : 'open';
+      const noStock = status === 'open' && engine.availableStock(state.stock, order.zone, order.sku) === 0;
+      const note = status === 'cancelled'
+        ? (loaded > 0 ? `отменена · в кузове ${loaded} шт.` : 'отменена')
+        : noStock ? 'нет на складе' : '';
+      return {
+        orderId: order.id,
+        storeName: STORE_NAMES[order.storeId] || order.storeId,
+        itemName: item?.name || order.sku,
+        zone: order.zone,
+        zoneMark: ZONE_MARKS[order.zone] || '',
+        loaded,
+        quantity: order.quantity,
+        status,
+        // Лишний груз отменённой заявки — единственное, что на доске тревожит.
+        alert: status === 'cancelled' && loaded > 0,
+        note,
+      };
+    });
+  }
+
   function warehouseViewFor(state) {
     const order = activeOrderFor(state);
     const inbound = pendingInboundFor(state);
@@ -211,10 +249,13 @@
       blocked: state.feedback?.message || 'Не хватает свободного места.',
     };
 
-    const nextStep = nextStepFor(state);
+    const guided = guidedFor(state);
+    const nextStep = guided ? nextStepFor(state) : null;
 
     return {
+      guided,
       nextStep,
+      orderBoard: guided ? null : orderBoardFor(state),
       focus: nextStep?.focus || '',
       /* Во время размещения подсвечивается зона из накладной, а не зона
          заявки: игрок должен попасть именно в неё. */
@@ -223,11 +264,14 @@
       // Подсвечивать зону имеет смысл только там, где есть из чего выбирать.
       // На уровнях с одной открытой зоной подсказка повторяет ТСД и схему.
       // Исключение — размещение: там зона и есть само задание.
-      activeZone: awaitingPlacement
-        ? inbound.zone
-        : (state.unlockedZones || []).length > 1
-          ? (order?.zone || state.pallet?.zone || 'dry')
-          : null,
+      // Без поводыря зону не подсказываем: она написана в накладной и на доске.
+      activeZone: !guided
+        ? null
+        : awaitingPlacement
+          ? inbound.zone
+          : (state.unlockedZones || []).length > 1
+            ? (order?.zone || state.pallet?.zone || 'dry')
+            : null,
       selectedZone: state.pallet?.zone || 'dry',
       selectedVehicleZone: selectedVehicle?.zone || null,
       highlightObject: code === 'wrong-placement' ? 'pallet'
@@ -239,12 +283,12 @@
       palletGoalText: palletGoalFor(state),
       loadedPalletCount: (state.loadedPallets || []).length,
       routeReady,
-      routeCanBeShortened: routeCanBeShortened(state),
+      routeCanBeShortened: guided && routeCanBeShortened(state),
       eventCode: ['demand-increase', 'vehicle-ready', 'store-reception-change', 'order-cancelled'].includes(code) ? code : '',
       statusText: statusByMode[mode],
       operatorName: ['spoiled', 'blocked'].includes(mode) ? 'Лера' : 'Миша',
     };
   }
 
-  return { warehouseViewFor, nextStepFor };
+  return { warehouseViewFor, nextStepFor, orderBoardFor };
 });

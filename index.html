@@ -63,6 +63,12 @@
           <span class="now-detail" id="nowDetail"></span>
           <button class="now-cta" id="nowAction" type="button" data-action="OPEN_BUILDER"></button>
         </div>
+        <!-- Доска заявок — для смен без поводыря. Это состояние склада, а не
+             подсказка: какую заявку брать, решает игрок, нажав на неё. -->
+        <div class="order-board" id="orderBoard" aria-label="Заявки смены" hidden>
+          <small class="order-board-kicker">Заявки</small>
+          <div class="order-board-rows" id="orderBoardRows"></div>
+        </div>
         <div class="board-actions">
           <button class="btn secondary" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">📖 Как играть?</button>
           <!-- Сам прибор, без пересказа задания: что на нём лежит, показывает
@@ -218,7 +224,7 @@
             <section id="guideModal" class="guide" aria-hidden="true">
               <section class="tsd-panel guide" id="guideDialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
                 <div class="modal-head"><h2 id="guideTitle">Как играть?</h2><button class="close" data-action="CLOSE_GUIDE" aria-label="Вернуться к смене">×</button></div>
-                <p class="guide-intro">Что делать сейчас, всегда написано в карточке «Сейчас» под схемой — её кнопка выполняет следующий шаг. Задания приходят на ТСД. Их два вида: принять поставку и собрать заявку на отгрузку.</p>
+                <p class="guide-intro">На первых четырёх сменах следующий шаг написан в карточке «Сейчас» под схемой, и её кнопка его выполняет. Дальше подсказок нет: под схемой лежит доска заявок — нажми заявку, чтобы собрать под неё паллету. Задания приходят на ТСД. Их два вида: принять поставку и собрать заявку на отгрузку.</p>
                 <ol class="guide-steps">
                   <li><strong>Разбери приёмку.</strong> Если у ворот стоит паллета, ТСД покажет накладную. Нажми «Принять паллету», а потом — вывеску нужной зоны на схеме склада. Зона написана в накладной; ошибка портит товар.</li>
                   <li><strong>Собери паллету по заявке.</strong> Нажми паллету на схеме. Даркстор и зона уже подставлены из задания, остаётся кнопкой «+» набрать количество.</li>

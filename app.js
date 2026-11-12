@@ -158,6 +158,26 @@ function renderNowCard(step, document) {
   else delete button.dataset.vehicleId;
 }
 
+/* Доска заявок: строка открытой заявки — кнопка, которая адресует пустую
+   паллету этому даркстору и открывает сборку. Закрытые и отменённые строки
+   не нажимаются: по ним собирать нечего. */
+function renderOrderBoard(rows, document) {
+  const board = byId(document, 'orderBoard');
+  if (!board) return;
+  board.hidden = !rows;
+  if (!rows) return;
+  byId(document, 'orderBoardRows').innerHTML = rows.map((row) => {
+    const progress = row.status === 'cancelled' ? '' : `<b class="order-progress">${row.loaded} / ${row.quantity}${row.status === 'done' ? ' ✓' : ''}</b>`;
+    const detail = row.status === 'cancelled'
+      ? row.note
+      : `<i class="order-zone" data-zone="${row.zone}">${row.zoneMark}</i> ${row.itemName}${row.note ? ` · ${row.note}` : ''}`;
+    const body = `<span class="order-top"><strong>${row.storeName}</strong>${progress}</span><small class="order-detail">${detail}</small>`;
+    return row.status === 'open'
+      ? `<button class="order-line" type="button" data-action="PICK_ORDER" data-order-id="${row.orderId}" data-status="open">${body}</button>`
+      : `<div class="order-line${row.alert ? ' is-alert' : ''}" data-status="${row.status}">${body}</div>`;
+  }).join('');
+}
+
 function renderTsd(view, document) {
   const device = byId(document, 'tsdDevice');
   device.dataset.open = String(view.open);
@@ -304,6 +324,7 @@ function render(nextState, document) {
     zone.hidden = !unlocked;
   });
   renderNowCard(sceneView.nextStep, document);
+  renderOrderBoard(sceneView.orderBoard, document);
 
   byId(document, 'itemRows').innerHTML = items.filter((item) => item.zone === nextState.pallet.zone).map((item) => `<div class="item-row">
     <span class="item-emoji">${item.emoji}</span><div><strong>${item.name}</strong><small>${item.weightPerUnit} кг · ${zones[item.zone]}</small></div>
@@ -324,7 +345,12 @@ function render(nextState, document) {
     : `→ ${targetMessages[pick.reason] || 'машина не найдена'}`;
   /* Задание в шапке панели: экран задания мы больше не показываем
      принудительно, значит адрес и товар должны быть видны там, где собирают. */
-  const activeOrder = activeOrderFor(nextState);
+  /* Задание — та заявка, под которую адресована паллета: на смене без
+     поводыря игрок сам выбирает, какую брать, и первая открытая по списку
+     уже не обязательно она. */
+  const activeOrder = nextState.orders.find((order) => !order.cancelled && remainingFor(nextState, order) > 0
+    && order.storeId === nextState.pallet.storeId && order.zone === nextState.pallet.zone)
+    || activeOrderFor(nextState);
   byId(document, 'builderTask').textContent = activeOrder
     ? `Задание: ${stores[activeOrder.storeId]} · ${orderLabel({ ...activeOrder, quantity: remainingFor(nextState, activeOrder) })} · ${zones[activeOrder.zone]}`
     : 'Все заявки закрыты — можно завершать смену.';
@@ -438,7 +464,18 @@ function scheduleToastDismiss(message) {
 }
 
 function dispatch(action) {
-  if (action.type === 'OPEN_BUILDER') {
+  if (action.type === 'PICK_ORDER') {
+    /* Заявка с доски: пустая паллета получает её адрес и зону. Начатую
+       паллету не переадресуем — на ней уже чей-то товар. */
+    const order = state.orders.find((entry) => entry.id === action.orderId && !entry.cancelled);
+    if (order && state.pallet.weight === 0) {
+      state = reduceAction(state, { type: 'SELECT_ZONE', zone: order.zone });
+      state = reduceAction(state, { type: 'SELECT_STORE', storeId: order.storeId });
+      const compatibleVehicle = state.vehicles.find((vehicle) => vehicle.zone === order.zone && vehicle.ready);
+      if (compatibleVehicle) state = { ...state, selectedVehicleId: compatibleVehicle.id };
+    }
+    state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder', acceptedOrderId: order?.id || state.tsd?.acceptedOrderId || null } };
+  } else if (action.type === 'OPEN_BUILDER') {
     /* Нажатие на паллету открывает сборку сразу. Раньше оно уводило на
        экран задания, и «Принять» приходилось жать только чтобы вернуться. */
     if (!state.tsd?.acceptedOrderId) state = reduceAction(state, { type: 'ACCEPT_TASK' });
@@ -480,6 +517,7 @@ document.addEventListener('click', (event) => {
   if (action === 'OPEN_TSD') tsdReturnFocus = button;
   if (action === 'ADD_ITEM') return dispatch({ type: action, sku: button.dataset.sku, zone: button.dataset.zone, weightPerUnit: Number(button.dataset.weight), quantity: Number(button.dataset.quantity) });
   if (action === 'SELECT_STORE') return dispatch({ type: action, storeId: button.dataset.store });
+  if (action === 'PICK_ORDER') return dispatch({ type: action, orderId: button.dataset.orderId });
   if (action === 'SELECT_ZONE') {
     /* Вывеска зоны на схеме — это и есть размещение: пока принятая паллета
        стоит на тележке, нажатие на зону убирает её туда, а не переключает

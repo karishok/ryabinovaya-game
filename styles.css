@@ -366,8 +366,12 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Хотспоты поверх объектов, которые уже нарисованы на фотографии.
    Ничего не дорисовываем: область только помечает объект и делает его
    кликабельным, поэтому висеть в воздухе тут нечему. */
+/* Ворота приёмки — такой же хотспот. Раньше их в этом правиле не было, и
+   кнопка без position: absolute вставала в левый верхний угол поверх
+   логотипа, а не у ворот. */
 .scene-pallet,
-.truck-bay {
+.truck-bay,
+.scene-dock {
   position: absolute;
   z-index: 2;
   display: flex;
@@ -380,8 +384,8 @@ button:disabled { cursor: default; opacity: 0.42; }
   cursor: pointer;
   transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
-.scene-pallet:hover, .truck-bay:hover,
-.scene-pallet:focus-visible, .truck-bay:focus-visible {
+.scene-pallet:hover, .truck-bay:hover, .scene-dock:hover,
+.scene-pallet:focus-visible, .truck-bay:focus-visible, .scene-dock:focus-visible {
   border-color: var(--cream);
   background: rgba(244, 234, 216, 0.1);
   box-shadow: inset 0 0 22px rgba(244, 234, 216, 0.14);
@@ -434,7 +438,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 @media (hover: none) { .scene-object-hint { opacity: 0.92; } }
 /* Паллета стоит у нижней кромки кадра: подпись под ней обрезалась. Держим её
    внутри хотспота, над полосой заполнения. */
-.scene-pallet .scene-object-hint { top: auto; bottom: 10px; }
+.scene-pallet .scene-object-hint, .scene-dock .scene-object-hint { top: auto; bottom: 10px; }
 
 /* Фокус шага: объект, который нужен сейчас, пульсирует, остальные хотспоты
    приглушены. Это не отменяет режимы сцены ниже, а работает поверх них. */
@@ -448,6 +452,36 @@ button:disabled { cursor: default; opacity: 0.42; }
 [data-focus]:not([data-focus=""]) .scene-object:not(.is-focus) { border-color: rgba(244, 234, 216, 0.14); }
 [data-focus]:not([data-focus=""]) .scene-object:not(.is-focus) .scene-object-hint { opacity: 0.55; }
 @keyframes focus-pulse { 50% { box-shadow: 0 0 0 7px rgba(240, 170, 56, 0.12), 0 0 34px rgba(240, 170, 56, 0.6), inset 0 0 30px rgba(240, 170, 56, 0.3); } }
+
+/* Доска заявок на сменах без поводыря: стоит там же, где карточка «Сейчас».
+   В две колонки — шесть заявок часа пик иначе не помещаются под сценой. */
+.order-board { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(160deg, rgba(30, 48, 40, 0.96), rgba(23, 38, 31, 0.98)); }
+.order-board-kicker { padding: 0 2px; color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.order-board-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.order-line { display: grid; gap: 2px; min-width: 0; min-height: 44px; padding: 6px 9px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 12px; background: #24342b; color: var(--text); text-align: left; }
+button.order-line { cursor: pointer; }
+button.order-line:hover, button.order-line:focus-visible { border-color: var(--cream); background: #2c4136; }
+.order-top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
+.order-top strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.order-progress { flex: none; font-size: 13px; font-variant-numeric: tabular-nums; }
+.order-detail { color: var(--muted); font-size: 11px; line-height: 1.3; }
+.order-zone { font-style: normal; font-weight: 900; font-variant-numeric: tabular-nums; }
+.order-zone[data-zone="dry"] { color: var(--amber); }
+.order-zone[data-zone="chilled"] { color: var(--chilled); }
+.order-zone[data-zone="frozen"] { color: var(--frozen); }
+.order-line[data-status="done"] { opacity: 0.6; }
+.order-line[data-status="done"] .order-progress { color: #73eba7; }
+.order-line[data-status="cancelled"] { opacity: 0.6; }
+.order-line[data-status="cancelled"] .order-top strong { text-decoration: line-through; }
+.order-line.is-alert { opacity: 1; border-color: rgba(240, 170, 56, 0.55); }
+.order-line.is-alert .order-detail { color: #ffd98a; }
+
+/* На коротком экране шесть заявок часа пик выталкивали ряд кнопок за край. */
+@media (max-height: 780px) {
+  .order-board { padding: 8px; }
+  .order-board-kicker { display: none; }
+  .order-line { min-height: 38px; padding: 4px 9px; }
+}
 
 /* Карточка «Сейчас» занимает место, которое раньше пустовало под сценой. */
 .now-card {
