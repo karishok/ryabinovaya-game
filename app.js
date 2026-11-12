@@ -199,11 +199,12 @@ function renderOrderBoard(rows, document) {
   byId(document, 'orderBoardRows').innerHTML = rows.map((row) => {
     const progress = row.status === 'cancelled' ? '' : `<b class="order-progress">${row.loaded} / ${row.quantity}${row.status === 'done' ? ' ✓' : ''}</b>`;
     const mark = row.active ? ' · <em class="order-mark">в работе</em>' : row.next ? ` · <em class="order-mark">${row.urgent ? 'срочно' : 'на ТСД'}</em>` : '';
+    const deadline = row.deadlineText ? ` · <em class="order-deadline${row.deadlineSoon ? ' is-soon' : ''}">фургон ${row.deadlineText}</em>` : '';
     const detail = row.status === 'cancelled'
       ? row.note
-      : `<i class="order-zone" data-zone="${row.zone}">${row.zoneMark}</i> ${row.itemName}${row.note ? ` · ${row.note}` : ''}${mark}`;
+      : `<i class="order-zone" data-zone="${row.zone}">${row.zoneMark}</i> ${row.itemName}${row.note ? ` · ${row.note}` : ''}${mark}${deadline}`;
     const body = `<span class="order-top"><strong>${row.storeName}</strong>${progress}</span><small class="order-detail">${detail}</small>`;
-    return `<div class="order-line${row.alert ? ' is-alert' : ''}${row.active ? ' is-active' : ''}" data-status="${row.status}">${body}</div>`;
+    return `<div class="order-line${row.alert || row.status === 'lost' ? ' is-alert' : ''}${row.active ? ' is-active' : ''}" data-status="${row.status}">${body}</div>`;
   }).join('');
 }
 
@@ -340,6 +341,15 @@ function render(nextState, document) {
   byId(document, 'ontime').textContent = hasShipped ? `${metrics.onTimePercent}%` : '—';
   byId(document, 'precision').textContent = hasShipped ? `${metrics.precisionPercent}%` : '—';
   byId(document, 'mapPallets').textContent = `${nextState.loadedPallets.length} палл.`;
+  // Ближайший уход фургона — на самих воротах: это срок, под который игрок строит порядок.
+  const truckTimer = byId(document, 'truckTimer');
+  const [soonest] = sceneView.departures || [];
+  truckTimer.hidden = !soonest;
+  if (soonest) {
+    truckTimer.textContent = `${soonest.zoneMark} уйдёт ${soonest.leftText}`;
+    truckTimer.dataset.zone = soonest.zone;
+    truckTimer.dataset.soon = String(soonest.secondsLeft <= 20);
+  }
   byId(document, 'vehicleName').textContent = selectedVehicle ? labelFor(nextState, selectedVehicle) : 'Выберите машину';
   byId(document, 'guideOrders').innerHTML = nextState.orders.filter((order) => !order.cancelled).map(orderMarkup).join('') || '<p>Все заявки закрыты.</p>';
 
@@ -412,13 +422,15 @@ function render(nextState, document) {
        «другая зона». */
     const loadedKg = vehicle.pallets.reduce((total, pallet) => total + pallet.weight, 0);
     const stops = nextState.routeStopsByVehicle?.[vehicle.id]?.length || 0;
-    const status = !vehicle.ready
-      ? 'ожидаем'
-      : routelessVehicles.has(vehicle.id)
-        ? 'нет маршрута'
-        : stops > 0
-          ? `${loadedKg} / ${vehicle.capacity} кг · ${stops} ост.`
-          : 'пусто';
+    const leaves = (sceneView.departures || []).find((entry) => entry.vehicleId === vehicle.id);
+    const load = stops > 0 ? `${loadedKg} / ${vehicle.capacity} кг · ${stops} ост.` : 'пусто';
+    const status = vehicle.departed
+      ? `в рейсе · ${loadedKg} кг`
+      : !vehicle.ready
+        ? 'ожидаем'
+        : routelessVehicles.has(vehicle.id)
+          ? 'нет маршрута'
+          : leaves ? `${load} · уйдёт ${leaves.leftText}` : load;
     return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'} aria-label="${labelFor(nextState, vehicle)}"><strong>${labelFor(nextState, vehicle).replace(' фургон', '')}</strong><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
   }).join('');
   /* Список машин нужен, только когда есть из чего выбирать: с одним

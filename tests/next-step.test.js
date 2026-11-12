@@ -166,8 +166,8 @@ test('every twist of a working shift actually happens when it is played', () => 
   assert.ok(steps('capacity').includes('route'));
   assert.ok(steps('long-routes').includes('route'));
   assert.ok(steps('late-vehicle').includes('route'));
-  // На «Дозаказе» три заявки возвращаются: семь паллет вместо четырёх.
-  assert.equal(count(steps('dynamic-demand'), 'load'), 7);
+  // На «Дозаказе» три заявки возвращаются: восемь паллет вместо пяти.
+  assert.equal(count(steps('dynamic-demand'), 'load'), 8);
 });
 
 test('the step skips an order that cannot be done yet and waits when none can', () => {

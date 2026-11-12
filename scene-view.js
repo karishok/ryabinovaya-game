@@ -7,7 +7,22 @@
   if (isNode) module.exports = api;
   else root.RyabinovayaSceneView = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData, engine, appState) {
-  const { orphanPalletsFor, vehicleLabel, vehicleForPallet, taskQueueFor } = appState;
+  const { orphanPalletsFor, vehicleLabel, vehicleForPallet, taskQueueFor, taskDeadlineFor } = appState;
+  const clockText = (seconds) => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, '0')}`;
+
+  /* Фургоны, которые уйдут в рейс по часам, — ближайший первым. Это время
+     видно на схеме постоянно: по нему игрок решает, какое задание отложить. */
+  const departuresFor = (state) => (state.vehicles || [])
+    .filter((vehicle) => typeof vehicle.departsAt === 'number' && !vehicle.departed)
+    .sort((left, right) => left.departsAt - right.departsAt)
+    .map((vehicle) => ({
+      vehicleId: vehicle.id,
+      label: vehicleLabel(state, vehicle),
+      zone: vehicle.zone,
+      zoneMark: ZONE_MARKS[vehicle.zone] || '',
+      secondsLeft: Math.max(0, vehicle.departsAt - (state.elapsedSeconds || 0)),
+      leftText: clockText(vehicle.departsAt - (state.elapsedSeconds || 0)),
+    }));
   const ZONE_NAMES = levelData.ZONE_NAMES;
   const STORE_NAMES = levelData.STORE_NAMES;
   const ZONE_MARKS = levelData.ZONE_MARKS;
@@ -237,13 +252,18 @@
     const offered = queue.find((task) => !task.active && !task.blocked);
     return (state.orders || []).map((order) => {
       const task = queue.find((entry) => entry.kind === 'pick' && entry.orderId === order.id) || null;
+      const deadline = task ? taskDeadlineFor(state, task) : null;
       const item = engine.itemBySku(order.sku);
       const loaded = loadedQuantityFor(state, order);
-      const status = order.cancelled ? 'cancelled' : loaded >= order.quantity ? 'done' : 'open';
+      // Открытая заявка без задания — та, чей фургон уже ушёл: её не выполнить.
+      const lost = !order.cancelled && loaded < order.quantity && !task
+        && !(state.vehicles || []).some((vehicle) => vehicle.zone === order.zone && !vehicle.departed);
+      const status = order.cancelled ? 'cancelled' : loaded >= order.quantity ? 'done' : lost ? 'lost' : 'open';
       const noStock = status === 'open' && engine.availableStock(state.stock, order.zone, order.sku) === 0;
       const note = status === 'cancelled'
         ? (loaded > 0 ? `отменена · в кузове ${loaded} шт.` : 'отменена')
-        : noStock ? missingStockNote(state, order.sku) : '';
+        : status === 'lost' ? 'сорвана: фургон ушёл'
+          : noStock ? missingStockNote(state, order.sku) : '';
       return {
         orderId: order.id,
         storeName: STORE_NAMES[order.storeId] || order.storeId,
@@ -258,6 +278,9 @@
         // Лишний груз отменённой заявки — единственное, что на доске тревожит.
         alert: status === 'cancelled' && loaded > 0,
         note,
+        // Сколько осталось до ухода фургона, который ещё может увезти заявку.
+        deadlineText: status === 'open' && typeof deadline === 'number' ? clockText(deadline - (state.elapsedSeconds || 0)) : '',
+        deadlineSoon: status === 'open' && typeof deadline === 'number' && deadline - (state.elapsedSeconds || 0) <= 20,
         active: Boolean(task?.active),
         next: Boolean(task && offered && task.id === offered.id),
         urgent: Boolean(task?.urgent),
@@ -310,6 +333,7 @@
 
     return {
       guided,
+      departures: departuresFor(state),
       nextStep,
       orderBoard: guided ? null : orderBoardFor(state),
       focus: nextStep?.focus || '',
@@ -346,5 +370,5 @@
     };
   }
 
-  return { warehouseViewFor, nextStepFor, orderBoardFor };
+  return { warehouseViewFor, nextStepFor, orderBoardFor, departuresFor };
 });

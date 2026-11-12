@@ -477,6 +477,13 @@ button:disabled { cursor: default; opacity: 0.42; }
 .order-line.is-alert { opacity: 1; border-color: rgba(240, 170, 56, 0.55); }
 .order-line.is-active { border-color: var(--cream); background: #2c4136; }
 .order-mark { color: var(--cream); font-style: normal; font-weight: 800; }
+.order-deadline { color: #ffe0a0; font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; }
+.order-deadline.is-soon { color: var(--terracotta); }
+.order-line[data-status="lost"] { opacity: 1; }
+.order-line[data-status="lost"] .order-detail { color: #ffb4a8; }
+/* Время до ухода ближайшего фургона — на воротах отгрузки. */
+.truck-timer { position: absolute; top: calc(100% + 30px); right: 0; padding: 3px 8px; border: 1px solid rgba(240, 170, 56, 0.6); border-radius: 999px; background: rgba(10, 20, 15, 0.92); color: #ffe0a0; font-size: 11px; font-weight: 850; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.truck-timer[data-soon="true"] { border-color: var(--danger); background: #3c2320; color: #ffd9d2; }
 .order-line.is-alert .order-detail { color: #ffd98a; }
 
 .order-board.is-dense { gap: 4px; padding: 8px; }

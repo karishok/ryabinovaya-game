@@ -73,6 +73,12 @@
       };
     };
 
+    // Срок задания терминал печатает, но очередь по нему не строит — это дело игрока.
+    const clockText = (seconds) => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, '0')}`;
+    const deadlineNote = (task) => {
+      const deadline = task ? appState.taskDeadlineFor(state, task) : null;
+      return typeof deadline === 'number' ? ` Фургон уходит через ${clockText(deadline - (state.elapsedSeconds || 0))}.` : '';
+    };
     const placing = current?.kind === 'receive' && inboundOf(current)?.status === 'received';
     const shown = current || offered;
     const details = shown ? describe(shown) : null;
@@ -89,10 +95,11 @@
       : offering ? (offered.urgent ? 'Срочное задание' : 'Новое задание')
         : current ? 'Задание в работе'
           : blocked.length ? 'Ждём' : 'Заданий нет';
-    const message = state.feedback?.kind === 'info' && ['task-deferred', 'defer-nowhere', 'defer-spent', 'placing-first'].includes(state.feedback.code)
+    const message = state.feedback?.kind === 'info' && ['defer-nowhere', 'defer-spent', 'placing-first'].includes(state.feedback.code)
       ? state.feedback.message
       : placing ? 'Паллета принята. Выберите зону хранения на схеме склада.'
-        : shown ? details.message
+        // У принятого задания карточек на экране нет — что в работе, говорит сама строка.
+        : shown ? `${current ? `${details.compact}. ` : ''}${details.message}${deadlineNote(shown)}`
           : blocked.length ? waitingText
             : 'Все задания выполнены. Проверьте маршруты и завершите смену.';
     const canTakeUrgent = Boolean(current && offered?.urgent && !placing);

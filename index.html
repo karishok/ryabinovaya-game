@@ -39,7 +39,7 @@
 
         <button class="scene-dock scene-object" id="sceneDock" data-action="OPEN_TSD" type="button" hidden aria-label="Открыть задание приёмки"><span class="dock-badge" id="dockBadge">1</span><span class="scene-object-hint" aria-hidden="true">Приёмка</span></button>
         <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="pallet-badge" id="palletGoal" hidden></span><span class="scene-object-hint" aria-hidden="true">Паллета</span></button>
-        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="scene-object-hint" aria-hidden="true">Фургон</span></button>
+        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="truck-timer" id="truckTimer" hidden></span><span class="scene-object-hint" aria-hidden="true">Фургон</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
 
@@ -237,7 +237,7 @@
             <section id="guideModal" class="guide" aria-hidden="true">
               <section class="tsd-panel guide" id="guideDialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
                 <div class="modal-head"><h2 id="guideTitle">Как играть?</h2><button class="close" data-action="CLOSE_GUIDE" aria-label="Вернуться к смене">×</button></div>
-                <p class="guide-intro">На первых двух сменах следующий шаг написан в карточке «Сейчас» под схемой, и её кнопка его выполняет. Дальше подсказок нет: под схемой лежит доска заявок — нажми заявку, чтобы собрать под неё паллету. Задания приходят на ТСД. Их два вида: принять поставку и собрать заявку на отгрузку.</p>
+                <p class="guide-intro">На первых двух сменах следующий шаг написан в карточке «Сейчас» под схемой, и её кнопка его выполняет. Дальше работу выдаёт ТСД: задание можно принять или отложить — отложений три на смену. Срочное задание можно взять поверх начатого, но собранное вернётся на полку. Доска под схемой показывает заявки и сколько осталось до ухода фургона. Их два вида: принять поставку и собрать заявку на отгрузку.</p>
                 <ol class="guide-steps">
                   <li><strong>Разбери приёмку.</strong> Если у ворот стоит паллета, ТСД покажет накладную. Нажми «Принять паллету», а потом — вывеску нужной зоны на схеме склада. Зону никто не подскажет: реши сам, какая температура нужна товару. Ошибка портит паллету.</li>
                   <li><strong>Собери паллету по заявке.</strong> Нажми паллету на схеме. Даркстор и зона уже подставлены из задания, остаётся кнопкой «+» набрать количество.</li>

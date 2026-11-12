@@ -98,7 +98,10 @@
      паллета упиралась в забитый кузов, а выбрать другой фургон в сборке
      было негде. */
   function vehicleForPallet(state, pallet, preferredId) {
-    const fleet = (state.vehicles || []).filter((vehicle) => vehicle.zone === pallet.zone && vehicle.ready !== false);
+    const zoneFleet = (state.vehicles || []).filter((vehicle) => vehicle.zone === pallet.zone);
+    // Фургон, ушедший в рейс, груз уже не возьмёт.
+    if (zoneFleet.length > 0 && zoneFleet.every((vehicle) => vehicle.departed === true)) return { reason: 'vehicle-departed' };
+    const fleet = zoneFleet.filter((vehicle) => vehicle.ready !== false && vehicle.departed !== true);
     const preferred = fleet.find((vehicle) => vehicle.id === preferredId);
     if (preferred && roomIn(preferred) >= pallet.weight) return { vehicle: preferred };
     const withRoom = fleet.find((vehicle) => roomIn(vehicle) >= pallet.weight);
@@ -121,7 +124,16 @@
     if (!level) throw new RangeError(`Unknown level: ${levelId}`);
     const scenario = engine.createShiftState(level);
     const delayedVehicles = new Set(level.events.filter((event) => event.type === 'vehicle-ready').map((event) => event.vehicleId));
-    const vehicles = scenario.vehicles.map((vehicle) => ({ ...vehicle, pallets: [...(vehicle.pallets || [])], ready: !delayedVehicles.has(vehicle.id) }));
+    /* Время ухода в рейс — в секундах от начала смены. Фургон без него
+       стоит до конца смены, как раньше. */
+    const departures = level.departures || {};
+    const vehicles = scenario.vehicles.map((vehicle) => ({
+      ...vehicle,
+      pallets: [...(vehicle.pallets || [])],
+      ready: !delayedVehicles.has(vehicle.id),
+      departsAt: typeof departures[vehicle.id] === 'number' ? departures[vehicle.id] : null,
+      departed: false,
+    }));
     const firstStore = scenario.orders[0]?.storeId || level.stores[0].id;
     const firstZone = scenario.orders[0]?.zone || level.unlockedZones[0];
 
@@ -232,8 +244,34 @@
     const consumedSeconds = Math.min(requestedSeconds, state.secondsRemaining || 0);
     const elapsedSeconds = (state.elapsedSeconds || 0) + consumedSeconds;
     const next = { ...state, secondsRemaining: Math.max(0, (state.secondsRemaining || 0) - consumedSeconds), elapsedSeconds };
-    return syncQueue(applyScheduledEvents(next));
+    return syncQueue(applyDepartures(applyScheduledEvents(next)));
   }
+
+  /* Фургон уходит в рейс по часам смены. С этой секунды в него нельзя
+     грузить, из него нельзя снять паллету и порядок его остановок уже не
+     поменять: что успели — уехало, что не успели — осталось. Это и делает
+     порядок заданий решением: пока уйти не мог ни один фургон, собирать
+     заявки можно было в любой последовательности. */
+  function applyDepartures(state) {
+    const leaving = (state.vehicles || []).filter((vehicle) => typeof vehicle.departsAt === 'number'
+      && !vehicle.departed && (state.elapsedSeconds || 0) >= vehicle.departsAt);
+    if (!leaving.length) return state;
+    const ids = new Set(leaving.map((vehicle) => vehicle.id));
+    const first = leaving[0];
+    const empty = (first.pallets || []).length === 0;
+    return withFeedback({
+      ...state,
+      vehicles: state.vehicles.map((vehicle) => (ids.has(vehicle.id) ? { ...vehicle, departed: true } : vehicle)),
+      tsd: { ...state.tsd, signal: 'new' },
+    }, feedback('info', 'vehicle-departed', `«${vehicleLabel(state, first)}» ушёл в рейс${empty ? ' пустым' : ''}.`));
+  }
+
+  const departedGuard = (state, vehicleId) => {
+    const vehicle = (state.vehicles || []).find((entry) => entry.id === vehicleId);
+    return vehicle?.departed === true
+      ? withFeedback(state, feedback('error', 'vehicle-departed', `«${vehicleLabel(state, vehicle)}» уже в рейсе: его груз и маршрут не изменить.`))
+      : null;
+  };
 
   function shiftOutcome(state) {
     const activeOrders = (state.orders || []).filter((order) => !order.cancelled);
@@ -398,6 +436,20 @@
         const [groupRight, orderRight] = rank(right);
         return groupLeft - groupRight || orderLeft - orderRight;
       });
+  }
+
+  /* Срок задания: когда уйдёт последний фургон, который ещё может его
+     увезти. Для «снять паллету» — когда уйдёт сам фургон. null — срока нет. */
+  function taskDeadlineFor(state, task) {
+    if (task.kind === 'unload') {
+      return (state.vehicles || []).find((vehicle) => vehicle.id === task.vehicleId)?.departsAt ?? null;
+    }
+    const zoneOf = task.kind === 'pick'
+      ? (state.orders || []).find((order) => order.id === task.orderId)?.zone
+      : (state.inbound || []).find((pallet) => pallet.id === task.inboundId)?.zone;
+    const fleet = (state.vehicles || []).filter((vehicle) => vehicle.zone === zoneOf && !isDeparted(vehicle));
+    if (!fleet.length || fleet.some((vehicle) => typeof vehicle.departsAt !== 'number')) return null;
+    return Math.max(...fleet.map((vehicle) => vehicle.departsAt));
   }
 
   const currentTaskFor = (state) => taskQueueFor(state).find((task) => task.active) || null;
@@ -635,6 +687,8 @@
 
     if (action.type === 'MOVE_STOP') {
       const vehicleId = state.selectedVehicleId;
+      const gone = departedGuard(state, vehicleId);
+      if (gone) return gone;
       const routeStops = [...routeStopsFor(state, vehicleId)];
       const index = Number(action.index);
       const target = index + Number(action.direction);
@@ -713,6 +767,7 @@
           'fleet-full': `Все фургоны зоны «${zoneName}» полны. Откройте машины на схеме и снимите лишнюю паллету — товар вернётся в зону.`,
           'vehicle-not-ready': `В готовые фургоны зоны «${zoneName}» эта паллета не влезает, а ещё один в рейсе. Он вернётся позже — займитесь пока другой заявкой.`,
           'no-vehicle': `Для зоны «${zoneName}» в смене нет фургона.`,
+          'vehicle-departed': `Фургон зоны «${zoneName}» уже ушёл в рейс — эту паллету не на чем увезти.`,
         };
         return withFeedback(state, feedback('error', pick.reason, messages[pick.reason]));
       }
@@ -757,6 +812,8 @@
     if (action.type === 'UNLOAD_PALLET') {
       const vehicle = (state.vehicles || []).find((entry) => entry.id === action.vehicleId);
       if (!vehicle) return withFeedback(state, feedback('error', 'unknown-vehicle', 'Машина не найдена.'));
+      const gone = departedGuard(state, vehicle.id);
+      if (gone) return gone;
       const result = engine.unloadPallet(vehicle, Number(action.palletIndex));
       if (!result.ok) return withFeedback(state, feedback('error', result.reason, 'Этой паллеты в кузове нет.'));
 
@@ -789,6 +846,8 @@
     if (action.type === 'SET_ROUTE') {
       const vehicle = (state.vehicles || []).find((entry) => entry.id === (action.vehicleId || state.selectedVehicleId));
       if (!vehicle) return withFeedback(state, feedback('error', 'unknown-vehicle', 'Выберите машину для маршрута.'));
+      const gone = departedGuard(state, vehicle.id);
+      if (gone) return gone;
       const route = engine.buildRoute(vehicle, action.stops);
       return withFeedback({
         ...state,
@@ -810,6 +869,6 @@
     reduceAction, startLevel, tick, finishShift, shiftOutcome, liveMetrics, fulfillmentFor,
     missingRouteVehicles, activeOrderFor, pendingInboundFor, remainingFor,
     vehicleForPallet, vehicleLabel, roomIn, orphanPalletsFor,
-    taskQueueFor, currentTaskFor, nextTaskFor, guidedFor, DEFERS_PER_SHIFT,
+    taskQueueFor, currentTaskFor, nextTaskFor, taskDeadlineFor, guidedFor, DEFERS_PER_SHIFT,
   };
 });
