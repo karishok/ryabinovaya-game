@@ -153,6 +153,10 @@
         <button class="tsd-primary" id="tsdContinueStory" data-action="CONTINUE_STORY" type="button" hidden>Начать смену</button>
         <button class="tsd-primary" id="tsdAccept" data-action="ACCEPT_TASK" type="button">Принять</button>
         <button class="tsd-primary" id="tsdReceive" data-action="RECEIVE_PALLET" type="button" hidden>Принять паллету</button>
+        <!-- Очередь ТСД на сменах без поводыря: задание можно отложить (три
+             раза за смену), а срочное — взять поверх начатого. -->
+        <button class="tsd-secondary" id="tsdDefer" data-action="DEFER_TASK" type="button" hidden>Отложить</button>
+        <button class="tsd-secondary is-urgent" id="tsdUrgent" data-action="TAKE_URGENT" type="button" hidden>Взять срочное</button>
         <button class="tsd-primary" id="tsdContinue" data-action="SHOW_STORY_AFTER" type="button" hidden>Следующая смена</button>
         <div class="tsd-content-slot" id="tsdContentSlot">
           <!-- Заголовок смены и текст истории печатает шапка прибора. Карточка
@@ -173,9 +177,9 @@
             <div class="tsd-task-card"><span class="tsd-task-label">В паллете</span><strong id="tsdInboundGoods"></strong></div>
           </section>
           <section id="tsdTask" data-tsd-panel="task" hidden>
-            <div class="tsd-task-card"><span class="tsd-task-label">Куда</span><strong id="tsdTaskStore"></strong></div>
-            <div class="tsd-task-card"><span class="tsd-task-label">Что собрать</span><strong id="tsdTaskOrder"></strong></div>
-            <div class="tsd-task-card"><span class="tsd-task-label">Зона хранения</span><strong id="tsdTaskZone"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label" id="tsdTaskStoreLabel">Куда</span><strong id="tsdTaskStore"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label" id="tsdTaskOrderLabel">Что собрать</span><strong id="tsdTaskOrder"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label" id="tsdTaskZoneLabel">Зона хранения</span><strong id="tsdTaskZone"></strong></div>
           </section>
           <section id="tsdCurrent" data-tsd-panel="current" hidden>
             <p class="tsd-hint">Задания приходят сюда. Сводка смены и список заявок — под фотографией склада.</p>

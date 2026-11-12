@@ -57,8 +57,15 @@
     return active.find((order) => remainingFor(state, order) > 0) || null;
   };
 
-  const pendingInboundFor = (state) => (state.inbound || [])
-    .find((pallet) => pallet.status === 'arrived' || pallet.status === 'received') || null;
+  /* Паллета приёмки, с которой сейчас работают. На смене с поводырём это
+     первая у ворот; на смене с очередью ТСД — та, чьё задание принято:
+     отложенная паллета не должна перехватывать приёмку следующей. */
+  const pendingInboundFor = (state) => {
+    const pending = (state.inbound || []).filter((pallet) => pallet.status === 'arrived' || pallet.status === 'received');
+    const active = String(state.activeTaskId || '');
+    const taken = active.startsWith('receive:') ? pending.find((pallet) => pallet.id === active.slice('receive:'.length)) : null;
+    return taken || pending[0] || null;
+  };
 
   /* Паллета-сирота: лежит в кузове, а заявки на неё больше нет — даркстор
      её отменил. Она едет мёртвым весом, пока её не снимут. */
@@ -130,6 +137,11 @@
       phase: 'briefing',
       story: { kind: 'before', text: level.storyBefore },
       tsd: initialTsdState(),
+      // Очередь ТСД: что принято, что отложено, что пришло срочным.
+      activeTaskId: null,
+      deferredTaskIds: [],
+      urgentTaskIds: [],
+      defersLeft: DEFERS_PER_SHIFT,
       builderOpen: false,
       vehicleDrawerOpen: false,
       guideOpen: false,
@@ -204,11 +216,12 @@
          отменённая исчезает. Без перенацеливания задание называло один
          даркстор, а паллета была адресована другому, и собранное на неё
          не засчитывалось. Начатую паллету не трогаем — её собирает игрок. */
-      if ((next.pallet?.weight || 0) === 0) {
+      if ((next.pallet?.weight || 0) === 0 && !queueActive(next)) {
         const target = activeOrderFor(next);
         if (target) next = { ...next, pallet: palletFor(next, { storeId: target.storeId, zone: target.zone }) };
       }
       next = { ...next, appliedEventIndexes: [...(next.appliedEventIndexes || []), index], feedback: eventFeedback(event, next) };
+      next = markUrgent(state, next, event);
     }
     return next;
   }
@@ -219,7 +232,7 @@
     const consumedSeconds = Math.min(requestedSeconds, state.secondsRemaining || 0);
     const elapsedSeconds = (state.elapsedSeconds || 0) + consumedSeconds;
     const next = { ...state, secondsRemaining: Math.max(0, (state.secondsRemaining || 0) - consumedSeconds), elapsedSeconds };
-    return applyScheduledEvents(next);
+    return syncQueue(applyScheduledEvents(next));
   }
 
   function shiftOutcome(state) {
@@ -315,7 +328,210 @@
     return { report, nextLevelId: currentIndex >= 0 ? LEVELS[currentIndex + 1]?.id || null : null };
   }
 
+  /* ---- Очередь заданий ТСД ----
+     На сменах без поводыря работу выдаёт терминал: одно задание за раз, в
+     порядке поступления. Игрок его принимает или откладывает. Выбирать
+     заявку с доски нельзя — в жизни кладовщик заявки не выбирает, они
+     приходят на ТСД. Выбор при этом не исчезает, а становится редким и
+     дорогим: отложений на смену три, а срочное задание можно взять, только
+     бросив начатую паллету.
+
+     Задания не хранятся — они выводятся из состояния смены: открытая заявка
+     — «собрать», паллета у ворот — «принять», паллета отменённой заявки в
+     кузове — «снять». Хранится только то, что решил игрок: какое задание
+     принято, какие отложены, и какие пришли срочными посреди смены. */
+  const DEFERS_PER_SHIFT = 3;
+  const guidedFor = (state) => levelFor(state.levelId)?.guided !== false;
+  const queueActive = (state) => !guidedFor(state) && state.phase === 'shift';
+  const isDeparted = (vehicle) => vehicle?.departed === true;
+
+  function openTasksFor(state) {
+    const tasks = [];
+    (state.inbound || []).forEach((pallet, index) => {
+      if (pallet.status !== 'arrived' && pallet.status !== 'received') return;
+      tasks.push({ id: `receive:${pallet.id}`, kind: 'receive', inboundId: pallet.id, base: index, blocked: null });
+    });
+    const seenUnload = new Set();
+    for (const orphan of orphanPalletsFor(state)) {
+      const vehicle = (state.vehicles || []).find((entry) => entry.id === orphan.vehicleId);
+      // Из уехавшего фургона паллету уже не снять — такого задания нет.
+      if (isDeparted(vehicle)) continue;
+      const id = `unload:${orphan.vehicleId}:${orphan.pallet.storeId}`;
+      if (seenUnload.has(id)) continue;
+      seenUnload.add(id);
+      tasks.push({ id, kind: 'unload', vehicleId: orphan.vehicleId, storeId: orphan.pallet.storeId, base: 500 + tasks.length, blocked: null });
+    }
+    (state.orders || []).forEach((order, index) => {
+      if (order.cancelled || remainingFor(state, order) <= 0) return;
+      const fleet = (state.vehicles || []).filter((vehicle) => vehicle.zone === order.zone && !isDeparted(vehicle));
+      // Все фургоны зоны уехали: заявку уже не выполнить, заданием она быть перестаёт.
+      if (fleet.length === 0) return;
+      const unit = engine.itemBySku(order.sku)?.weightPerUnit || 0;
+      const blocked = engine.availableStock(state.stock, order.zone, order.sku) <= 0 ? 'no-stock'
+        : vehicleForPallet(state, { zone: order.zone, weight: unit }).vehicle ? null : 'no-vehicle';
+      tasks.push({ id: `pick:${order.id}`, kind: 'pick', orderId: order.id, base: 100 + index, blocked });
+    });
+    return tasks;
+  }
+
+  /* Порядок очереди: принятое задание, затем срочные в порядке прихода,
+     затем обычные в порядке поступления, затем отложенные. Задание, которое
+     сейчас выполнить нельзя (товар в пути, фургон в рейсе), уходит в хвост
+     само: терминал не предлагает работу, которую нечем сделать. */
+  function taskQueueFor(state) {
+    const urgent = state.urgentTaskIds || [];
+    const deferred = state.deferredTaskIds || [];
+    const rank = (task) => {
+      if (task.id === state.activeTaskId) return [0, 0];
+      // Начатую приёмку нельзя обогнать: паллета уже на тележке.
+      if (deferred.includes(task.id)) return [3, deferred.indexOf(task.id)];
+      if (urgent.includes(task.id)) return [1, urgent.indexOf(task.id)];
+      return [2, task.base];
+    };
+    return openTasksFor(state)
+      .map((task) => ({ ...task, urgent: urgent.includes(task.id) && !deferred.includes(task.id), active: task.id === state.activeTaskId }))
+      .sort((left, right) => {
+        const blockedLeft = left.blocked && !left.active ? 1 : 0;
+        const blockedRight = right.blocked && !right.active ? 1 : 0;
+        if (blockedLeft !== blockedRight) return blockedLeft - blockedRight;
+        const [groupLeft, orderLeft] = rank(left);
+        const [groupRight, orderRight] = rank(right);
+        return groupLeft - groupRight || orderLeft - orderRight;
+      });
+  }
+
+  const currentTaskFor = (state) => taskQueueFor(state).find((task) => task.active) || null;
+  // Следующее задание — первое выполнимое, кроме уже принятого.
+  const nextTaskFor = (state) => taskQueueFor(state).find((task) => !task.active && !task.blocked) || null;
+
+  /* После любого действия очередь приводится к состоянию смены: закрытое
+     задание перестаёт быть принятым, а пустая паллета принятой заявки
+     остаётся адресованной ей — заявка тяжелее паллеты собирается в два
+     захода, и между ними адрес теряться не должен. */
+  function syncQueue(state) {
+    if (!queueActive(state)) return state;
+    const open = new Set(openTasksFor(state).map((task) => task.id));
+    let next = state;
+    const keep = (list) => (list || []).filter((id) => open.has(id));
+    const urgentTaskIds = keep(state.urgentTaskIds);
+    const deferredTaskIds = keep(state.deferredTaskIds);
+    if (urgentTaskIds.length !== (state.urgentTaskIds || []).length || deferredTaskIds.length !== (state.deferredTaskIds || []).length) {
+      next = { ...next, urgentTaskIds, deferredTaskIds };
+    }
+    if (next.activeTaskId && !open.has(next.activeTaskId)) {
+      // Задание выполнено: терминал свободен и зовёт к следующему.
+      next = { ...next, activeTaskId: null, tsd: { ...next.tsd, acceptedOrderId: null, signal: 'new' } };
+    }
+    const active = String(next.activeTaskId || '');
+    if (active.startsWith('pick:') && (next.pallet?.weight || 0) === 0) {
+      const order = (next.orders || []).find((entry) => entry.id === active.slice('pick:'.length));
+      if (order && (next.pallet.storeId !== order.storeId || next.pallet.zone !== order.zone)) {
+        next = { ...next, pallet: palletFor(next, { storeId: order.storeId, zone: order.zone }) };
+      }
+    }
+    return next;
+  }
+
+  // Вернуть на полку то, что уже лежит на паллете: задание бросают целиком.
+  function abandonPallet(state) {
+    const items = state.pallet?.items || [];
+    if (!items.length) return state;
+    const stock = items.reduce((total, item) => engine.addToStock(total, item.zone, item.sku, item.quantity), state.stock);
+    return { ...state, stock, pallet: palletFor(state) };
+  }
+
+  function activateTask(state, task) {
+    let next = { ...state, activeTaskId: task.id, tsd: { ...state.tsd, open: false, screen: 'current', signal: 'idle', dismissedTaskId: null } };
+    if (task.kind === 'pick') {
+      const order = state.orders.find((entry) => entry.id === task.orderId);
+      const ready = (state.vehicles || []).find((vehicle) => vehicle.zone === order.zone && vehicle.ready !== false && !isDeparted(vehicle));
+      next = {
+        ...abandonPallet(next),
+        tsd: { ...next.tsd, acceptedOrderId: order.id },
+        selectedVehicleId: ready?.id || next.selectedVehicleId,
+      };
+      next = { ...next, pallet: palletFor(next, { storeId: order.storeId, zone: order.zone }) };
+    }
+    if (task.kind === 'unload') next = { ...next, selectedVehicleId: task.vehicleId, routeStops: [...routeStopsFor(next, task.vehicleId)] };
+    return next;
+  }
+
+  function reduceQueueAction(state, action) {
+    const current = currentTaskFor(state);
+    const offered = nextTaskFor(state);
+
+    if (action.type === 'ACCEPT_TASK') {
+      if (current || !offered) return state;
+      // Принять поставку — это и есть «принять паллету»: отдельного нажатия нет.
+      if (offered.kind === 'receive') return reduceCore(activateTask(state, offered), { type: 'RECEIVE_PALLET' });
+      return activateTask(state, offered);
+    }
+
+    if (action.type === 'RECEIVE_PALLET' && !current) {
+      const queue = taskQueueFor(state);
+      const task = offered?.kind === 'receive' ? offered : queue.find((entry) => entry.kind === 'receive');
+      return task ? reduceCore(activateTask(state, task), action) : reduceCore(state, action);
+    }
+
+    if (action.type === 'DEFER_TASK') {
+      if (current || !offered) return state;
+      const others = taskQueueFor(state).filter((task) => !task.blocked && task.id !== offered.id);
+      if (others.length === 0) return withFeedback(state, feedback('info', 'defer-nowhere', 'Откладывать некуда: других заданий сейчас нет.'));
+      if ((state.defersLeft ?? DEFERS_PER_SHIFT) <= 0) return withFeedback(state, feedback('info', 'defer-spent', 'Отложений на эту смену больше нет.'));
+      const defersLeft = (state.defersLeft ?? DEFERS_PER_SHIFT) - 1;
+      return withFeedback({
+        ...state,
+        defersLeft,
+        deferredTaskIds: [...(state.deferredTaskIds || []).filter((id) => id !== offered.id), offered.id],
+        tsd: { ...state.tsd, signal: 'new', dismissedTaskId: null },
+      }, feedback('info', 'task-deferred', `Задание отложено. Отложений осталось: ${defersLeft}.`));
+    }
+
+    /* Срочное задание поверх начатого: начатое бросают, и собранное на
+       паллету возвращается на полку. Принятую и уже снятую с фуры паллету
+       бросить нельзя — она стоит на тележке посреди склада. */
+    if (action.type === 'TAKE_URGENT') {
+      if (!current || !offered?.urgent) return state;
+      if (current.kind === 'receive' && (state.inbound || []).some((pallet) => pallet.id === current.inboundId && pallet.status === 'received')) {
+        return withFeedback(state, feedback('info', 'placing-first', 'Сначала поставьте принятую паллету в зону.'));
+      }
+      const dropped = abandonPallet({ ...state, activeTaskId: null });
+      return offered.kind === 'receive'
+        ? reduceCore(activateTask(dropped, offered), { type: 'RECEIVE_PALLET' })
+        : activateTask(dropped, offered);
+    }
+
+    return null;
+  }
+
+  /* Срочными становятся задания, которые родило событие посреди смены:
+     приехавшая фура, дозаказ, отмена. Они встают в голову очереди. */
+  function markUrgent(before, after, event) {
+    if (!queueActive(after)) return after;
+    const had = new Set(openTasksFor(before).map((task) => task.id));
+    const born = openTasksFor(after).map((task) => task.id).filter((id) => !had.has(id));
+    // Дозаказ по ещё открытой заявке нового задания не рождает, но срочным его делает.
+    if (event.type === 'demand-increase' && !born.includes(`pick:${event.orderId}`)) born.push(`pick:${event.orderId}`);
+    const fresh = born.filter((id) => !(after.urgentTaskIds || []).includes(id) && id !== after.activeTaskId);
+    if (!fresh.length) return after;
+    return {
+      ...after,
+      urgentTaskIds: [...(after.urgentTaskIds || []), ...fresh],
+      // Срочное снимает отложенность: дозаказанную заявку терминал выдаёт снова.
+      deferredTaskIds: (after.deferredTaskIds || []).filter((id) => !fresh.includes(id)),
+      tsd: { ...after.tsd, signal: 'new', dismissedTaskId: null },
+    };
+  }
+
   function reduceAction(state, action) {
+    if (queueActive(state)) {
+      const handled = reduceQueueAction(state, action);
+      if (handled) return syncQueue(handled);
+    }
+    return syncQueue(reduceCore(state, action));
+  }
+
+  function reduceCore(state, action) {
     if (action.type === 'START_LEVEL') return startLevel(action.levelId);
     if (action.type === 'TICK') return tick(state, action.seconds);
     if (action.type === 'DISMISS_FEEDBACK') return { ...state, feedback: null };
@@ -594,5 +810,6 @@
     reduceAction, startLevel, tick, finishShift, shiftOutcome, liveMetrics, fulfillmentFor,
     missingRouteVehicles, activeOrderFor, pendingInboundFor, remainingFor,
     vehicleForPallet, vehicleLabel, roomIn, orphanPalletsFor,
+    taskQueueFor, currentTaskFor, nextTaskFor, guidedFor, DEFERS_PER_SHIFT,
   };
 });

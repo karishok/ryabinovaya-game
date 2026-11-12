@@ -289,6 +289,7 @@ test('the order board reports state: progress, missing stock and a cancelled pal
 
   // Игрок без подсказок: вода, хлеб, хлеб — и Тушино отменяет заявку.
   const ship = (sku, weightPerUnit, storeId) => {
+    state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'dry' });
     state = reduceAction(state, { type: 'SELECT_STORE', storeId });
     state = reduceAction(state, { type: 'ADD_ITEM', sku, zone: 'dry', weightPerUnit, quantity: 2 });
     state = tick(reduceAction(state, { type: 'LOAD_PALLET' }), 1);
@@ -357,14 +358,15 @@ test('a guided shift still tells the player to unload a cancelled pallet', () =>
   assert.equal(nextStepFor(state).key, 'unload');
 });
 
-test('the board, the order pick and the dock hotspot exist on the page', () => {
+test('the board is a read-only display and the dock hotspot sits at the gates', () => {
   const fs = require('node:fs');
   const html = fs.readFileSync('index.html', 'utf8');
   const app = fs.readFileSync('app.js', 'utf8');
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.match(html, /id="orderBoard"[^>]*hidden/);
-  assert.match(app, /data-action="PICK_ORDER"/);
-  assert.match(app, /action === 'PICK_ORDER'/);
+  // Доска — табло: заявку с неё не выбирают, задания выдаёт ТСД.
+  assert.doesNotMatch(app, /PICK_ORDER/);
+  assert.doesNotMatch(app, /<button class="order-line"/);
   // Ворота приёмки обязаны позиционироваться как остальные хотспоты.
   assert.match(css, /\.scene-pallet,\s*\.truck-bay,\s*\.scene-dock\s*\{\s*position:\s*absolute/);
 });

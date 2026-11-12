@@ -7,7 +7,7 @@
   if (isNode) module.exports = api;
   else root.RyabinovayaSceneView = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData, engine, appState) {
-  const { orphanPalletsFor, vehicleLabel, vehicleForPallet } = appState;
+  const { orphanPalletsFor, vehicleLabel, vehicleForPallet, taskQueueFor } = appState;
   const ZONE_NAMES = levelData.ZONE_NAMES;
   const STORE_NAMES = levelData.STORE_NAMES;
   const ZONE_MARKS = levelData.ZONE_MARKS;
@@ -231,7 +231,12 @@
 
   function orderBoardFor(state) {
     if (state.phase !== 'shift') return null;
+    /* Доска — табло, а не меню: заявку с неё не выбирают, задания выдаёт
+       ТСД. Она показывает, что в работе и что терминал предложит следующим. */
+    const queue = taskQueueFor(state);
+    const offered = queue.find((task) => !task.active && !task.blocked);
     return (state.orders || []).map((order) => {
+      const task = queue.find((entry) => entry.kind === 'pick' && entry.orderId === order.id) || null;
       const item = engine.itemBySku(order.sku);
       const loaded = loadedQuantityFor(state, order);
       const status = order.cancelled ? 'cancelled' : loaded >= order.quantity ? 'done' : 'open';
@@ -253,13 +258,23 @@
         // Лишний груз отменённой заявки — единственное, что на доске тревожит.
         alert: status === 'cancelled' && loaded > 0,
         note,
+        active: Boolean(task?.active),
+        next: Boolean(task && offered && task.id === offered.id),
+        urgent: Boolean(task?.urgent),
       };
     });
   }
 
   function warehouseViewFor(state) {
     const order = activeOrderFor(state);
-    const inbound = pendingInboundFor(state);
+    const guidedShift = guidedFor(state);
+    /* На смене с очередью ТСД паллета у ворот — ещё не работа, пока её
+       задание не принято: схема показывает приёмку, только когда игрок уже
+       взял паллету. */
+    const activeTask = guidedShift ? null : taskQueueFor(state).find((task) => task.active) || null;
+    const inbound = guidedShift
+      ? pendingInboundFor(state)
+      : activeTask?.kind === 'receive' ? (state.inbound || []).find((pallet) => pallet.id === activeTask.inboundId) || null : null;
     const awaitingPlacement = Boolean(inbound && inbound.status === 'received');
     const selectedVehicle = (state.vehicles || []).find((vehicle) => vehicle.id === state.selectedVehicleId) || state.vehicles?.[0] || null;
     const route = state.routesByVehicle?.[selectedVehicle?.id] || null;
@@ -290,7 +305,7 @@
       blocked: state.feedback?.message || 'Не хватает свободного места.',
     };
 
-    const guided = guidedFor(state);
+    const guided = guidedShift;
     const nextStep = guided ? nextStepFor(state) : null;
 
     return {
@@ -320,7 +335,8 @@
             : code === 'demand-increase' ? 'zone' : '',
       mode,
       palletFillPercent: Math.min(100, Math.round(((state.pallet?.weight || 0) / (state.pallet?.capacity || 100)) * 100)),
-      palletGoalText: palletGoalFor(state),
+      // Цель на паллете — по принятому заданию: пока его нет, считать нечего.
+      palletGoalText: guided ? palletGoalFor(state) : activeTask?.kind === 'pick' ? palletGoalFor({ ...state, inbound: [] }) : '',
       loadedPalletCount: (state.loadedPallets || []).length,
       routeReady,
       routeCanBeShortened: guided && routeCanBeShortened(state),

@@ -2,10 +2,11 @@
   const isNode = typeof module !== 'undefined' && module.exports;
   const engine = isNode ? require('./game-engine.js') : root.RyabinovayaEngine;
   const levelData = isNode ? require('./levels.js') : root.RyabinovayaLevels;
-  const api = factory(engine, levelData);
+  const appState = isNode ? require('./app-state.js') : root.RyabinovayaAppState;
+  const api = factory(engine, levelData, appState);
   if (isNode) module.exports = api;
   else root.RyabinovayaTsdView = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (engine, levelData) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (engine, levelData, appState) {
   const STORE_NAMES = levelData.STORE_NAMES;
   const ZONE_NAMES = levelData.ZONE_NAMES;
 
@@ -26,6 +27,105 @@
 
   const pendingInboundFor = (state) => (state.inbound || [])
     .find((pallet) => pallet.status === 'arrived' || pallet.status === 'received') || null;
+
+  /* Смена без поводыря: терминал выдаёт задания из очереди. Экран собирается
+     поверх обычного и меняет только то, что относится к заданию: что
+     предложено, что в работе, какие кнопки — «Принять», «Отложить»,
+     «Взять срочное». Брифинг, ошибка и отчёт остаются прежними. */
+  function queueViewFor(state, base) {
+    const queue = appState.taskQueueFor(state);
+    const current = queue.find((task) => task.active) || null;
+    const offered = queue.find((task) => !task.active && !task.blocked) || null;
+    const blocked = queue.filter((task) => task.blocked && !task.active);
+    const defersLeft = state.defersLeft ?? appState.DEFERS_PER_SHIFT;
+    const orderOf = (task) => (state.orders || []).find((order) => order.id === task.orderId);
+    const inboundOf = (task) => (state.inbound || []).find((pallet) => pallet.id === task.inboundId);
+    const itemName = (sku) => engine.itemBySku(sku)?.name || sku;
+
+    // Строки задания: три подписанные карточки, свои для каждого вида работы.
+    const describe = (task) => {
+      if (task.kind === 'pick') {
+        const order = orderOf(task);
+        return {
+          labels: ['Куда', 'Что собрать', 'Зона хранения'],
+          values: [STORE_NAMES[order.storeId] || order.storeId, `${itemName(order.sku)} · ${order.quantity - loadedQuantityFor(state, order)} шт.`, ZONE_NAMES[order.zone] || order.zone],
+          compact: `${STORE_NAMES[order.storeId] || order.storeId} · ${itemName(order.sku)}`,
+          message: 'Соберите паллету и погрузите её в фургон.',
+        };
+      }
+      if (task.kind === 'unload') {
+        const vehicle = (state.vehicles || []).find((entry) => entry.id === task.vehicleId);
+        const goods = (vehicle?.pallets || []).filter((pallet) => pallet.storeId === task.storeId)
+          .flatMap((pallet) => pallet.items || []).map((item) => itemName(item.sku));
+        return {
+          labels: ['Фургон', 'Что снять', 'Причина'],
+          values: [appState.vehicleLabel(state, vehicle), `${STORE_NAMES[task.storeId] || task.storeId} · ${[...new Set(goods)].join(', ')}`, 'заявка отменена'],
+          compact: `Снять паллету: ${STORE_NAMES[task.storeId] || task.storeId}`,
+          message: 'Даркстор отменил заявку. Паллета в кузове лишняя — снимите её.',
+        };
+      }
+      const pallet = inboundOf(task);
+      return {
+        labels: ['Поставщик', 'В паллете', ''],
+        values: [pallet.supplier, `${itemName(pallet.sku)} · ${pallet.quantity} шт.`, ''],
+        compact: `Приёмка: ${itemName(pallet.sku)}`,
+        message: 'Проверьте накладную и примите паллету.',
+      };
+    };
+
+    const placing = current?.kind === 'receive' && inboundOf(current)?.status === 'received';
+    const shown = current || offered;
+    const details = shown ? describe(shown) : null;
+    const offering = !current && Boolean(offered);
+    const others = queue.filter((task) => !task.blocked && task.id !== offered?.id).length;
+    const waitingText = blocked.some((task) => task.blocked === 'no-stock')
+      ? 'Ждём поставку: товара для оставшихся заданий ещё нет в зоне.'
+      : 'Ждём фургон: оставшееся пока не на чем увезти.';
+
+    const screen = placing ? 'inbound'
+      : offering ? (offered.kind === 'receive' ? 'inbound' : 'task')
+        : 'current';
+    const title = placing ? 'Размещение'
+      : offering ? (offered.urgent ? 'Срочное задание' : 'Новое задание')
+        : current ? 'Задание в работе'
+          : blocked.length ? 'Ждём' : 'Заданий нет';
+    const message = state.feedback?.kind === 'info' && ['task-deferred', 'defer-nowhere', 'defer-spent', 'placing-first'].includes(state.feedback.code)
+      ? state.feedback.message
+      : placing ? 'Паллета принята. Выберите зону хранения на схеме склада.'
+        : shown ? details.message
+          : blocked.length ? waitingText
+            : 'Все задания выполнены. Проверьте маршруты и завершите смену.';
+    const canTakeUrgent = Boolean(current && offered?.urgent && !placing);
+
+    return {
+      ...base,
+      queue: true,
+      screen,
+      title,
+      message,
+      showOrderBlock: false,
+      taskLabels: details?.labels || ['', '', ''],
+      taskValues: details?.values || ['', '', ''],
+      storeName: details?.values[0] || '',
+      orderText: details?.values[1] || '',
+      zoneName: details?.values[2] || '',
+      progressText: '',
+      canAccept: offering && offered.kind !== 'receive',
+      canReceive: offering && offered.kind === 'receive',
+      canDefer: offering && others > 0 && defersLeft > 0,
+      deferLabel: `Отложить · осталось ${defersLeft}`,
+      canTakeUrgent,
+      urgentLabel: canTakeUrgent ? `Взять срочное: ${describe(offered).compact}` : '',
+      awaitingPlacement: placing,
+      // Терминал зовёт, когда на нём лежит непринятое задание или срочное поверх начатого.
+      attention: !base.open && (offering || canTakeUrgent),
+      offeredTaskId: offering ? offered.id : null,
+      currentTaskKind: current?.kind || null,
+      compactKicker: offering ? (offered.urgent ? 'Срочное задание' : 'Новое задание') : current ? 'В работе' : blocked.length ? 'Ждём' : 'Готово',
+      compactTask: shown ? details.compact : blocked.length ? 'товар в пути или фургон в рейсе' : 'Все задания выполнены',
+      compactMeta: `Отложений осталось: ${defersLeft}`,
+    };
+  }
 
   function terminalViewFor(state) {
     const reportScreen = Boolean(state.report) || state.phase === 'report';
@@ -112,7 +212,7 @@
     const canAccept = screen === 'task' && !accepted && Boolean(order);
     const canReceive = screen === 'inbound' && !awaitingPlacement;
 
-    return {
+    const base = {
       open,
       /* Затемнение перехватывает нажатия, поэтому ставить его на каждый
          открытый экран нельзя: размещение требует нажать зону на схеме
@@ -152,6 +252,8 @@
       compactTask,
       compactMeta,
     };
+    const queueShift = !appState.guidedFor(state) && state.phase === 'shift' && screen !== 'feedback' && screen !== 'report' && screen !== 'briefing';
+    return queueShift ? queueViewFor(state, base) : base;
   }
 
   return { terminalViewFor };

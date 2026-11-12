@@ -4,6 +4,7 @@ const { LEVELS, ZONE_NAMES: zones, STORE_NAMES: stores, ZONE_MARKS: zoneMarks } 
 const {
   reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles,
   activeOrderFor, remainingFor, vehicleForPallet, vehicleLabel: labelFor, roomIn, orphanPalletsFor,
+  currentTaskFor, nextTaskFor, guidedFor,
 } = window.RyabinovayaAppState;
 const { warehouseViewFor } = window.RyabinovayaSceneView;
 const { terminalViewFor } = window.RyabinovayaTsdView;
@@ -47,6 +48,10 @@ const screenForTsd = (nextState, baseScreen) => {
      нажатия «Продолжить» на полноэкранном сообщении. */
   if (nextState.feedback?.kind === 'error') return 'feedback';
   if (baseScreen === 'inbound') return 'inbound';
+  /* На смене с очередью экран задаёт сама очередь: предложено задание —
+     экран задания, принято — текущая работа. Запомненный в состоянии экран
+     тут устаревает после каждого выполненного задания. */
+  if (!guidedFor(nextState) && nextState.phase === 'shift') return baseScreen;
   if (nextState.tsd?.screen === 'task') return 'task';
   return nextState.tsd?.screen || baseScreen;
 };
@@ -181,9 +186,9 @@ function renderNowCard(step, document) {
   else delete button.dataset.vehicleId;
 }
 
-/* Доска заявок: строка открытой заявки — кнопка, которая адресует пустую
-   паллету этому даркстору и открывает сборку. Закрытые и отменённые строки
-   не нажимаются: по ним собирать нечего. */
+/* Доска заявок — табло. Раньше её строка была кнопкой, и заявку выбирали
+   с доски; теперь задания выдаёт ТСД, а доска только показывает, что в
+   работе, что терминал предложит следующим и что уже уехало. */
 function renderOrderBoard(rows, document) {
   const board = byId(document, 'orderBoard');
   if (!board) return;
@@ -193,13 +198,12 @@ function renderOrderBoard(rows, document) {
   board.classList.toggle('is-dense', rows.length > 6);
   byId(document, 'orderBoardRows').innerHTML = rows.map((row) => {
     const progress = row.status === 'cancelled' ? '' : `<b class="order-progress">${row.loaded} / ${row.quantity}${row.status === 'done' ? ' ✓' : ''}</b>`;
+    const mark = row.active ? ' · <em class="order-mark">в работе</em>' : row.next ? ` · <em class="order-mark">${row.urgent ? 'срочно' : 'на ТСД'}</em>` : '';
     const detail = row.status === 'cancelled'
       ? row.note
-      : `<i class="order-zone" data-zone="${row.zone}">${row.zoneMark}</i> ${row.itemName}${row.note ? ` · ${row.note}` : ''}`;
+      : `<i class="order-zone" data-zone="${row.zone}">${row.zoneMark}</i> ${row.itemName}${row.note ? ` · ${row.note}` : ''}${mark}`;
     const body = `<span class="order-top"><strong>${row.storeName}</strong>${progress}</span><small class="order-detail">${detail}</small>`;
-    return row.status === 'open'
-      ? `<button class="order-line" type="button" data-action="PICK_ORDER" data-order-id="${row.orderId}" data-status="open">${body}</button>`
-      : `<div class="order-line${row.alert ? ' is-alert' : ''}" data-status="${row.status}">${body}</div>`;
+    return `<div class="order-line${row.alert ? ' is-alert' : ''}${row.active ? ' is-active' : ''}" data-status="${row.status}">${body}</div>`;
   }).join('');
 }
 
@@ -231,6 +235,17 @@ function renderTsd(view, document) {
   byId(document, 'tsdTaskStore').textContent = view.storeName;
   byId(document, 'tsdTaskOrder').textContent = view.orderText;
   byId(document, 'tsdTaskZone').textContent = view.zoneName;
+  // Подписи карточек задания свои для сборки и для снятия паллеты.
+  const [storeLabel, orderLabelText, zoneLabel] = view.taskLabels || ['Куда', 'Что собрать', 'Зона хранения'];
+  byId(document, 'tsdTaskStoreLabel').textContent = storeLabel;
+  byId(document, 'tsdTaskOrderLabel').textContent = orderLabelText;
+  byId(document, 'tsdTaskZoneLabel').textContent = zoneLabel;
+  const defer = byId(document, 'tsdDefer');
+  defer.hidden = !view.canDefer;
+  defer.textContent = view.deferLabel || 'Отложить';
+  const urgent = byId(document, 'tsdUrgent');
+  urgent.hidden = !view.canTakeUrgent;
+  urgent.textContent = view.urgentLabel || 'Взять срочное';
   const message = byId(document, 'tsdMessage');
   message.textContent = view.message;
   // Пустая строка статуса всё равно держала 24 px в шапке прибора.
@@ -362,6 +377,8 @@ function render(nextState, document) {
     <div class="qty"><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="-1" aria-label="Убрать ${item.name}">−</button><b>${quantityFor(nextState.pallet, item.sku)}</b><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="1" aria-label="Добавить ${item.name}">+</button></div>
   </div>`).join('');
   byId(document, 'capacity').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
+  // Адрес и зону на смене с очередью задаёт задание — выбирать их нечем.
+  byId(document, 'builderTarget').hidden = !guidedFor(nextState);
   byId(document, 'builderTargetLabel').textContent = `${stores[nextState.pallet.storeId] || nextState.pallet.storeId} · ${zones[nextState.pallet.zone]}`;
   /* Куда поедет паллета, видно до нажатия: на смене с делением заявки это
      единственный способ понять, что остаток уходит во вторую машину. */
@@ -529,30 +546,20 @@ function scheduleToastDismiss(message) {
 }
 
 function dispatch(action) {
-  if (action.type === 'PICK_ORDER') {
-    /* Заявка с доски: пустая паллета получает её адрес и зону. Начатую
-       паллету не переадресуем — на ней уже чей-то товар. */
-    const order = state.orders.find((entry) => entry.id === action.orderId && !entry.cancelled);
-    /* Товара ещё нет в зоне — собирать нечего. Сборку не открываем: она
-       устроена по зонам и выдала бы, куда ставить паллету с приёмки. */
-    if (order && engine.availableStock(state.stock, order.zone, order.sku) === 0) {
-      const name = itemDetails[order.sku]?.name || order.sku;
-      state = { ...state, feedback: { kind: 'info', code: 'no-stock-yet', message: `${name}: на складе пока нет. Сначала поставка должна попасть в зону.` } };
-      render(state, document);
-      return state;
+  const queueShift = !guidedFor(state) && state.phase === 'shift';
+  if (action.type === 'OPEN_BUILDER') {
+    if (queueShift) {
+      /* На смене с очередью паллета собирается только под принятое задание.
+         Нет принятого — нажатие на паллету показывает, что предлагает ТСД. */
+      state = currentTaskFor(state)?.kind === 'pick'
+        ? { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } }
+        : { ...state, feedback: null, tsd: { ...state.tsd, open: true, dismissedTaskId: null } };
+    } else {
+      /* Нажатие на паллету открывает сборку сразу. Раньше оно уводило на
+         экран задания, и «Принять» приходилось жать только чтобы вернуться. */
+      if (!state.tsd?.acceptedOrderId) state = reduceAction(state, { type: 'ACCEPT_TASK' });
+      state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } };
     }
-    if (order && state.pallet.weight === 0) {
-      state = reduceAction(state, { type: 'SELECT_ZONE', zone: order.zone });
-      state = reduceAction(state, { type: 'SELECT_STORE', storeId: order.storeId });
-      const compatibleVehicle = state.vehicles.find((vehicle) => vehicle.zone === order.zone && vehicle.ready);
-      if (compatibleVehicle) state = { ...state, selectedVehicleId: compatibleVehicle.id };
-    }
-    state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder', acceptedOrderId: order?.id || state.tsd?.acceptedOrderId || null } };
-  } else if (action.type === 'OPEN_BUILDER') {
-    /* Нажатие на паллету открывает сборку сразу. Раньше оно уводило на
-       экран задания, и «Принять» приходилось жать только чтобы вернуться. */
-    if (!state.tsd?.acceptedOrderId) state = reduceAction(state, { type: 'ACCEPT_TASK' });
-    state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } };
   } else if (action.type === 'CLOSE_BUILDER') state = { ...state, builderOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
   else if (action.type === 'OPEN_VEHICLES') {
     // Карточка шага открывает сразу тот фургон, о котором говорит.
@@ -573,13 +580,42 @@ function dispatch(action) {
       const compatibleVehicle = state.vehicles.find((vehicle) => vehicle.zone === state.pallet.zone && vehicle.ready);
       if (compatibleVehicle) state = { ...state, selectedVehicleId: compatibleVehicle.id };
     }
-    if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success') state = { ...state, builderOpen: false };
+    /* Заявка тяжелее паллеты собирается в несколько заходов: пока задание в
+       работе, сборка остаётся открытой для следующей паллеты. */
+    const stillPicking = queueShift && currentTaskFor(state)?.kind === 'pick';
+    if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success' && !stillPicking) state = { ...state, builderOpen: false };
+    if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success' && stillPicking) state = { ...state, tsd: { ...state.tsd, open: true, screen: 'builder' } };
+    /* Принятое задание сразу открывает свой экран: сборку — для заявки,
+       фургон — для снятия паллеты. Приёмка экрана не открывает: её
+       продолжение — вывески зон на схеме. */
+    if (queueShift && (action.type === 'ACCEPT_TASK' || action.type === 'TAKE_URGENT')) {
+      const task = currentTaskFor(state);
+      if (task?.kind === 'pick') state = { ...state, builderOpen: true, vehicleDrawerOpen: false, tsd: { ...state.tsd, open: true, screen: 'builder' } };
+      if (task?.kind === 'unload') state = { ...state, vehicleDrawerOpen: true, builderOpen: false, tsd: { ...state.tsd, open: true, screen: 'vehicles' } };
+    }
+    // Крестик на предложенном задании — «не сейчас»: терминал не всплывает снова, пока задание то же.
+    if (queueShift && action.type === 'CLOSE_TSD') state = { ...state, tsd: { ...state.tsd, dismissedTaskId: nextTaskFor(state)?.id || null } };
     /* Маршрут уже построен при погрузке, поэтому кнопка просто подтверждает
        порядок и закрывает панель — отдельное нажатие на крестик не нужно. */
     if (action.type === 'SET_ROUTE') state = { ...state, vehicleDrawerOpen: false, tsd: { ...state.tsd, open: false, screen: 'current' } };
   }
+  state = offerNextTask(state);
   render(state, document);
   return state;
+}
+
+/* Задания приходят на ТСД сами: когда принятого задания нет, а в очереди
+   есть выполнимое, терминал открывается с ним. Не всплывает поверх панелей,
+   во время размещения паллеты, на ошибке и если игрок это задание только
+   что закрыл крестиком. */
+function offerNextTask(current) {
+  if (guidedFor(current) || current.phase !== 'shift' || current.paused) return current;
+  if (current.builderOpen || current.vehicleDrawerOpen || current.guideOpen) return current;
+  if (current.feedback?.kind === 'error' || current.tsd?.open) return current;
+  const offered = nextTaskFor(current);
+  if (!offered || currentTaskFor(current)) return current;
+  if (current.tsd?.dismissedTaskId === offered.id) return current;
+  return { ...current, tsd: { ...current.tsd, open: true } };
 }
 
 document.addEventListener('click', (event) => {
@@ -590,12 +626,14 @@ document.addEventListener('click', (event) => {
   if (action === 'OPEN_TSD') tsdReturnFocus = button;
   if (action === 'ADD_ITEM') return dispatch({ type: action, sku: button.dataset.sku, zone: button.dataset.zone, weightPerUnit: Number(button.dataset.weight), quantity: Number(button.dataset.quantity) });
   if (action === 'SELECT_STORE') return dispatch({ type: action, storeId: button.dataset.store });
-  if (action === 'PICK_ORDER') return dispatch({ type: action, orderId: button.dataset.orderId });
   if (action === 'SELECT_ZONE') {
     /* Вывеска зоны на схеме — это и есть размещение: пока принятая паллета
        стоит на тележке, нажатие на зону убирает её туда, а не переключает
        фильтр товаров в сборке. */
     const placing = Boolean(button.dataset.sceneZone) && terminalViewFor(state).awaitingPlacement;
+    /* На смене с очередью вывеска вне размещения ничего не делает: адрес и
+       зону паллеты задаёт принятое задание, а не нажатие на схеме. */
+    if (!placing && button.dataset.sceneZone && !guidedFor(state)) return state;
     return dispatch(placing ? { type: 'PLACE_PALLET', zone: button.dataset.zone } : { type: action, zone: button.dataset.zone });
   }
   if (action === 'LOAD_PALLET') return dispatch({ type: action, vehicleId: state.selectedVehicleId });

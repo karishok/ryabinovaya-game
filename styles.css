@@ -262,6 +262,9 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-display > p { margin: 7px 0 0; color: var(--muted); }
 .tsd-display > p[id="tsdProgress"] { color: #ffe0a0; font-size: 12px; font-weight: 800; }
 .tsd-display > p[role="status"] { min-height: 24px; color: #d8fff3; }
+/* Вторая кнопка задания: отложить или взять срочное. */
+.tsd-secondary { width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--line); border-radius: 14px; background: #293b31; color: var(--cream); font-size: 13px; font-weight: 800; }
+.tsd-secondary.is-urgent { border-color: var(--amber); background: rgba(240, 170, 56, 0.14); color: #ffd98a; }
 .tsd-primary { width: 100%; min-height: 48px; margin-top: 16px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 14px; background: linear-gradient(135deg, #d65e40, #b94732); color: #fffaf0; font-weight: 850; box-shadow: 0 8px 18px rgba(178, 65, 45, 0.36); }
 .tsd-content-slot { display: grid; gap: 10px; margin-top: 15px; }
 /* На панелях сборки, транспорта и гайда шапка прибора — чистая потеря:
@@ -459,8 +462,6 @@ button:disabled { cursor: default; opacity: 0.42; }
 .order-board-kicker { padding: 0 2px; color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
 .order-board-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .order-line { display: grid; gap: 2px; min-width: 0; min-height: 44px; padding: 6px 9px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 12px; background: #24342b; color: var(--text); text-align: left; }
-button.order-line { cursor: pointer; }
-button.order-line:hover, button.order-line:focus-visible { border-color: var(--cream); background: #2c4136; }
 .order-top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
 .order-top strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .order-progress { flex: none; font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -474,6 +475,8 @@ button.order-line:hover, button.order-line:focus-visible { border-color: var(--c
 .order-line[data-status="cancelled"] { opacity: 0.6; }
 .order-line[data-status="cancelled"] .order-top strong { text-decoration: line-through; }
 .order-line.is-alert { opacity: 1; border-color: rgba(240, 170, 56, 0.55); }
+.order-line.is-active { border-color: var(--cream); background: #2c4136; }
+.order-mark { color: var(--cream); font-style: normal; font-weight: 800; }
 .order-line.is-alert .order-detail { color: #ffd98a; }
 
 .order-board.is-dense { gap: 4px; padding: 8px; }
