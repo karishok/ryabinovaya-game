@@ -94,12 +94,12 @@ test('the README documents the mobile QA screenshot and the file exists', () => 
   assert.equal(fs.existsSync('docs/screenshots/living-warehouse-mobile.png'), true);
 });
 
-test('vehicle rows use a CSS glyph instead of an emoji', () => {
+test('vehicle rows are compact tiles without an emoji', () => {
   const app = fs.readFileSync('app.js', 'utf8');
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.doesNotMatch(app, /🚚/, 'app.js should not render the truck emoji over the persistent scene overlay');
-  assert.match(app, /class="vehicle-glyph"/);
-  assert.match(css, /\.vehicle-glyph/);
+  // Плитки в две колонки: четыре строки во весь экран занимали половину панели.
+  assert.match(css, /#vehicleRows\s*\{[^}]*grid-template-columns:\s*1fr 1fr/);
 });
 
 test('warehouse styles define mobile motion and accessible fallbacks', () => {

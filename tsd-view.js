@@ -52,7 +52,8 @@
     const order = acceptedOrderFor(state) || activeOrderFor(state);
     const item = order ? engine.itemBySku(order.sku) : null;
     const inboundItem = inbound ? engine.itemBySku(inbound.sku) : null;
-    const inboundZoneName = inbound ? ZONE_NAMES[inbound.zone] || inbound.zone : '';
+    /* Зону входящей паллеты терминал не называет нигде: какая температура
+       нужна товару, решает игрок, и это решение — суть приёмки. */
     const awaitingPlacement = Boolean(inbound && inbound.status === 'received');
     const progressText = `${state.pallet?.weight || 0} / ${state.pallet?.capacity || 100} кг`;
     const signal = state.feedback?.kind === 'error' ? 'error' : (state.tsd?.signal || 'idle');
@@ -73,7 +74,7 @@
       feedback: state.feedback?.message || '',
       briefing: state.story?.text || '',
       inbound: awaitingPlacement
-        ? `Паллета принята. Нажмите зону «${inboundZoneName}» на схеме склада.`
+        ? 'Паллета принята. Выберите зону хранения на схеме склада.'
         : 'Проверьте накладную и примите паллету.',
       task: state.feedback?.message || (order ? 'Проверьте заявку и примите её.' : 'Активных заявок нет.'),
       current: state.feedback?.message || '',
@@ -94,7 +95,7 @@
         : !order ? 'Готово'
           : accepted ? 'В работе' : 'Новое задание';
     const compactTask = inbound
-      ? `${inboundItem?.name || inbound.sku} · ${inbound.quantity} шт. → ${inboundZoneName}`
+      ? `${inboundItem?.name || inbound.sku} · ${inbound.quantity} шт.`
       : order
         ? `${STORE_NAMES[order.storeId] || order.storeId} · ${item?.name || order.sku} · ${remaining} шт.`
         : 'Все заявки собраны';
@@ -130,7 +131,7 @@
       orderText: inbound
         ? `${inboundItem?.name || inbound.sku} · ${inbound.quantity} шт.`
         : order ? `${item?.name || order.sku} · ${remaining} шт.` : '',
-      zoneName: inbound ? inboundZoneName : order ? ZONE_NAMES[order.zone] || order.zone : '',
+      zoneName: inbound ? '' : order ? ZONE_NAMES[order.zone] || order.zone : '',
       progressText: inbound ? '' : progressText,
       message: messageByScreen[screen],
       storyKind,
@@ -143,7 +144,6 @@
       attention: !open && (canAccept || canReceive),
       canRestart: screen === 'endless',
       awaitingPlacement,
-      placementZone: awaitingPlacement ? inbound.zone : null,
       // Брифинг, ошибка и отчёт держат терминал открытым принудительно, поэтому
       // CLOSE_TSD на них не даёт эффекта. Рисовать там крестик — обещать
       // действие, которого не будет: из этих экранов выходят кнопкой внизу.

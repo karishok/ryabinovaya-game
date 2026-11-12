@@ -61,24 +61,30 @@ test('the terminal shows the dock before the delivery order, because receiving b
   assert.equal(view.canReceive, true);
   assert.equal(view.awaitingPlacement, false);
   assert.match(view.storeName, /Аквалайн/);
-  assert.equal(view.zoneName, 'Сухач');
+  // Накладная называет товар, но не зону: её выбирает игрок.
+  assert.equal(view.zoneName, '');
   // Закрытый ТСД тоже обязан говорить, что стоит на приёмке.
-  assert.match(view.compactTask, /Вода 1,5 л · 4 шт\. → Сухач/);
+  assert.equal(view.compactTask, 'Вода 1,5 л · 4 шт.');
 });
 
-test('receiving hands the shift over to putaway and points at the rack', () => {
+test('receiving hands the shift over to putaway without naming the rack', () => {
   const received = reduceAction(shift(receiveLevel), { type: 'RECEIVE_PALLET' });
   const view = terminalViewFor(received);
 
   assert.equal(view.screen, 'inbound');
   assert.equal(view.title, 'Размещение');
   assert.equal(view.awaitingPlacement, true);
-  assert.equal(view.placementZone, 'dry');
   assert.equal(view.canReceive, false);
+  /* Зона размещения не раскрывается нигде: ни в терминале, ни на схеме.
+     Что воде место в сухаче — решение игрока, и в нём суть приёмки. */
+  const scene = warehouseViewFor(received);
+  for (const shown of [view, scene]) assert.equal(Object.hasOwn(shown, 'placementZone'), false);
+  assert.doesNotMatch(`${view.message} ${view.compactTask} ${scene.statusText}`, /Сухач|\+18°/);
+  assert.equal(scene.activeZone, null);
+  assert.equal(scene.awaitingPlacement, true);
   // Затемнение не должно перехватывать нажатие по вывеске зоны на схеме.
   assert.equal(view.blocking, false);
   assert.equal(warehouseViewFor(received).mode, 'placing');
-  assert.equal(warehouseViewFor(received).placementZone, 'dry');
 });
 
 test('goods reach the racks only after putaway, and then the order can be picked', () => {
@@ -114,7 +120,11 @@ test('putting a pallet on the wrong rack costs a spoiled pallet and the order be
   assert.equal(report.spoiledPallets, 1);
   assert.equal(report.deliveredPercent, 0);
   assert.notEqual(report.stars, 3);
-  assert.ok(report.reasons.some((reason) => /размещени/i.test(reason)));
+  // Причина названа словами игрока: товар, его зона и та, куда поставили.
+  const spoilage = report.reasons.find((reason) => /Испорчена паллета/.test(reason));
+  assert.ok(spoilage, 'отчёт обязан назвать порчу');
+  assert.match(spoilage, /«[А-ЯЁа-яё ,0-9]+ [+−]\d+°»/, 'зона — названием и температурой');
+  assert.doesNotMatch(spoilage, /dry|chilled|frozen/, 'идентификаторы зон игроку не показываем');
 });
 
 test('a pallet abandoned on the dock is named in the report', () => {
@@ -136,7 +146,8 @@ test('the sorting shift queues every dock pallet and keeps the delivery order wa
     const view = terminalViewFor(state);
     assert.equal(view.screen, 'inbound', 'пока приёмка не разобрана, заявки ждут');
     state = reduceAction(state, { type: 'RECEIVE_PALLET' });
-    zones.push(terminalViewFor(state).placementZone);
+    // Зону знает только состояние смены — в экран она не попадает.
+    zones.push(state.inbound.find((pallet) => pallet.status === 'received').zone);
     state = reduceAction(state, { type: 'PLACE_PALLET', zone: zones.at(-1) });
   }
 

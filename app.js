@@ -71,7 +71,12 @@ const tsdViewFor = (nextState) => {
     // только путал — CLOSE_TSD на открытой панели не давал эффекта.
     canClose: baseView.canClose && !panelScreen,
     title: titleByScreen[screen] || baseView.title,
-    message: screen === 'feedback' ? nextState.feedback?.message || baseView.message : baseView.message,
+    /* Пока фура стоит на приёмке, базовый экран терминала — накладная. Её
+       строка и кнопка «Принять паллету» вылезали в шапку сборки и экрана
+       фургона, хотя к ним не относятся. */
+    message: screen === 'feedback' ? nextState.feedback?.message || baseView.message : panelScreen ? '' : baseView.message,
+    canReceive: baseView.canReceive && !panelScreen,
+    canAccept: baseView.canAccept && !panelScreen,
   };
 };
 const orderLabel = (order) => {
@@ -131,7 +136,7 @@ function renderScene(view, document) {
   truckBay.dataset.loadedPallets = String(view.loadedPalletCount);
   const dock = byId(document, 'sceneDock');
   dock.hidden = view.inboundCount === 0;
-  dock.dataset.awaiting = String(Boolean(view.placementZone));
+  dock.dataset.awaiting = String(Boolean(view.awaitingPlacement));
   byId(document, 'dockBadge').textContent = String(view.inboundCount);
   scenePallet.classList.toggle('is-focus', view.focus === 'pallet');
   truckBay.classList.toggle('is-focus', view.focus === 'truck');
@@ -139,10 +144,11 @@ function renderScene(view, document) {
   document.querySelectorAll('[data-scene-zone]').forEach((zone) => {
     const active = zone.dataset.sceneZone === view.activeZone;
     const selected = zone.dataset.sceneZone === view.selectedZone;
-    zone.classList.toggle('is-focus', view.focus === 'zone' && zone.dataset.sceneZone === view.placementZone);
+    // На размещении шаг указывает на все вывески сразу, а не на верную.
+    zone.classList.toggle('is-focus', view.focus === 'zones');
     zone.classList.toggle('is-active', active);
-    zone.classList.toggle('is-selected', selected && !view.placementZone);
-    zone.classList.toggle('is-target', Boolean(view.placementZone));
+    zone.classList.toggle('is-selected', selected && !view.awaitingPlacement);
+    zone.classList.toggle('is-target', Boolean(view.awaitingPlacement));
     zone.setAttribute('aria-current', String(active));
   });
 }
@@ -159,8 +165,11 @@ function renderNowCard(step, document) {
   byId(document, 'nowTitle').textContent = step.title;
   byId(document, 'nowDetail').textContent = step.detail;
   const button = byId(document, 'nowAction');
+  /* У шага может не быть кнопки: размещение игрок выполняет сам, нажав
+     вывеску зоны, и кнопка-автопилот выбрала бы зону за него. */
+  button.hidden = !step.action;
   button.textContent = step.actionLabel;
-  button.dataset.action = step.action;
+  button.dataset.action = step.action || '';
   if (step.zone) {
     button.dataset.zone = step.zone;
     button.dataset.sceneZone = step.zone;
@@ -233,7 +242,6 @@ function renderTsd(view, document) {
   byId(document, 'tsdClose').hidden = !view.canClose;
   byId(document, 'tsdInboundSupplier').textContent = view.storeName;
   byId(document, 'tsdInboundGoods').textContent = view.orderText;
-  byId(document, 'tsdInboundZone').textContent = view.zoneName;
   byId(document, 'tsdContinue').hidden = view.screen !== 'report';
   byId(document, 'tsdFeedbackContinue').hidden = view.screen !== 'feedback';
   const panels = document.querySelectorAll ? document.querySelectorAll('[data-tsd-panel]') : [];
@@ -275,9 +283,12 @@ function routeMapSvg(state, routeStops) {
 /* Подсказка говорит, есть ли запас, но не диктует порядок: раньше здесь
    печатался готовый оптимум, и единственное решение в игре решалось за
    игрока. Точный лучший маршрут показывается в отчёте — после смены. */
-function routeSummaryHtml(routeStops) {
-  if (!routeStops.length) return 'Загрузите паллеты — их адреса появятся на карте.';
+function routeSummaryHtml(routeStops, guided = true) {
+  if (!routeStops.length) return 'Загрузите паллеты — их адреса появятся в маршруте.';
   const current = engine.buildRoute(null, routeStops).minutes;
+  if (routeStops.length === 1) return `Рейс — <b>${current} мин</b> до адреса «${stores[routeStops[0]] || routeStops[0]}».`;
+  // Без поводыря экран называет только длину рейса: короче ли он — видно по карте.
+  if (!guided) return `Ваш порядок — <b>${current} мин</b>.`;
   const best = engine.bestRoute(routeStops);
   if (current <= best.minutes) return `Ваш порядок — <b>${current} мин</b>. Короче не выйдет.`;
   const gap = current - best.minutes;
@@ -387,27 +398,47 @@ function render(nextState, document) {
       : routelessVehicles.has(vehicle.id)
         ? 'нет маршрута'
         : stops > 0
-          ? `${stops} ост. · ${loadedKg} кг`
-          : 'свободна';
-    return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span class="vehicle-glyph" aria-hidden="true"></span><span><strong>${labelFor(nextState, vehicle)}</strong><small>${vehicle.pallets.length} паллет · до ${vehicle.capacity} кг</small></span><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
+          ? `${loadedKg} / ${vehicle.capacity} кг · ${stops} ост.`
+          : 'пусто';
+    return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'} aria-label="${labelFor(nextState, vehicle)}"><strong>${labelFor(nextState, vehicle).replace(' фургон', '')}</strong><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
   }).join('');
+  /* Список машин нужен, только когда есть из чего выбирать: с одним
+     фургоном он повторял заголовок панели. */
+  byId(document, 'vehicleRows').hidden = nextState.vehicles.length < 2;
   const inBay = selectedVehicle?.pallets || [];
   /* Паллета отменённой заявки помечена прямо в кузове: иначе на экране
      фургона не видно, какую из трёх одинаковых строк надо снять. */
   const orphanIndexes = new Set(orphanPalletsFor(nextState)
     .filter((entry) => entry.vehicleId === selectedVehicle?.id)
     .map((entry) => entry.palletIndex));
-  byId(document, 'loadedPallets').innerHTML = inBay.length
-    ? inBay.map((pallet, index) => {
-      const goods = (pallet.items || []).map((item) => `${itemDetails[item.sku]?.name || item.sku} · ${item.quantity}`).join(', ');
-      const orphan = orphanIndexes.has(index);
-      return `<div class="loaded-row${orphan ? ' is-orphan' : ''}"><span><strong>${stores[pallet.storeId] || pallet.storeId}${orphan ? ' · заявка отменена' : ''}</strong><small>${goods || 'пусто'} · ${pallet.weight} кг</small></span><button class="btn ${orphan ? '' : 'secondary'}" data-action="UNLOAD_PALLET" data-vehicle-id="${selectedVehicle.id}" data-pallet-index="${index}">Снять</button></div>`;
-    }).join('')
+  /* Паллеты в один адрес с одним товаром — одна строка со счётчиком. Раньше
+     каждая паллета была отдельной строкой, и дозаказ или деление заявки
+     печатали «Саларьево · Хлеб» по два-три раза подряд. «Снять» убирает
+     одну паллету из группы. */
+  const bayGroups = [];
+  inBay.forEach((pallet, index) => {
+    const goods = (pallet.items || []).map((item) => itemDetails[item.sku]?.name || item.sku).join(', ');
+    const orphan = orphanIndexes.has(index);
+    const key = `${pallet.storeId}|${goods}|${orphan}`;
+    let group = bayGroups.find((entry) => entry.key === key);
+    if (!group) { group = { key, storeId: pallet.storeId, goods, orphan, count: 0, weight: 0, quantity: 0, lastIndex: index }; bayGroups.push(group); }
+    group.count += 1;
+    group.weight += pallet.weight;
+    group.quantity += (pallet.items || []).reduce((total, item) => total + item.quantity, 0);
+    group.lastIndex = index;
+  });
+  byId(document, 'loadedLabel').textContent = inBay.length ? `В кузове · ${inBay.reduce((total, pallet) => total + pallet.weight, 0)} кг` : 'В кузове';
+  byId(document, 'loadedPallets').innerHTML = bayGroups.length
+    ? bayGroups.map((group) => `<div class="loaded-row${group.orphan ? ' is-orphan' : ''}"><span><strong>${stores[group.storeId] || group.storeId}${group.orphan ? ' · заявка отменена' : ''}</strong><small>${group.goods || 'пусто'} · ${group.quantity} шт. · ${group.weight} кг${group.count > 1 ? ` · ${group.count} паллеты` : ''}</small></span><button class="btn ${group.orphan ? '' : 'secondary'}" data-action="UNLOAD_PALLET" data-vehicle-id="${selectedVehicle.id}" data-pallet-index="${group.lastIndex}">${group.count > 1 ? 'Снять 1' : 'Снять'}</button></div>`).join('')
     : '<p class="empty-route">Кузов пуст.</p>';
 
   const routeStops = nextState.routeStops || [];
-  byId(document, 'routeMap').innerHTML = routeMapSvg(nextState, routeStops);
-  byId(document, 'routeSummary').innerHTML = routeSummaryHtml(routeStops);
+  /* Карта и перестановка нужны, когда остановок хотя бы две. С одной
+     остановкой они занимали пол-экрана и не давали ничего решить. */
+  const reorderable = routeStops.length > 1;
+  for (const id of ['routeMapLabel', 'routeMap', 'routeStopsLabel', 'routeStops']) byId(document, id).hidden = !reorderable;
+  byId(document, 'routeMap').innerHTML = reorderable ? routeMapSvg(nextState, routeStops) : '';
+  byId(document, 'routeSummary').innerHTML = routeSummaryHtml(routeStops, sceneView.guided);
   byId(document, 'routeStops').innerHTML = routeStops.length ? routeStops.map((storeId, index) => `<div class="route-stop"><span>${index + 1}. ${stores[storeId] || storeId} <b class="leg">${engine.legMinutes(index === 0 ? 'depot' : routeStops[index - 1], storeId)} мин</b></span><span><button data-action="MOVE_STOP" data-index="${index}" data-direction="-1" ${index === 0 ? 'disabled' : ''} aria-label="Выше">↑</button><button data-action="MOVE_STOP" data-index="${index}" data-direction="1" ${index === routeStops.length - 1 ? 'disabled' : ''} aria-label="Ниже">↓</button></span></div>`).join('') : '<p class="empty-route">Загрузите паллеты для добавления остановок.</p>';
   byId(document, 'routeButton').textContent = routeStops.length
     ? `Готово · рейс ${engine.buildRoute(null, routeStops).minutes} мин`
@@ -486,6 +517,14 @@ function dispatch(action) {
     /* Заявка с доски: пустая паллета получает её адрес и зону. Начатую
        паллету не переадресуем — на ней уже чей-то товар. */
     const order = state.orders.find((entry) => entry.id === action.orderId && !entry.cancelled);
+    /* Товара ещё нет в зоне — собирать нечего. Сборку не открываем: она
+       устроена по зонам и выдала бы, куда ставить паллету с приёмки. */
+    if (order && engine.availableStock(state.stock, order.zone, order.sku) === 0) {
+      const name = itemDetails[order.sku]?.name || order.sku;
+      state = { ...state, feedback: { kind: 'info', code: 'no-stock-yet', message: `${name}: на складе пока нет. Сначала поставка должна попасть в зону.` } };
+      render(state, document);
+      return state;
+    }
     if (order && state.pallet.weight === 0) {
       state = reduceAction(state, { type: 'SELECT_ZONE', zone: order.zone });
       state = reduceAction(state, { type: 'SELECT_STORE', storeId: order.storeId });

@@ -77,25 +77,27 @@
     const inbound = pendingInboundFor(state);
     if (inbound) {
       const item = engine.itemBySku(inbound.sku);
-      const zoneName = ZONE_NAMES[inbound.zone] || inbound.zone;
+      const goods = `${item?.name || inbound.sku} · ${inbound.quantity} шт.`;
       if (inbound.status === 'arrived') {
         return {
           key: 'receive',
           title: 'Примите поставку',
-          detail: `${inbound.supplier}: ${item?.name || inbound.sku} · ${inbound.quantity} шт. → зона «${zoneName}»`,
+          detail: `${inbound.supplier}: ${goods}`,
           actionLabel: 'Открыть накладную',
           action: 'OPEN_TSD',
           focus: 'dock',
         };
       }
+      /* Шаг называет, что сделать, но не куда: у него нет кнопки, и ни одна
+         вывеска не выделена. Что воде место в сухаче, а мороженому в
+         заморозке, игрок решает сам — в этом и состоит приёмка. */
       return {
         key: 'place',
-        title: `Разместите паллету в зоне «${zoneName}»`,
-        detail: `Нажмите вывеску ${ZONE_MARKS[inbound.zone] || ''} на схеме — другая зона испортит товар`.replace('  ', ' '),
-        actionLabel: `В зону «${zoneName}»`,
-        action: 'SELECT_ZONE',
-        zone: inbound.zone,
-        focus: 'zone',
+        title: `Разместите паллету: ${item?.name || inbound.sku}`,
+        detail: 'Выберите зону на схеме сами. Чужая температура испортит товар',
+        actionLabel: '',
+        action: null,
+        focus: 'zones',
       };
     }
     /* Отменённая заявка, чья паллета уже в кузове, важнее следующей сборки:
@@ -216,8 +218,10 @@
         orderId: order.id,
         storeName: STORE_NAMES[order.storeId] || order.storeId,
         itemName: item?.name || order.sku,
-        zone: order.zone,
-        zoneMark: ZONE_MARKS[order.zone] || '',
+        /* Пока товара нет в зоне, доска не показывает его температуру:
+           иначе она подсказывала бы, куда ставить паллету с приёмки. */
+        zone: noStock ? '' : order.zone,
+        zoneMark: noStock ? '' : ZONE_MARKS[order.zone] || '',
         loaded,
         quantity: order.quantity,
         status,
@@ -252,7 +256,7 @@
     const statusByMode = {
       idle: order ? `Зона ${ZONE_NAMES[order.zone] || order.zone}: можно начинать сборку.` : 'Все заявки собраны. Проверьте транспорт.',
       receiving: 'На приёмке стоит паллета — примите её в ТСД.',
-      placing: inbound ? `Отвезите паллету в зону «${ZONE_NAMES[inbound.zone] || inbound.zone}».` : '',
+      placing: 'Паллета принята — выберите для неё зону хранения.',
       collecting: 'Тележка готовит текущую паллету.',
       'to-dispatch': state.feedback?.message || 'Тележка везёт паллету к воротам.',
       // Не «готова к отправке»: отправлять её вручную не нужно и нечем.
@@ -269,21 +273,20 @@
       nextStep,
       orderBoard: guided ? null : orderBoardFor(state),
       focus: nextStep?.focus || '',
-      /* Во время размещения подсвечивается зона из накладной, а не зона
-         заявки: игрок должен попасть именно в неё. */
-      placementZone: awaitingPlacement ? inbound.zone : null,
+      /* Вывески во время размещения — кнопки, но какая из них верная, схема
+         не показывает: ни на смене с поводырём, ни без него. */
+      awaitingPlacement,
       inboundCount: (state.inbound || []).filter((pallet) => pallet.status === 'arrived' || pallet.status === 'received').length,
-      // Подсвечивать зону имеет смысл только там, где есть из чего выбирать.
-      // На уровнях с одной открытой зоной подсказка повторяет ТСД и схему.
-      // Исключение — размещение: там зона и есть само задание.
-      // Без поводыря зону не подсказываем: она написана в накладной и на доске.
-      activeZone: !guided
+      /* Подсветка зоны остаётся только для отбора на смене с поводырём, и
+         только там, где есть из чего выбирать: зона заявки написана в задании.
+         На размещении и на сменах без поводыря не подсвечиваем ничего. */
+      // Пока на приёмке стоит паллета, подсвеченная зона заявки читалась бы
+      // как «ставь сюда» — и была бы чужой.
+      activeZone: !guided || inbound
         ? null
-        : awaitingPlacement
-          ? inbound.zone
-          : (state.unlockedZones || []).length > 1
-            ? (order?.zone || state.pallet?.zone || 'dry')
-            : null,
+        : (state.unlockedZones || []).length > 1
+          ? (order?.zone || state.pallet?.zone || 'dry')
+          : null,
       selectedZone: state.pallet?.zone || 'dry',
       selectedVehicleZone: selectedVehicle?.zone || null,
       highlightObject: code === 'wrong-placement' ? 'pallet'

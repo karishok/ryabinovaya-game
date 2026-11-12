@@ -12,6 +12,8 @@
   const feedback = (kind, code, message) => ({ kind, code, message });
   const withFeedback = (state, nextFeedback) => ({ ...state, feedback: nextFeedback });
   const copy = (value) => JSON.parse(JSON.stringify(value));
+  // Зона для игрока: название и температура с вывески, как на схеме.
+  const zoneLabel = (zone) => `${levelData.ZONE_NAMES[zone] || zone} ${levelData.ZONE_MARKS[zone] || ''}`.trim();
   const levelFor = (levelId) => LEVELS.find((level) => level.id === Number(levelId));
   const palletFor = (state, overrides = {}) => engine.createPallet({
     storeId: overrides.storeId || state.pallet.storeId,
@@ -267,7 +269,9 @@
       loadedWeight,
       usefulWeight,
       routes,
-      vehiclesWithoutRoute: missingRouteVehicles(state),
+      // В отчёт — названия машин, а не их идентификаторы.
+      vehiclesWithoutRoute: missingRouteVehicles(state)
+        .map((vehicleId) => vehicleLabel(state, (state.vehicles || []).find((vehicle) => vehicle.id === vehicleId))),
       inboundTotal: inbound.length,
       inboundPlaced: inbound.filter((pallet) => pallet.status === 'placed').length,
       inboundLeftOnDock: inbound
@@ -385,8 +389,14 @@
           ...state,
           inbound,
           metrics: { ...state.metrics, spoiledPallets: (state.metrics?.spoiledPallets || 0) + 1 },
-          spoilageReasons: [...(state.spoilageReasons || []), result.spoilageReason],
-        }, feedback('error', 'wrong-placement', `Не та зона: ${engine.itemBySku(pending.sku)?.name || pending.sku} испорчен.`));
+          /* Причину для отчёта пишем здесь, словами игрока: движок знает
+             только идентификаторы зон, и в отчёт уезжало «из зоны chilled
+             убрали в зону frozen». */
+          spoilageReasons: [...(state.spoilageReasons || []), {
+            ...result.spoilageReason,
+            message: `Испорчена паллета «${engine.itemBySku(pending.sku)?.name || pending.sku}»: её зона — «${zoneLabel(pending.zone)}», а поставили в «${zoneLabel(action.zone)}»`,
+          }],
+        }, feedback('error', 'wrong-placement', `Не та зона: паллета «${engine.itemBySku(pending.sku)?.name || pending.sku}» испорчена.`));
       }
       return withFeedback({
         ...state,

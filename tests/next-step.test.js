@@ -44,7 +44,7 @@ test('with every order loaded the step is to end the shift', () => {
   assert.equal(step.action, 'END_SHIFT');
 });
 
-test('an arrived delivery comes before picking, and placement names the zone', () => {
+test('an arrived delivery comes before picking, and placement never names the zone', () => {
   let state = begin(2);
   let step = nextStepFor(state);
   assert.equal(step.key, 'receive');
@@ -53,9 +53,11 @@ test('an arrived delivery comes before picking, and placement names the zone', (
   state = reduceAction(state, { type: 'RECEIVE_PALLET' });
   step = nextStepFor(state);
   assert.equal(step.key, 'place');
-  assert.equal(step.action, 'SELECT_ZONE');
-  assert.equal(step.zone, 'dry');
-  assert.equal(step.focus, 'zone');
+  // У размещения нет кнопки и нет зоны: шаг говорит «что», а «куда» решает игрок.
+  assert.equal(step.action, null);
+  assert.equal(Object.hasOwn(step, 'zone'), false);
+  assert.equal(step.focus, 'zones');
+  assert.doesNotMatch(`${step.title} ${step.detail}`, /Сухач|\+18°/);
   state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'dry' });
   assert.equal(nextStepFor(state).key, 'collect');
 });
@@ -72,7 +74,7 @@ test('the scene view carries the focus of the step so the hotspot can light up',
    поводыря карточка этот шаг не показывает, но расчёт остаётся тем же, и
    тест доказывает, что смена решаема. */
 const engine = require('../game-engine.js');
-const { LEVELS } = require('../levels.js');
+const { LEVELS, ZONE_NAMES, ZONE_MARKS } = require('../levels.js');
 const { tick, finishShift, activeOrderFor, remainingFor, orphanPalletsFor } = require('../app-state.js');
 
 function followTheCard(levelId) {
@@ -84,7 +86,8 @@ function followTheCard(levelId) {
     seen.push(step.key);
     if (step.key === 'finish') break;
     if (step.key === 'receive') state = reduceAction(state, { type: 'RECEIVE_PALLET' });
-    else if (step.key === 'place') state = reduceAction(state, { type: 'PLACE_PALLET', zone: step.zone });
+    // Зону шаг не называет — бот знает её из состояния, как игрок из головы.
+    else if (step.key === 'place') state = reduceAction(state, { type: 'PLACE_PALLET', zone: state.inbound.find((pallet) => pallet.status === 'received').zone });
     else if (step.key === 'collect') {
       const order = activeOrderFor(state);
       const item = engine.itemBySku(order.sku);
@@ -160,12 +163,34 @@ test('an unguided shift shows no step, no focus and no zone or route hint', () =
     assert.equal(view.routeCanBeShortened, false);
     assert.ok(Array.isArray(view.orderBoard) && view.orderBoard.length === state.orders.length);
   }
-  // На приёмке зона-цель не выделена: она написана в накладной.
+  // На приёмке вывески становятся кнопками, но верная среди них не выделена.
   let state = begin(6);
   state = reduceAction(state, { type: 'RECEIVE_PALLET' });
   const placing = warehouseViewFor(state);
-  assert.equal(placing.placementZone, 'chilled', 'вывески остаются кнопками размещения');
-  assert.equal(placing.activeZone, null, 'но нужная среди них не подсвечена');
+  assert.equal(placing.awaitingPlacement, true);
+  assert.equal(placing.activeZone, null);
+});
+
+test('no shift reveals where an incoming pallet belongs, guided or not', () => {
+  const { terminalViewFor } = require('../tsd-view.js');
+  const { orderBoardFor } = require('../scene-view.js');
+  for (const level of LEVELS.filter((entry) => (entry.inbound || []).length > 0)) {
+    let state = begin(level.id);
+    const pallet = state.inbound[0];
+    const names = new RegExp(`${ZONE_NAMES[pallet.zone]}|${ZONE_MARKS[pallet.zone].replace('+', '\\+')}`);
+    for (const stage of ['arrived', 'received']) {
+      if (stage === 'received') state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+      const scene = warehouseViewFor(state);
+      const tsd = terminalViewFor(state);
+      const shown = [scene.statusText, scene.nextStep?.title, scene.nextStep?.detail, scene.nextStep?.actionLabel,
+        tsd.title, tsd.message, tsd.compactTask, tsd.compactMeta, tsd.zoneName, tsd.orderText].join(' ');
+      assert.doesNotMatch(shown, names, `смена ${level.id}, паллета ${stage}: зона названа`);
+      assert.equal(scene.activeZone, null, `смена ${level.id}: вывеска подсвечена`);
+    }
+    // И доска заявок не показывает температуру товара, которого ещё нет в зоне.
+    const row = orderBoardFor(state).find((entry) => entry.itemName === engine.itemBySku(pallet.sku).name);
+    assert.equal(row.zoneMark, '');
+  }
 });
 
 test('a guided shift has the card and no board', () => {

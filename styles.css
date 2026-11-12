@@ -423,7 +423,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .pallet-badge { position: absolute; top: -11px; left: 50%; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
 .truck-badge { position: absolute; top: -11px; right: 0; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; pointer-events: none; }
 .transport-summary { margin: 10px 0; color: var(--muted); font-size: 12px; }
-.loaded-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; padding: 8px 11px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 12px; background: #24342b; }
+.loaded-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; padding: 5px 6px 5px 11px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 12px; background: #24342b; }
 .loaded-row.is-orphan { border-color: var(--amber); background: rgba(240, 170, 56, 0.12); }
 .loaded-row.is-orphan strong { color: #ffd98a; }
 .loaded-row span { display: grid; flex: 1; min-width: 0; gap: 1px; }
@@ -612,14 +612,18 @@ button.order-line:hover, button.order-line:focus-visible { border-color: var(--c
 .tsd-sticky-action .btn { width: 100%; }
 .capacity { color: var(--muted); font-size: 12px; }
 .capacity b { color: var(--cream); white-space: nowrap; }
-.vehicle-row { display: flex; width: 100%; align-items: center; gap: 10px; margin-bottom: 8px; padding: 11px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: #24342b; text-align: left; }
-.vehicle-row > span:first-child { flex-shrink: 0; color: var(--amber); }
-.vehicle-row strong, .vehicle-row small { display: block; }
-.vehicle-row small { color: var(--muted); font-size: 11px; }
-.vehicle-row b { margin-left: auto; color: #ffe0a0; font-size: 10px; }
+/* Машины — плитки в две колонки: четыре строки во весь экран занимали
+   половину панели ещё до первой паллеты. */
+#vehicleRows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.vehicle-row { display: grid; gap: 1px; min-width: 0; min-height: 44px; padding: 7px 10px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 12px; background: #24342b; text-align: left; }
+.vehicle-row strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.vehicle-row b { color: #ffe0a0; font-size: 11px; font-weight: 700; }
+.vehicle-row:disabled { opacity: 0.5; }
 .vehicle-row b.warn { color: #ff9a89; }
-.route-stop { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; padding: 8px 10px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 11px; background: #23342b; }
-.route-stop button { width: 40px; min-height: 40px; margin-left: 3px; font-size: 16px; }
+.route-stop { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 5px 0; padding: 4px 6px 4px 10px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 11px; background: #23342b; }
+/* Стрелки в ряд, а не столбиком: строка остановки была высотой в две кнопки. */
+.route-stop > span:last-child { display: flex; flex: none; gap: 4px; }
+.route-stop button { width: 40px; min-height: 40px; margin-left: 0; font-size: 16px; }
 .route-stop button:disabled { opacity: 0.35; }
 
 .report { align-self: center; text-align: center; }

@@ -159,7 +159,6 @@
           <section id="tsdInbound" data-tsd-panel="inbound" hidden>
             <div class="tsd-task-card"><span class="tsd-task-label">Поставщик</span><strong id="tsdInboundSupplier"></strong></div>
             <div class="tsd-task-card"><span class="tsd-task-label">В паллете</span><strong id="tsdInboundGoods"></strong></div>
-            <div class="tsd-task-card is-target"><span class="tsd-task-label">Разместить в зоне</span><strong id="tsdInboundZone"></strong></div>
           </section>
           <section id="tsdTask" data-tsd-panel="task" hidden>
             <div class="tsd-task-card"><span class="tsd-task-label">Куда</span><strong id="tsdTaskStore"></strong></div>
@@ -211,10 +210,10 @@
                    разгрузить, и смена становилась непроходимой. -->
               <div class="select-label" id="loadedLabel">В кузове</div>
               <div id="loadedPallets"></div>
-              <div class="select-label">Карта доставки</div>
+              <div class="select-label" id="routeMapLabel">Карта доставки</div>
               <div class="route-map" id="routeMap"></div>
               <p class="route-summary" id="routeSummary"></p>
-              <div class="select-label">Порядок остановок</div>
+              <div class="select-label" id="routeStopsLabel">Порядок остановок</div>
               <div id="routeStops"></div>
               <div class="tsd-sticky-action"><button class="btn full-width" id="routeButton" data-action="SET_ROUTE">Маршрут пока пуст</button></div>
             </div>
@@ -226,7 +225,7 @@
                 <div class="modal-head"><h2 id="guideTitle">Как играть?</h2><button class="close" data-action="CLOSE_GUIDE" aria-label="Вернуться к смене">×</button></div>
                 <p class="guide-intro">На первых четырёх сменах следующий шаг написан в карточке «Сейчас» под схемой, и её кнопка его выполняет. Дальше подсказок нет: под схемой лежит доска заявок — нажми заявку, чтобы собрать под неё паллету. Задания приходят на ТСД. Их два вида: принять поставку и собрать заявку на отгрузку.</p>
                 <ol class="guide-steps">
-                  <li><strong>Разбери приёмку.</strong> Если у ворот стоит паллета, ТСД покажет накладную. Нажми «Принять паллету», а потом — вывеску нужной зоны на схеме склада. Зона написана в накладной; ошибка портит товар.</li>
+                  <li><strong>Разбери приёмку.</strong> Если у ворот стоит паллета, ТСД покажет накладную. Нажми «Принять паллету», а потом — вывеску нужной зоны на схеме склада. Зону никто не подскажет: реши сам, какая температура нужна товару. Ошибка портит паллету.</li>
                   <li><strong>Собери паллету по заявке.</strong> Нажми паллету на схеме. Даркстор и зона уже подставлены из задания, остаётся кнопкой «+» набрать количество.</li>
                   <li><strong>Погрузи её в фургон.</strong> Склад сам подберёт фургон нужной зоны со свободным местом — он подписан внизу сборки. Адрес сразу попадает в маршрут.</li>
                   <li><strong>Если заявка не влезает</strong> в одну паллету или машину, отправь что набралось и собери остаток: он уедет следующим фургоном.</li>

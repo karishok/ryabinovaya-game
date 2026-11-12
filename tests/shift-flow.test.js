@@ -202,7 +202,9 @@ test('finished shift reports which loaded vehicles never got a route built', () 
   };
 
   const report = finishShift(state).report;
-  assert.match(report.reasons[0], /Маршрут не построен.*dry-2/);
+  // Машина названа так же, как в списке фургонов, а не идентификатором.
+  assert.match(report.reasons[0], /Маршрут не построен: Сухач фургон №2/);
+  assert.doesNotMatch(report.reasons[0], /dry-2/);
 });
 
 test('shiftOutcome describes the shift in plain data for the scorer', () => {
