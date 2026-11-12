@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const engine = require('../game-engine.js');
 const { LEVELS } = require('../levels.js');
-const { startLevel, tick, reduceAction, finishShift, remainingFor } = require('../app-state.js');
+const { startLevel, tick, reduceAction, finishShift, remainingFor, orphanPalletsFor } = require('../app-state.js');
 
 // Приёмка: принять каждую входящую паллету и убрать её в зону из накладной.
 function receiveAll(state) {
@@ -54,20 +54,38 @@ const openDemand = (state) => state.orders
   .filter((order) => !order.cancelled)
   .reduce((total, order) => total + remainingFor(state, order), 0);
 
+const pendingInbound = (state) => (state.inbound || []).some((pallet) => pallet.status === 'arrived' || pallet.status === 'received');
+
+// Заявку отменили, а паллета уже в кузове: снимаем её, как сделал бы игрок.
+function unloadCancelled(state, stopsByVehicle) {
+  let next = state;
+  for (let guard = 0; guard < 12; guard += 1) {
+    const [orphan] = orphanPalletsFor(next);
+    if (!orphan) break;
+    next = reduceAction(next, { type: 'UNLOAD_PALLET', vehicleId: orphan.vehicleId, palletIndex: orphan.palletIndex });
+    const served = new Set(next.vehicles.find((vehicle) => vehicle.id === orphan.vehicleId).pallets.map((pallet) => pallet.storeId));
+    const stops = stopsByVehicle.get(orphan.vehicleId);
+    if (stops && !served.has(orphan.pallet.storeId)) stops.delete(orphan.pallet.storeId);
+  }
+  return next;
+}
+
 function play(levelId, extraQuantityPerLine = 0) {
   let state = { ...startLevel(levelId), phase: 'shift' };
   const stopsByVehicle = new Map();
 
   /* Несколько проходов, потому что часть событий смены привязана к прогрессу:
      заявка вырастает после погрузки, и остаток надо добрать вторым заходом. */
-  for (let pass = 0; pass < 4; pass += 1) {
+  for (let pass = 0; pass < 6; pass += 1) {
     state = receiveAll(state);
     state = fillOrders(state, extraQuantityPerLine, stopsByVehicle);
     state = tick(state, 1);
-    if (openDemand(state) === 0) break;
+    state = unloadCancelled(state, stopsByVehicle);
+    if (openDemand(state) === 0 && !pendingInbound(state)) break;
   }
 
   for (const [vehicleId, stops] of stopsByVehicle) {
+    if (stops.size === 0) continue;
     const best = engine.bestRoute([...stops]);
     state = reduceAction(state, { type: 'SET_ROUTE', vehicleId, stops: best.stops });
   }
@@ -98,11 +116,10 @@ test('stuffing pallets beyond the order costs both stars and money', () => {
 // Уровень объявлен «одно новое правило за смену» — проверяем, что правило
 // действительно включается, а не остаётся в описании.
 test('every declared mechanic is actually exercised by its level data', () => {
-  const byId = new Map(LEVELS.map((level) => [level.id, level]));
   const weightOf = (sku) => engine.itemBySku(sku).weightPerUnit;
 
   const inboundLevels = LEVELS.filter((level) => (level.inbound || []).length > 0);
-  assert.deepEqual(inboundLevels.map((level) => level.newMechanic), ['inbound-receive', 'inbound-sorting', 'exam']);
+  assert.deepEqual(inboundLevels.map((level) => level.newMechanic), ['inbound-receive', 'three-zones', 'exam']);
   for (const level of inboundLevels) {
     for (const pallet of level.inbound) {
       assert.equal(engine.availableStock(engine.stockFrom(level.stock), pallet.zone, pallet.sku), 0,
@@ -110,10 +127,11 @@ test('every declared mechanic is actually exercised by its level data', () => {
     }
   }
   // Сортировка по зонам требует выбора: одной зоны для этого мало.
-  assert.ok(new Set(byId.get(5).inbound.map((pallet) => pallet.zone)).size >= 3);
+  const sorting = LEVELS.find((level) => level.teaches.includes('inbound-sorting'));
+  assert.ok(new Set(sorting.inbound.map((pallet) => pallet.zone)).size >= 3);
 
   // «Полный кузов» обязан не влезать ни в паллету, ни в одну машину.
-  const capacity = byId.get(7);
+  const capacity = LEVELS.find((level) => level.teaches.includes('capacity'));
   const dryWeight = capacity.initialOrders
     .filter((order) => order.zone === 'dry')
     .reduce((total, order) => total + order.quantity * weightOf(order.sku), 0);
@@ -169,7 +187,9 @@ test('every ordered item is either stocked or delivered to the dock', () => {
   for (const level of LEVELS) {
     const stock = engine.stockFrom(level.stock);
     const arriving = new Map();
-    for (const pallet of level.inbound || []) {
+    // Фура, приезжающая по событию, — такая же поставка, только позже.
+    const late = (level.events || []).filter((event) => event.type === 'pallet-arrived').map((event) => event.pallet);
+    for (const pallet of [...(level.inbound || []), ...late]) {
       const key = `${pallet.zone}:${pallet.sku}`;
       arriving.set(key, (arriving.get(key) || 0) + pallet.quantity);
     }

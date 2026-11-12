@@ -68,7 +68,7 @@
       current: 'Текущая работа',
     };
     const messageByScreen = {
-      endless: 'Все девять смен закрыты.',
+      endless: 'Все смены кампании закрыты.',
       report: state.report?.reasons?.[0] || 'Смена завершена.',
       feedback: state.feedback?.message || '',
       briefing: state.story?.text || '',

@@ -58,6 +58,18 @@
   const pendingInboundFor = (state) => (state.inbound || [])
     .find((pallet) => pallet.status === 'arrived' || pallet.status === 'received') || null;
 
+  /* Паллета-сирота: лежит в кузове, а заявки на неё больше нет — даркстор
+     её отменил. Она едет мёртвым весом, пока её не снимут. */
+  const orphanPalletsFor = (state) => {
+    const open = new Set((state.orders || [])
+      .filter((order) => !order.cancelled)
+      .map((order) => `${order.storeId}:${order.zone}:${order.sku}`));
+    return (state.vehicles || []).flatMap((vehicle) => (vehicle.pallets || [])
+      .map((pallet, palletIndex) => ({ pallet, palletIndex, vehicleId: vehicle.id }))
+      .filter(({ pallet }) => (pallet.items || []).length > 0
+        && !(pallet.items || []).some((item) => open.has(`${pallet.storeId}:${pallet.zone}:${item.sku}`))));
+  };
+
   const roomIn = (vehicle) => vehicle.capacity - (vehicle.pallets || []).reduce((total, pallet) => total + pallet.weight, 0);
 
   /* Два фургона одной зоны назывались одинаково («Сухач фургон»), и в списке
@@ -131,12 +143,28 @@
     };
   }
 
-  function eventFeedback(event) {
-    if (event.type === 'demand-increase') return feedback('info', 'demand-increase', `Заявка обновлена: ${event.quantity} шт. нужно добавить.`);
+  /* Событие называет, кто и что поменял: «Заявка обновлена» без адреса
+     заставляло искать, какая именно, а на смене с четырьмя дарксторами это
+     и есть вся информация. */
+  function eventFeedback(event, state) {
+    const orderOf = (orderId) => (state?.orders || []).find((order) => order.id === orderId);
+    const storeOf = (order) => `Даркстор «${STORE_NAMES[order?.storeId] || order?.storeId || '—'}»`;
+    if (event.type === 'demand-increase') {
+      return feedback('info', 'demand-increase', `${storeOf(orderOf(event.orderId))} дозаказал: ещё ${event.quantity} шт.`);
+    }
     if (event.type === 'vehicle-ready') return feedback('info', 'vehicle-ready', 'Дополнительная машина готова к загрузке.');
-    if (event.type === 'pallet-arrived') return feedback('info', 'pallet-arrived', 'На приёмку пришла новая паллета.');
+    if (event.type === 'pallet-arrived') {
+      const item = engine.itemBySku(event.pallet?.sku);
+      return feedback('info', 'pallet-arrived', `На приёмку пришла фура: ${item?.name || 'поставка'}.`);
+    }
     if (event.type === 'store-reception-change') return feedback('info', 'store-reception-change', 'Даркстор изменил окно приёмки.');
-    if (event.type === 'order-cancelled') return feedback('info', 'order-cancelled', 'Заявка отменена диспетчером.');
+    if (event.type === 'order-cancelled') {
+      const order = orderOf(event.orderId);
+      const inTruck = order && orphanPalletsFor(state).length > 0;
+      return feedback('info', 'order-cancelled', inTruck
+        ? `${storeOf(order)} отменил заявку. Его паллета уже в кузове — снимите её.`
+        : `${storeOf(order)} отменил заявку.`);
+    }
     return feedback('info', 'scenario-event', 'План смены обновлён.');
   }
 
@@ -159,7 +187,16 @@
     for (const { event, index } of pending) {
       if (!eventIsDue(event, next)) continue;
       next = engine.advanceScenario(next, event);
-      next = { ...next, appliedEventIndexes: [...(next.appliedEventIndexes || []), index], feedback: eventFeedback(event) };
+      /* Пустая паллета нацелена на следующую заявку сразу после погрузки.
+         Событие эту очередь меняет: выросшая заявка возвращается вперёд,
+         отменённая исчезает. Без перенацеливания задание называло один
+         даркстор, а паллета была адресована другому, и собранное на неё
+         не засчитывалось. Начатую паллету не трогаем — её собирает игрок. */
+      if ((next.pallet?.weight || 0) === 0) {
+        const target = activeOrderFor(next);
+        if (target) next = { ...next, pallet: palletFor(next, { storeId: target.storeId, zone: target.zone }) };
+      }
+      next = { ...next, appliedEventIndexes: [...(next.appliedEventIndexes || []), index], feedback: eventFeedback(event, next) };
     }
     return next;
   }
@@ -408,9 +445,14 @@
       const taken = engine.takeFromStock(state.stock, item.zone, item.sku, quantity);
       if (!taken.ok) {
         const onDock = (state.inbound || []).find((entry) => entry.sku === item.sku && entry.status !== 'placed' && entry.status !== 'spoiled');
+        // Фура, которая ещё не приехала: товара нет не по вине игрока.
+        const onTheWay = (state.scheduledEvents || []).some((event, index) => event.type === 'pallet-arrived'
+          && event.pallet?.sku === item.sku && !(state.appliedEventIndexes || []).includes(index));
         const message = onDock
           ? 'В зоне не осталось товара — сначала примите и разместите поставку.'
-          : 'В зоне не осталось этого товара.';
+          : onTheWay
+            ? 'Этого товара на складе ещё нет — фура в пути. Займитесь пока другой заявкой.'
+            : 'В зоне не осталось этого товара.';
         return withFeedback(state, feedback('error', 'no-stock', message));
       }
       const result = engine.addItemToPallet(pallet, item, quantity);
@@ -531,6 +573,6 @@
   return {
     reduceAction, startLevel, tick, finishShift, shiftOutcome, liveMetrics, fulfillmentFor,
     missingRouteVehicles, activeOrderFor, pendingInboundFor, remainingFor,
-    vehicleForPallet, vehicleLabel, roomIn,
+    vehicleForPallet, vehicleLabel, roomIn, orphanPalletsFor,
   };
 });

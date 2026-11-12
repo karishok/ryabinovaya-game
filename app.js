@@ -3,7 +3,7 @@ const engine = window.RyabinovayaEngine;
 const { LEVELS, ZONE_NAMES: zones, STORE_NAMES: stores, ZONE_MARKS: zoneMarks } = window.RyabinovayaLevels;
 const {
   reduceAction, startLevel, liveMetrics, fulfillmentFor, missingRouteVehicles,
-  activeOrderFor, remainingFor, vehicleForPallet, vehicleLabel: labelFor, roomIn,
+  activeOrderFor, remainingFor, vehicleForPallet, vehicleLabel: labelFor, roomIn, orphanPalletsFor,
 } = window.RyabinovayaAppState;
 const { warehouseViewFor } = window.RyabinovayaSceneView;
 const { terminalViewFor } = window.RyabinovayaTsdView;
@@ -154,6 +154,8 @@ function renderNowCard(step, document) {
     delete button.dataset.zone;
     delete button.dataset.sceneZone;
   }
+  if (step.vehicleId) button.dataset.vehicleId = step.vehicleId;
+  else delete button.dataset.vehicleId;
 }
 
 function renderTsd(view, document) {
@@ -346,10 +348,16 @@ function render(nextState, document) {
     return `<button class="vehicle-row ${vehicle.id === nextState.selectedVehicleId ? 'selected' : ''}" data-action="SELECT_VEHICLE" data-vehicle-id="${vehicle.id}" ${vehicle.ready ? '' : 'disabled'}><span class="vehicle-glyph" aria-hidden="true"></span><span><strong>${labelFor(nextState, vehicle)}</strong><small>${vehicle.pallets.length} паллет · до ${vehicle.capacity} кг</small></span><b class="${routelessVehicles.has(vehicle.id) ? 'warn' : ''}">${status}</b></button>`;
   }).join('');
   const inBay = selectedVehicle?.pallets || [];
+  /* Паллета отменённой заявки помечена прямо в кузове: иначе на экране
+     фургона не видно, какую из трёх одинаковых строк надо снять. */
+  const orphanIndexes = new Set(orphanPalletsFor(nextState)
+    .filter((entry) => entry.vehicleId === selectedVehicle?.id)
+    .map((entry) => entry.palletIndex));
   byId(document, 'loadedPallets').innerHTML = inBay.length
     ? inBay.map((pallet, index) => {
       const goods = (pallet.items || []).map((item) => `${itemDetails[item.sku]?.name || item.sku} · ${item.quantity}`).join(', ');
-      return `<div class="loaded-row"><span><strong>${stores[pallet.storeId] || pallet.storeId}</strong><small>${goods || 'пусто'} · ${pallet.weight} кг</small></span><button class="btn secondary" data-action="UNLOAD_PALLET" data-vehicle-id="${selectedVehicle.id}" data-pallet-index="${index}">Снять</button></div>`;
+      const orphan = orphanIndexes.has(index);
+      return `<div class="loaded-row${orphan ? ' is-orphan' : ''}"><span><strong>${stores[pallet.storeId] || pallet.storeId}${orphan ? ' · заявка отменена' : ''}</strong><small>${goods || 'пусто'} · ${pallet.weight} кг</small></span><button class="btn ${orphan ? '' : 'secondary'}" data-action="UNLOAD_PALLET" data-vehicle-id="${selectedVehicle.id}" data-pallet-index="${index}">Снять</button></div>`;
     }).join('')
     : '<p class="empty-route">Кузов пуст.</p>';
 
@@ -436,7 +444,11 @@ function dispatch(action) {
     if (!state.tsd?.acceptedOrderId) state = reduceAction(state, { type: 'ACCEPT_TASK' });
     state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } };
   } else if (action.type === 'CLOSE_BUILDER') state = { ...state, builderOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
-  else if (action.type === 'OPEN_VEHICLES') state = { ...state, vehicleDrawerOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'vehicles' } };
+  else if (action.type === 'OPEN_VEHICLES') {
+    // Карточка шага открывает сразу тот фургон, о котором говорит.
+    if (action.vehicleId) state = reduceAction(state, { type: 'SELECT_VEHICLE', vehicleId: action.vehicleId });
+    state = { ...state, vehicleDrawerOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'vehicles' } };
+  }
   else if (action.type === 'CLOSE_VEHICLES') state = { ...state, vehicleDrawerOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
   else if (action.type === 'OPEN_GUIDE') {
     state = reduceAction(state, action);
@@ -478,6 +490,7 @@ document.addEventListener('click', (event) => {
   if (action === 'LOAD_PALLET') return dispatch({ type: action, vehicleId: state.selectedVehicleId });
   if (action === 'SET_ROUTE') return dispatch({ type: action, vehicleId: state.selectedVehicleId, stops: state.routeStops });
   if (action === 'SELECT_VEHICLE') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
+  if (action === 'OPEN_VEHICLES') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
   if (action === 'MOVE_STOP') return dispatch({ type: action, index: button.dataset.index, direction: button.dataset.direction });
   if (action === 'UNLOAD_PALLET') return dispatch({ type: action, vehicleId: button.dataset.vehicleId, palletIndex: button.dataset.palletIndex });
   // Пройти заново — это просто старт первого уровня, отдельное действие не нужно.

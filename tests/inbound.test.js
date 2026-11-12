@@ -6,8 +6,8 @@ const { startLevel, reduceAction, finishShift, shiftOutcome, activeOrderFor, rem
 const { terminalViewFor } = require('../tsd-view.js');
 const { warehouseViewFor } = require('../scene-view.js');
 
-const receiveLevel = LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
-const sortingLevel = LEVELS.find((level) => level.newMechanic === 'inbound-sorting').id;
+const receiveLevel = LEVELS.find((level) => level.teaches.includes('inbound-receive')).id;
+const sortingLevel = LEVELS.find((level) => level.teaches.includes('inbound-sorting')).id;
 // Смена начинается так же, как у игрока: брифинг закрывается кнопкой.
 const shift = (levelId) => reduceAction(startLevel(levelId), { type: 'CONTINUE_STORY' });
 
@@ -181,7 +181,8 @@ test('changing only the address keeps the goods already on the pallet', () => {
 test('a chilled pallet rides in the chilled van even when a dry one is selected', () => {
   /* Раньше такая погрузка «портила» паллету, хотя в центре её просто не
      примут в кузов чужой зоны. Теперь склад сам ставит её к своей машине. */
-  let state = shift(LEVELS.find((level) => level.newMechanic === 'three-zones').id);
+  // Смена с тремя зонами, где молоко уже лежит на складе, а не едет на приёмку.
+  let state = shift(LEVELS.find((level) => level.teaches.includes('route')).id);
   state = reduceAction(state, { type: 'SELECT_VEHICLE', vehicleId: 'dry-1' });
   state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'chilled' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity: 1 });
@@ -194,7 +195,7 @@ test('a chilled pallet rides in the chilled van even when a dry one is selected'
 });
 
 test('an order too big for one truck is split across the fleet without any truck picking', () => {
-  const capacityLevel = LEVELS.find((level) => level.newMechanic === 'capacity').id;
+  const capacityLevel = LEVELS.find((level) => level.teaches.includes('capacity')).id;
   let state = shift(capacityLevel);
   const plus = (times) => {
     for (let i = 0; i < times; i += 1) {
@@ -224,7 +225,7 @@ test('an order too big for one truck is split across the fleet without any truck
 });
 
 test('when the zone fleet is full the refusal says so instead of blaming the pallet', () => {
-  let state = shift(LEVELS.find((level) => level.newMechanic === 'one-order').id);
+  let state = shift(LEVELS.find((level) => level.teaches.includes('one-order')).id);
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 8 });
   state = reduceAction(state, { type: 'LOAD_PALLET' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
@@ -239,8 +240,8 @@ test('when the zone fleet is full the refusal says so instead of blaming the pal
 test('an overloaded truck can be emptied again, so a shift is never a dead end', () => {
   /* Со скриншота игрока: кузов забит лишним, заявка по второму адресу не
      влезает, и ни одно действие не освобождало место — смена становилась
-     непроходимой на третьем уровне, где ещё экспериментируют. */
-  const twoStores = LEVELS.find((level) => level.newMechanic === 'two-stores').id;
+     непроходимой на раннем уровне, где ещё экспериментируют. */
+  const twoStores = LEVELS.find((level) => level.teaches.includes('two-stores')).id;
   let state = shift(twoStores);
   const put = (storeId, sku, weightPerUnit, quantity) => {
     state = reduceAction(state, { type: 'SELECT_STORE', storeId });
@@ -248,7 +249,8 @@ test('an overloaded truck can be emptied again, so a shift is never a dead end',
     state = reduceAction(state, { type: 'LOAD_PALLET' });
   };
 
-  put('north', 'water', 12, 8);
+  // Кузов забивается хлебом: вода на этой смене ещё стоит на приёмке.
+  put('north', 'bread', 6, 16);
   const bread = state.orders.find((order) => order.storeId === 'west');
   state = reduceAction(state, { type: 'SELECT_STORE', storeId: 'west' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'bread', zone: 'dry', weightPerUnit: 6, quantity: 3 });
@@ -283,7 +285,7 @@ test('unloading returns the goods to the rack they were picked from', () => {
 });
 
 test('unloading a pallet keeps the other stops of the same truck', () => {
-  const route = LEVELS.find((level) => level.newMechanic === 'route').id;
+  const route = LEVELS.find((level) => level.teaches.includes('route')).id;
   let state = shift(route);
   const put = (storeId, sku, weightPerUnit, quantity) => {
     state = reduceAction(state, { type: 'SELECT_STORE', storeId });

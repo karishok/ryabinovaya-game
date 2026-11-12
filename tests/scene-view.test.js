@@ -52,7 +52,9 @@ test('wrong putaway stops the AGV and names the spoilage', () => {
   /* Порча осталась только на приёмке: там товар действительно простоял в
      чужой температуре. Погрузка в чужой кузов паллету не портит — её
      просто везут к своему фургону. */
-  let state = reduceAction(startLevel(5), { type: 'CONTINUE_STORY' });
+  const { LEVELS } = require('../levels.js');
+  const sorting = LEVELS.find((level) => level.teaches.includes('inbound-sorting')).id;
+  let state = reduceAction(startLevel(sorting), { type: 'CONTINUE_STORY' });
   state = reduceAction(state, { type: 'RECEIVE_PALLET' });
   state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'dry' });
   const view = warehouseViewFor(state);
@@ -107,7 +109,7 @@ test('three unlocked zones highlight the zone the current order belongs to', () 
 
 test('the gates blink only while the stop order can still be shortened', () => {
   const { LEVELS } = require('../levels.js');
-  const route = LEVELS.find((level) => level.newMechanic === 'route').id;
+  const route = LEVELS.find((level) => level.teaches.includes('route')).id;
   const put = (state, storeId, sku, weightPerUnit, quantity) => {
     let next = reduceAction(state, { type: 'SELECT_STORE', storeId });
     next = reduceAction(next, { type: 'SELECT_ZONE', zone: 'dry' });
@@ -162,7 +164,7 @@ test('the pallet carries its own goal, so it is readable without opening anythin
 
 test('the pallet goal keeps quiet while the shift is about receiving', () => {
   const { LEVELS } = require('../levels.js');
-  const inbound = LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
+  const inbound = LEVELS.find((level) => level.teaches.includes('inbound-receive')).id;
   const state = reduceAction(startLevel(inbound), { type: 'CONTINUE_STORY' });
   // У ворот стоит паллета: звать собирать заявку в этот момент — звать не туда.
   assert.equal(warehouseViewFor(state).palletGoalText, '');

@@ -420,6 +420,8 @@ button:disabled { cursor: default; opacity: 0.42; }
 .truck-badge { position: absolute; top: -11px; right: 0; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; pointer-events: none; }
 .transport-summary { margin: 10px 0; color: var(--muted); font-size: 12px; }
 .loaded-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; padding: 8px 11px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 12px; background: #24342b; }
+.loaded-row.is-orphan { border-color: var(--amber); background: rgba(240, 170, 56, 0.12); }
+.loaded-row.is-orphan strong { color: #ffd98a; }
 .loaded-row span { display: grid; flex: 1; min-width: 0; gap: 1px; }
 .loaded-row strong { font-size: 13px; }
 .loaded-row small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }

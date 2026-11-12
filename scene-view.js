@@ -2,10 +2,12 @@
   const isNode = typeof module !== 'undefined' && module.exports;
   const levelData = isNode ? require('./levels.js') : root.RyabinovayaLevels;
   const engine = isNode ? require('./game-engine.js') : root.RyabinovayaEngine;
-  const api = factory(levelData, engine);
+  const appState = isNode ? require('./app-state.js') : root.RyabinovayaAppState;
+  const api = factory(levelData, engine, appState);
   if (isNode) module.exports = api;
   else root.RyabinovayaSceneView = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData, engine) {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (levelData, engine, appState) {
+  const { orphanPalletsFor, vehicleLabel } = appState;
   const ZONE_NAMES = levelData.ZONE_NAMES;
   const STORE_NAMES = levelData.STORE_NAMES;
   const ZONE_MARKS = levelData.ZONE_MARKS;
@@ -89,6 +91,21 @@
         focus: 'zone',
       };
     }
+    /* Отменённая заявка, чья паллета уже в кузове, важнее следующей сборки:
+       пока её не сняли, она тянет вниз точность и удлиняет рейс. */
+    const [orphan] = orphanPalletsFor(state);
+    if (orphan) {
+      const vehicle = (state.vehicles || []).find((entry) => entry.id === orphan.vehicleId);
+      return {
+        key: 'unload',
+        title: `Заявку «${STORE_NAMES[orphan.pallet.storeId] || orphan.pallet.storeId}» отменили — снимите паллету`,
+        detail: `${orphan.pallet.weight} кг едут зря в кузове «${vehicleLabel(state, vehicle)}». Откройте фургон и нажмите «Снять»`,
+        actionLabel: 'Открыть фургон',
+        action: 'OPEN_VEHICLES',
+        vehicleId: orphan.vehicleId,
+        focus: 'truck',
+      };
+    }
     const order = activeOrderFor(state);
     if (order) {
       const item = engine.itemBySku(order.sku);
@@ -98,10 +115,24 @@
         .filter((entry) => entry.sku === order.sku)
         .reduce((total, entry) => total + entry.quantity, 0);
       const left = Math.max(0, order.quantity - loadedQuantityFor(state, order) - onPallet);
+      /* Заявка тяжелее паллеты: когда следующая упаковка уже не влезает,
+         шаг — грузить то, что собрано, а не «добрать ещё две». */
+      const palletFull = (state.pallet?.weight || 0) > 0
+        && (state.pallet.weight + (item?.weightPerUnit || 0)) > (state.pallet.capacity || 100);
+      if (left > 0 && palletFull) {
+        return {
+          key: 'load',
+          title: 'Паллета полная — погрузите её',
+          detail: `${state.pallet.weight} кг из ${state.pallet.capacity || 100}. Остаток заявки (${left} шт.) пойдёт следующей паллетой`,
+          actionLabel: 'Погрузить в фургон',
+          action: 'LOAD_PALLET',
+          focus: 'pallet',
+        };
+      }
       if (left > 0) {
         return {
           key: 'collect',
-          title: onPallet ? `Доберите паллету для ${storeName}` : `Соберите паллету для ${storeName}`,
+          title: onPallet ? `Доберите паллету: ${storeName}` : `Соберите паллету: ${storeName}`,
           detail: `${item?.name || order.sku} · ещё ${left} шт. · зона «${zoneName}»`,
           actionLabel: onPallet ? 'Продолжить сборку' : 'Собрать паллету',
           action: 'OPEN_BUILDER',

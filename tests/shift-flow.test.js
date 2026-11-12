@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const { reduceAction, startLevel, tick, finishShift, liveMetrics, activeOrderFor } = require('../app-state.js');
 const { LEVELS } = require('../levels.js');
 
-const levelWith = (mechanic) => LEVELS.find((level) => level.newMechanic === mechanic).id;
+const levelWith = (mechanic) => LEVELS.find((level) => level.teaches.includes(mechanic)).id;
 
 const ship = (state, storeId, zone, sku, weightPerUnit, quantity, vehicleId) => {
   let next = reduceAction(state, { type: 'SELECT_STORE', storeId });
@@ -85,8 +85,10 @@ test('a progress-triggered demand change lands once and puts the order back in t
   const next = tick(state, 1);
 
   assert.equal(next.orders.find((order) => order.id === 'order-west').quantity, 4);
-  assert.deepEqual(next.events.map((event) => event.type), ['demand-increase']);
+  // На этой смене до заявки успевает приехать опоздавшая фура.
+  assert.deepEqual(next.events.map((event) => event.type), ['pallet-arrived', 'demand-increase']);
   assert.equal(next.feedback.code, 'demand-increase');
+  assert.match(next.feedback.message, /Саларьево.*ещё 2 шт/);
   /* Главное: выросшая заявка снова становится текущим заданием. Раньше
      магазин считался закрытым по факту первой паллеты, и добрать остаток
      штатным путём было нельзя. */

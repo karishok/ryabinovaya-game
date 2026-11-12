@@ -65,3 +65,78 @@ test('the scene view carries the focus of the step so the hotspot can light up',
   assert.equal(view.focus, 'pallet');
   assert.equal(view.nextStep.key, 'collect');
 });
+
+/* Игрок, который не думает: нажимает только то, что предлагает карточка.
+   Если так проходится каждая смена на три звезды — карточка нигде не
+   заводит в тупик и не называет шаг, который нельзя выполнить. Думать
+   игроку остаётся там, где карточка только открывает экран: количество
+   на паллете, порядок остановок, какую паллету снять. */
+const engine = require('../game-engine.js');
+const { LEVELS } = require('../levels.js');
+const { tick, finishShift, activeOrderFor, remainingFor, orphanPalletsFor } = require('../app-state.js');
+
+function followTheCard(levelId) {
+  let state = begin(levelId);
+  const seen = [];
+  for (let guard = 0; guard < 80; guard += 1) {
+    state = tick(state, 1);
+    const step = nextStepFor(state);
+    seen.push(step.key);
+    if (step.key === 'finish') break;
+    if (step.key === 'receive') state = reduceAction(state, { type: 'RECEIVE_PALLET' });
+    else if (step.key === 'place') state = reduceAction(state, { type: 'PLACE_PALLET', zone: step.zone });
+    else if (step.key === 'collect') {
+      const order = activeOrderFor(state);
+      const item = engine.itemBySku(order.sku);
+      assert.equal(state.pallet.storeId, order.storeId, `уровень ${levelId}: паллета адресована не тому даркстору, что в задании`);
+      assert.equal(state.pallet.zone, order.zone, `уровень ${levelId}: паллета не в зоне задания`);
+      const onPallet = state.pallet.items.filter((entry) => entry.sku === order.sku).reduce((sum, entry) => sum + entry.quantity, 0);
+      const fits = Math.floor((state.pallet.capacity - state.pallet.weight) / item.weightPerUnit);
+      const quantity = Math.min(remainingFor(state, order) - onPallet, fits);
+      const next = reduceAction(state, { type: 'ADD_ITEM', sku: order.sku, zone: order.zone, weightPerUnit: item.weightPerUnit, quantity });
+      assert.notEqual(next.feedback?.kind, 'error', `уровень ${levelId}: сборка упёрлась — ${next.feedback?.message}`);
+      state = next;
+    } else if (step.key === 'load') {
+      const next = reduceAction(state, { type: 'LOAD_PALLET' });
+      assert.notEqual(next.feedback?.kind, 'error', `уровень ${levelId}: погрузка упёрлась — ${next.feedback?.message}`);
+      state = next;
+    } else if (step.key === 'unload') {
+      const [orphan] = orphanPalletsFor(state);
+      assert.equal(step.vehicleId, orphan.vehicleId);
+      state = reduceAction(state, { type: 'UNLOAD_PALLET', vehicleId: orphan.vehicleId, palletIndex: orphan.palletIndex });
+    } else if (step.key === 'route') {
+      for (const vehicle of state.vehicles) {
+        const stops = state.routeStopsByVehicle[vehicle.id] || [];
+        if (stops.length > 1) state = reduceAction(state, { type: 'SET_ROUTE', vehicleId: vehicle.id, stops: engine.bestRoute(stops).stops });
+      }
+    } else assert.fail(`неизвестный шаг ${step.key}`);
+  }
+  return { report: finishShift(state).report, seen, state };
+}
+
+for (const level of LEVELS) {
+  test(`level ${level.id} "${level.title}" is completed with three stars by following the card alone`, () => {
+    const { report, seen } = followTheCard(level.id);
+    assert.equal(seen.at(-1), 'finish', `карточка не дошла до конца: ${seen.join(' → ')}`);
+    assert.equal(report.deliveredPercent, 100, `доставка, шаги: ${seen.join(' → ')}`);
+    assert.equal(report.stars, 3, `звёзды, причины: ${report.reasons.join('; ')}`);
+  });
+}
+
+test('the two live shifts make the player unload a cancelled order and re-plan a route', () => {
+  const changing = followTheCard(5).seen;
+  assert.ok(changing.includes('unload'), 'на «План меняется» отменённую паллету приходится снять');
+  assert.ok(changing.indexOf('receive') > changing.indexOf('load'), 'фура с мороженым приходит уже во время смены');
+  const rush = followTheCard(6).seen;
+  for (const key of ['receive', 'place', 'collect', 'load', 'unload', 'route']) {
+    assert.ok(rush.includes(key), `в «Час пик» должен встретиться шаг ${key}`);
+  }
+});
+
+test('a pallet that cannot take one more unit is loaded, not topped up', () => {
+  let state = reduceAction(begin(4), { type: 'ACCEPT_TASK' });
+  state = add(state, 8);
+  const step = nextStepFor(state);
+  assert.equal(step.key, 'load');
+  assert.match(step.detail, /Остаток заявки \(2 шт\.\)/);
+});
