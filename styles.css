@@ -399,9 +399,16 @@ button:disabled { cursor: default; opacity: 0.42; }
 .dock-badge { position: absolute; top: -10px; right: -6px; min-width: 22px; padding: 2px 6px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: var(--terracotta); color: #fffaf0; font-size: 10px; font-weight: 900; text-align: center; pointer-events: none; }
 @keyframes dock-pulse { 50% { box-shadow: 0 0 0 4px rgba(240, 170, 56, 0.28), inset 0 0 30px rgba(240, 170, 56, 0.32); } }
 /* Зона-цель при размещении: подсказка должна читаться без ТСД. */
-.scene-zone-sign.is-target { border-color: rgba(240, 170, 56, 0.6); }
-.scene-zone-sign.is-target.is-active { border-color: var(--amber); background: rgba(44, 27, 8, 0.95); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55), 0 0 0 3px rgba(240, 170, 56, 0.34); }
-.scene-zone-sign.is-target.is-active b { color: #ffd98a; }
+/* Принятая паллета ждёт зону: пульсируют все вывески сразу и одинаково, на
+   любой смене. Это говорит «выбери зону», но не «выбери эту» — раньше без
+   поводыря вывески только чуть желтели, и было неясно, что их надо нажать. */
+.scene-zone-sign.is-target {
+  border-color: var(--amber);
+  background: rgba(44, 27, 8, 0.95);
+  box-shadow: 0 0 0 3px rgba(240, 170, 56, 0.45), 0 0 26px rgba(240, 170, 56, 0.45);
+  transform: translate(-50%, -50%) scale(1.1);
+  animation: focus-pulse 1.4s ease-in-out infinite;
+}
 /* Фуры у погрузочных доков в глубине кадра. */
 .truck-bay { top: 56.9%; left: 73%; width: 27%; height: 15.3%; }
 
@@ -824,7 +831,7 @@ button.order-line:hover, button.order-line:focus-visible { border-color: var(--c
     outline: 3px solid var(--danger) !important;
     outline-offset: 4px;
   }
-  .scene-object.is-focus, .scene-zone-sign.is-focus { animation: none !important; outline: 3px solid var(--amber); outline-offset: 3px; }
+  .scene-object.is-focus, .scene-zone-sign.is-focus, .scene-zone-sign.is-target { animation: none !important; outline: 3px solid var(--amber); outline-offset: 3px; }
   .tsd-device,
   .tsd-device[data-open="false"] {
     transform: translateX(-50%);

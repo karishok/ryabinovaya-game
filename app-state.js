@@ -373,7 +373,7 @@
         ...state,
         inbound: state.inbound.map((pallet) => pallet.id === pending.id ? result.pallet : pallet),
         tsd: { ...state.tsd, open: false, screen: 'current', signal: 'idle' },
-      }, feedback('info', 'pallet-received', 'Паллета принята.'));
+      }, feedback('info', 'pallet-received', 'Паллета принята. Выберите зону на схеме — нажмите вывеску.'));
     }
 
     /* Размещение: игрок жмёт вывеску зоны на схеме склада. Ошибка портит

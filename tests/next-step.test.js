@@ -193,6 +193,20 @@ test('no shift reveals where an incoming pallet belongs, guided or not', () => {
   }
 });
 
+test('every zone sign lights up alike while a received pallet waits, on any shift', () => {
+  const fs = require('node:fs');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  const app = fs.readFileSync('app.js', 'utf8');
+  // Класс is-target получают все вывески разом — от того, ждёт ли паллета зону.
+  assert.match(app, /classList\.toggle\('is-target', Boolean\(view\.awaitingPlacement\)\)/);
+  assert.match(css, /\.scene-zone-sign\.is-target\s*\{[^}]*animation:\s*focus-pulse/);
+  for (const levelId of [3, 6]) {
+    const state = reduceAction(begin(levelId), { type: 'RECEIVE_PALLET' });
+    assert.equal(warehouseViewFor(state).awaitingPlacement, true);
+    assert.match(state.feedback.message, /Выберите зону на схеме/);
+  }
+});
+
 test('a guided shift has the card and no board', () => {
   const view = warehouseViewFor(begin(4));
   assert.equal(view.guided, true);
