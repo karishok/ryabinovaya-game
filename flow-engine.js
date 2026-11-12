@@ -40,7 +40,7 @@
   const DURATIONS = Object.freeze({ walk: 2, unload: 3, putaway: 5, pick: 4, load: 3 });
 
   // Куда едут фургоны. Имена дарксторов экран берёт из данных кампании.
-  const STORE_IDS = Object.freeze(['north', 'central', 'west', 'east']);
+  const STORE_IDS = Object.freeze(['north', 'central', 'west', 'east', 'northwest', 'northeast']);
 
   const SUPPLIERS = Object.freeze(['Аквалайн', 'Молочный дом', 'Фрутлайн', 'Хлебзавод №3', 'Полюс']);
 

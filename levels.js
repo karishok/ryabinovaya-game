@@ -18,6 +18,8 @@
     central: 'Косинская',
     west: 'Саларьево',
     east: 'Беломорская',
+    northwest: 'Ховрино',
+    northeast: 'Медведково',
   });
 
   const ZONE_NAMES = Object.freeze({
@@ -112,13 +114,13 @@
       durationSeconds: 300,
       unlockedZones: [dry, frozen, chilled],
       vehicles: [vehicle('dry-1', dry), vehicle('dry-2', dry), vehicle('chilled-1', chilled)],
-      stores: [store('north', dry), store('central', dry), store('west', dry), store('east', chilled)],
+      stores: [store('north', dry), store('east', dry), store('northeast', dry)],
       /* Вода не влезает ни в паллету, ни в одну машину: 96 кг уходят первым
          фургоном, остаток — вторым, и туда же попадают ещё два адреса. */
       initialOrders: [
         order('order-north', 'north', dry, 'water', 10),
-        order('order-central', 'central', dry, 'bread', 2),
-        order('order-west', 'west', dry, 'bread', 3),
+        order('order-east-bread', 'east', dry, 'bread', 2),
+        order('order-northeast', 'northeast', dry, 'bread', 3),
         order('order-east', 'east', chilled, 'milk', 2),
       ],
       events: [],
@@ -164,7 +166,7 @@
       durationSeconds: 300,
       unlockedZones: [dry, frozen, chilled],
       vehicles: [vehicle('dry-1', dry), vehicle('dry-2', dry), vehicle('chilled-1', chilled), vehicle('frozen-1', frozen)],
-      stores: [store('north', dry), store('west', dry), store('central', dry), store('east', chilled)],
+      stores: [store('north', dry), store('west', dry), store('northwest', dry), store('east', chilled), store('central', frozen)],
       /* Первый дозаказ делает воду тяжелее паллеты: добор уходит вторым
          фургоном, и за ним туда же встают остальные сухие адреса.
          Мороженое стоит в очереди последним, а каждый дозаказ терминал
@@ -172,7 +174,7 @@
       initialOrders: [
         order('order-north', 'north', dry, 'water', 6),
         order('order-west', 'west', dry, 'bread', 2),
-        order('order-central', 'central', dry, 'bread', 3),
+        order('order-northwest', 'northwest', dry, 'bread', 3),
         order('order-east', 'east', chilled, 'milk', 2),
         order('order-central-ice', 'central', frozen, 'ice-cream', 2),
       ],
@@ -200,8 +202,8 @@
          отменённой заявки едет мёртвым весом, пока его не снимут. */
       initialOrders: [
         order('order-north', 'north', dry, 'water', 3),
-        order('order-central', 'central', dry, 'bread', 2),
         order('order-west', 'west', dry, 'bread', 3),
+        order('order-central', 'central', dry, 'bread', 2),
         order('order-east', 'east', chilled, 'milk', 2),
         order('order-east-ice', 'east', frozen, 'ice-cream', 2),
       ],
@@ -224,13 +226,13 @@
       durationSeconds: 300,
       unlockedZones: [dry, frozen, chilled],
       vehicles: [vehicle('dry-1', dry), vehicle('dry-2', dry), vehicle('frozen-1', frozen), vehicle('chilled-1', chilled)],
-      stores: [store('north', dry), store('west', dry), store('central', dry), store('east', chilled)],
+      stores: [store('north', dry), store('northeast', dry), store('central', dry), store('east', chilled)],
       /* Сухого груза на 150 кг, а готов один фургон на 100. Вода забирает
          его почти целиком, хлеб ждёт второй — тот вернётся из рейса после
          трёх погрузок или через сорок секунд. */
       initialOrders: [
         order('order-north', 'north', dry, 'water', 8),
-        order('order-west', 'west', dry, 'bread', 5),
+        order('order-northeast', 'northeast', dry, 'bread', 5),
         order('order-central', 'central', dry, 'bread', 4),
         order('order-east', 'east', chilled, 'milk', 2),
         order('order-north-ice', 'north', frozen, 'ice-cream', 2),
@@ -249,17 +251,17 @@
       durationSeconds: 300,
       unlockedZones: [dry, frozen, chilled],
       vehicles: [vehicle('dry-1', dry), vehicle('chilled-1', chilled), vehicle('frozen-1', frozen)],
-      stores: [store('north', dry), store('east', dry), store('west', dry), store('central', dry)],
+      stores: [store('north', dry), store('northeast', dry), store('west', dry), store('central', dry), store('northwest', chilled), store('east', chilled)],
       /* Восемь мелких заявок: сухой фургон объезжает все четыре адреса,
          охлаждёнка — три. Порядок погрузки у обоих далёк от лучшего. */
       initialOrders: [
-        order('order-north', 'north', dry, 'water', 2),
-        order('order-east', 'east', dry, 'bread', 2),
         order('order-west', 'west', dry, 'bread', 2),
+        order('order-northeast', 'northeast', dry, 'bread', 2),
         order('order-central', 'central', dry, 'water', 2),
-        order('order-north-banana', 'north', chilled, 'banana', 2),
-        order('order-west-milk', 'west', chilled, 'milk', 2),
+        order('order-north', 'north', dry, 'water', 2),
         order('order-east-milk', 'east', chilled, 'milk', 2),
+        order('order-northwest-milk', 'northwest', chilled, 'milk', 2),
+        order('order-north-banana', 'north', chilled, 'banana', 2),
         order('order-central-ice', 'central', frozen, 'ice-cream', 2),
       ],
       events: [],
@@ -305,11 +307,11 @@
       durationSeconds: 300,
       unlockedZones: [dry, frozen, chilled],
       vehicles: [vehicle('dry-1', dry), vehicle('dry-2', dry), vehicle('frozen-1', frozen), vehicle('chilled-1', chilled)],
-      stores: [store('north', dry), store('central', dry), store('west', frozen), store('east', chilled)],
+      stores: [store('north', dry), store('northeast', dry), store('northwest', dry), store('west', frozen), store('east', chilled)],
       initialOrders: [
         order('order-north', 'north', dry, 'water', 10),
-        order('order-central', 'central', dry, 'bread', 2),
-        order('order-west-bread', 'west', dry, 'bread', 3),
+        order('order-northeast', 'northeast', dry, 'bread', 2),
+        order('order-northwest', 'northwest', dry, 'bread', 3),
         order('order-west', 'west', frozen, 'ice-cream', 2),
         order('order-east', 'east', chilled, 'milk', 2),
         order('order-east-banana', 'east', chilled, 'banana', 3),
@@ -318,7 +320,7 @@
       stock: { chilled: { banana: 0 }, frozen: { 'ice-cream': 0 } },
       events: [
         late(2, 45, arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат')),
-        more(3, 'order-central', 2),
+        more(3, 'order-northeast', 2),
         cancel(7, 'order-east'),
       ],
       departures: { 'frozen-1': 85 },

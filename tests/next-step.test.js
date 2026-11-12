@@ -170,6 +170,23 @@ test('every twist of a working shift actually happens when it is played', () => 
   assert.equal(count(steps('dynamic-demand'), 'load'), 8);
 });
 
+test('no two shifts ask for the same stop order: every route is its own puzzle', () => {
+  /* С четырьмя дарксторами сухой фургон почти в каждой смене вёз в одну и
+     ту же тройку, и лучший порядок был один на всю кампанию. */
+  const seenRoutes = new Map();
+  for (const level of LEVELS) {
+    const { state } = followTheCard(level.id);
+    for (const vehicle of state.vehicles) {
+      const stops = state.routeStopsByVehicle[vehicle.id] || [];
+      if (stops.length < 2) continue;
+      const best = engine.bestRoute(stops).stops.join(' → ');
+      assert.equal(seenRoutes.has(best), false, `смена ${level.id} повторяет рейс смены ${seenRoutes.get(best)}: ${best}`);
+      seenRoutes.set(best, level.id);
+    }
+  }
+  assert.ok(seenRoutes.size >= 7, `в кампании должно быть не меньше семи разных рейсов, а их ${seenRoutes.size}`);
+});
+
 test('the step skips an order that cannot be done yet and waits when none can', () => {
   // Мороженого нет на складе, фура в пути: шаг берёт заявки, которые выполнимы.
   let state = begin(MIXED);
