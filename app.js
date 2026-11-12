@@ -16,7 +16,8 @@ const items = Object.values(engine.ITEMS).map((item) => ({ ...item, ...itemDetai
 /* Игра помнит, на какой смене остановились: вкладку закрывают, а проходить
    обучение заново ради пятой смены никто не станет. Хранилище может быть
    недоступно (приватное окно, тесты) — тогда просто начинаем с первой. */
-const LEVEL_KEY = 'ryabinovaya.level';
+// v2: кампанию перекроили в десять смен, и старый номер значил бы другую смену.
+const LEVEL_KEY = 'ryabinovaya.level.v2';
 const savedLevelId = () => {
   try {
     const id = Number(window.localStorage?.getItem(LEVEL_KEY));
@@ -379,6 +380,9 @@ function render(nextState, document) {
     rememberedLevelId = nextState.levelId;
     rememberLevel(nextState.levelId);
   }
+  // На первой смене кнопка «с начала» не нужна — игрок и так там.
+  const restart = byId(document, 'restartFromFirst');
+  if (restart) restart.hidden = nextState.levelId === 1;
   renderNowCard(sceneView.nextStep, document);
   renderOrderBoard(sceneView.orderBoard, document);
 

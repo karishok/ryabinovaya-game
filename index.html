@@ -169,6 +169,9 @@
                 <!-- «Поток» открыт с первого экрана: раньше попасть в него можно
                      было, только пройдя всю кампанию до конца. -->
                 <button class="btn secondary full-width" data-flow-action="START_FLOW" type="button">Режим «Поток»</button>
+                <!-- Игра помнит смену, на которой остановились; вернуться к
+                     первой без этой кнопки можно было, только пройдя кампанию. -->
+                <button class="btn secondary full-width" id="restartFromFirst" data-action="RESTART_CAMPAIGN" type="button" hidden>Начать с первой смены</button>
               </section>
             </section>
           </section>
