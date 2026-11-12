@@ -12,7 +12,21 @@ const itemDetails = {
   water: { emoji: '💧', name: 'Вода 1,5 л' }, milk: { emoji: '🥛', name: 'Молоко' }, banana: { emoji: '🍌', name: 'Бананы' }, bread: { emoji: '🍞', name: 'Хлеб' }, 'ice-cream': { emoji: '🍨', name: 'Мороженое' },
 };
 const items = Object.values(engine.ITEMS).map((item) => ({ ...item, ...itemDetails[item.sku] }));
-let state = startLevel(1);
+/* Игра помнит, на какой смене остановились: вкладку закрывают, а проходить
+   обучение заново ради пятой смены никто не станет. Хранилище может быть
+   недоступно (приватное окно, тесты) — тогда просто начинаем с первой. */
+const LEVEL_KEY = 'ryabinovaya.level';
+const savedLevelId = () => {
+  try {
+    const id = Number(window.localStorage?.getItem(LEVEL_KEY));
+    return LEVELS.some((level) => level.id === id) ? id : 1;
+  } catch (error) { return 1; }
+};
+const rememberLevel = (levelId) => {
+  try { window.localStorage?.setItem(LEVEL_KEY, String(levelId)); } catch (error) { /* не страшно */ }
+};
+let state = startLevel(savedLevelId());
+let rememberedLevelId = null;
 let tsdReturnFocus = null;
 let lastTsdSignal = 'idle';
 let audioContext = null;
@@ -323,6 +337,10 @@ function render(nextState, document) {
        читалась как «куда-то надо нажать» на уровне с одной зоной. */
     zone.hidden = !unlocked;
   });
+  if (nextState.levelId !== rememberedLevelId) {
+    rememberedLevelId = nextState.levelId;
+    rememberLevel(nextState.levelId);
+  }
   renderNowCard(sceneView.nextStep, document);
   renderOrderBoard(sceneView.orderBoard, document);
 
