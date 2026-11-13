@@ -10,7 +10,7 @@ const { warehouseViewFor } = window.RyabinovayaSceneView;
 const { terminalViewFor } = window.RyabinovayaTsdView;
 const { signalTsd } = window.RyabinovayaTsdSignal || { signalTsd: () => {} };
 const itemDetails = {
-  water: { emoji: '💧', name: 'Вода 1,5 л' }, milk: { emoji: '🥛', name: 'Молоко' }, banana: { emoji: '🍌', name: 'Бананы' }, bread: { emoji: '🍞', name: 'Хлеб' }, 'ice-cream': { emoji: '🍨', name: 'Мороженое' },
+  water: { emoji: '💧', name: 'Вода 1,5 л' }, milk: { emoji: '🥛', name: 'Молоко' }, butter: { emoji: '🧈', name: 'Масло' }, bread: { emoji: '🍞', name: 'Хлеб' }, 'ice-cream': { emoji: '🍨', name: 'Мороженое' },
 };
 const items = Object.values(engine.ITEMS).map((item) => ({ ...item, ...itemDetails[item.sku] }));
 /* Игра помнит, на какой смене остановились: вкладку закрывают, а проходить

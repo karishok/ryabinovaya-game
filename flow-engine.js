@@ -42,7 +42,7 @@
   // Куда едут фургоны. Имена дарксторов экран берёт из данных кампании.
   const STORE_IDS = Object.freeze(['north', 'central', 'west', 'east', 'northwest', 'northeast']);
 
-  const SUPPLIERS = Object.freeze(['Аквалайн', 'Молочный дом', 'Фрутлайн', 'Хлебзавод №3', 'Полюс']);
+  const SUPPLIERS = Object.freeze(['Аквалайн', 'Молочный дом', 'Маслозавод', 'Хлебзавод №3', 'Полюс']);
 
   const DEFAULTS = Object.freeze({
     seconds: 240,

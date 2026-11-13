@@ -7,7 +7,7 @@
   const ITEMS = Object.freeze({
     WATER: Object.freeze({ sku: 'water', zone: ZONES.DRY, weightPerUnit: 12, price: 1500, name: 'Вода 1,5 л' }),
     MILK: Object.freeze({ sku: 'milk', zone: ZONES.CHILLED, weightPerUnit: 10, price: 1400, name: 'Молоко' }),
-    BANANA: Object.freeze({ sku: 'banana', zone: ZONES.CHILLED, weightPerUnit: 8, price: 1200, name: 'Бананы' }),
+    BUTTER: Object.freeze({ sku: 'butter', zone: ZONES.CHILLED, weightPerUnit: 8, price: 1200, name: 'Масло' }),
     BREAD: Object.freeze({ sku: 'bread', zone: ZONES.DRY, weightPerUnit: 6, price: 900, name: 'Хлеб' }),
     ICE_CREAM: Object.freeze({ sku: 'ice-cream', zone: ZONES.FROZEN, weightPerUnit: 9, price: 2200, name: 'Мороженое' }),
   });
