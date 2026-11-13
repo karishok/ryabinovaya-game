@@ -71,12 +71,17 @@
 
   const palletGoalFor = (state) => {
     if (pendingInboundFor(state)) return '';
-    const order = palletOrderFor(state);
-    if (!order) return '';
-    const onPallet = (state.pallet?.items || [])
-      .filter((item) => item.sku === order.sku)
-      .reduce((total, item) => total + item.quantity, 0);
-    const left = Math.max(0, order.quantity - loadedQuantityFor(state, order) - onPallet);
+    const anchor = palletOrderFor(state);
+    if (!anchor) return '';
+    // Считаем по всем строкам заявки, которым адресована паллета: они едут вместе.
+    const onPalletOf = (sku) => (state.pallet?.items || []).filter((item) => item.sku === sku).reduce((sum, item) => sum + item.quantity, 0);
+    // Строка, чей товар ещё едет, в цель паллеты не входит: положить её нечем.
+    const lines = (state.orders || []).filter((order) => !order.cancelled && order.storeId === anchor.storeId && order.zone === anchor.zone
+      && (engine.availableStock(state.stock, order.zone, order.sku) > 0 || onPalletOf(order.sku) > 0));
+    const left = lines.reduce((total, order) => {
+      const onPallet = (state.pallet?.items || []).filter((item) => item.sku === order.sku).reduce((sum, item) => sum + item.quantity, 0);
+      return total + Math.max(0, order.quantity - loadedQuantityFor(state, order) - onPallet);
+    }, 0);
     // Ноль — это не «нечего делать», а «пора грузить», и так и написано.
     return left ? `ещё ${left} шт.` : 'готова';
   };
@@ -251,7 +256,7 @@
     const queue = taskQueueFor(state);
     const offered = queue.find((task) => !task.active && !task.blocked);
     return (state.orders || []).map((order) => {
-      const task = queue.find((entry) => entry.kind === 'pick' && entry.orderId === order.id) || null;
+      const task = queue.find((entry) => entry.kind === 'pick' && (entry.orderIds || [entry.orderId]).includes(order.id)) || null;
       const deadline = task ? taskDeadlineFor(state, task) : null;
       const item = engine.itemBySku(order.sku);
       const loaded = loadedQuantityFor(state, order);

@@ -399,15 +399,35 @@
       seenUnload.add(id);
       tasks.push({ id, kind: 'unload', vehicleId: orphan.vehicleId, storeId: orphan.pallet.storeId, base: 500 + tasks.length, blocked: null });
     }
-    (state.orders || []).forEach((order, index) => {
-      if (order.cancelled || remainingFor(state, order) <= 0) return;
-      const fleet = (state.vehicles || []).filter((vehicle) => vehicle.zone === order.zone && !isDeparted(vehicle));
+    /* Заявка даркстора — это всё, что он заказал из одной зоны: несколько
+       строк товара едут одной паллетой и приходят одним заданием. Раньше
+       каждая строка была отдельным заданием, и класть на паллету второй
+       товар было незачем. Имя задания держится за первую строку группы,
+       даже когда она уже собрана: иначе задание меняло бы имя посреди
+       работы. */
+    const seenGroups = new Set();
+    (state.orders || []).forEach((anchor, index) => {
+      if (anchor.cancelled) return;
+      const groupKey = `${anchor.storeId}:${anchor.zone}`;
+      if (seenGroups.has(groupKey)) return;
+      seenGroups.add(groupKey);
+      const lines = (state.orders || []).filter((order) => !order.cancelled && order.storeId === anchor.storeId
+        && order.zone === anchor.zone && remainingFor(state, order) > 0);
+      if (!lines.length) return;
+      const fleet = (state.vehicles || []).filter((vehicle) => vehicle.zone === anchor.zone && !isDeparted(vehicle));
       // Все фургоны зоны уехали: заявку уже не выполнить, заданием она быть перестаёт.
       if (fleet.length === 0) return;
-      const unit = engine.itemBySku(order.sku)?.weightPerUnit || 0;
-      const blocked = engine.availableStock(state.stock, order.zone, order.sku) <= 0 ? 'no-stock'
-        : vehicleForPallet(state, { zone: order.zone, weight: unit }).vehicle ? null : 'no-vehicle';
-      tasks.push({ id: `pick:${order.id}`, kind: 'pick', orderId: order.id, base: 100 + index, blocked });
+      const inStock = lines.filter((order) => engine.availableStock(state.stock, order.zone, order.sku) > 0);
+      const lightest = Math.min(...(inStock.length ? inStock : lines).map((order) => engine.itemBySku(order.sku)?.weightPerUnit || 0));
+      const blocked = inStock.length === 0 ? 'no-stock'
+        : vehicleForPallet(state, { zone: anchor.zone, weight: lightest }).vehicle ? null : 'no-vehicle';
+      tasks.push({
+        /* В задание входят только строки, чей товар уже стоит в зоне. Строку,
+           которая ещё едет, терминал не называет: она пришла бы вместе с
+           зоной хранения и выдала бы, куда ставить паллету с приёмки. */
+        id: `pick:${anchor.id}`, kind: 'pick', orderId: anchor.id, orderIds: (inStock.length ? inStock : lines).map((order) => order.id),
+        storeId: anchor.storeId, zone: anchor.zone, base: 100 + index, blocked,
+      });
     });
     return tasks;
   }
@@ -469,6 +489,13 @@
     const deferredTaskIds = keep(state.deferredTaskIds);
     if (urgentTaskIds.length !== (state.urgentTaskIds || []).length || deferredTaskIds.length !== (state.deferredTaskIds || []).length) {
       next = { ...next, urgentTaskIds, deferredTaskIds };
+    }
+    /* Принятая заявка, остаток которой ждёт поставки: собрать больше нечего,
+       и держать её в работе значило бы запереть терминал. Она возвращается
+       в очередь и придёт снова, когда товар встанет в зону. */
+    const stalled = openTasksFor(next).find((task) => task.id === next.activeTaskId && task.kind === 'pick' && task.blocked);
+    if (stalled && (next.pallet?.weight || 0) === 0) {
+      next = { ...next, activeTaskId: null, tsd: { ...next.tsd, acceptedOrderId: null, signal: 'new' } };
     }
     if (next.activeTaskId && !open.has(next.activeTaskId)) {
       // Задание выполнено: терминал свободен и зовёт к следующему.
@@ -563,7 +590,10 @@
     const had = new Set(openTasksFor(before).map((task) => task.id));
     const born = openTasksFor(after).map((task) => task.id).filter((id) => !had.has(id));
     // Дозаказ по ещё открытой заявке нового задания не рождает, но срочным его делает.
-    if (event.type === 'demand-increase' && !born.includes(`pick:${event.orderId}`)) born.push(`pick:${event.orderId}`);
+    if (event.type === 'demand-increase') {
+      const grown = openTasksFor(after).find((task) => task.kind === 'pick' && task.orderIds.includes(event.orderId));
+      if (grown && !born.includes(grown.id)) born.push(grown.id);
+    }
     const fresh = born.filter((id) => !(after.urgentTaskIds || []).includes(id) && id !== after.activeTaskId);
     if (!fresh.length) return after;
     return {

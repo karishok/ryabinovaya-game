@@ -120,14 +120,16 @@
       initialOrders: [
         order('order-north', 'north', dry, 'water', 10),
         order('order-east-bread', 'east', dry, 'bread', 2),
+        // Сборная заявка: хлеб и вода в Медведково едут одной паллетой.
         order('order-northeast', 'northeast', dry, 'bread', 3),
+        order('order-northeast-water', 'northeast', dry, 'water', 2),
         order('order-east', 'east', chilled, 'milk', 2),
       ],
       events: [],
       // Молоко — последнее в очереди, а его фургон уходит первым.
       departures: { 'chilled-1': 55 },
       goal: 'Задания приходят на ТСД по одному. Фургон охлаждёнки уходит через 55 секунд — терминал об этом не знает.',
-      storyBefore: 'Дальше работу выдаёт ТСД: задание можно принять или отложить, но отложений на смену три. Тушино заказало 120 кг воды — паллета и фургон держат по 100, заявку придётся делить. А фургон охлаждёнки уходит в рейс через 55 секунд, и молоко терминал поставил последним.',
+      storyBefore: 'Дальше работу выдаёт ТСД: задание можно принять или отложить, но отложений на смену три. Тушино заказало 120 кг воды — паллета и фургон держат по 100, заявку придётся делить. В одном задании бывает несколько товаров — они едут одной паллетой. А фургон охлаждёнки уходит в рейс через 55 секунд, и молоко терминал поставил последним.',
       storyAfter: 'Заявка разошлась по двум машинам. Дальше товар будет приезжать не к началу смены.',
     },
     {
@@ -235,6 +237,7 @@
         order('order-northeast', 'northeast', dry, 'bread', 5),
         order('order-central', 'central', dry, 'bread', 4),
         order('order-east', 'east', chilled, 'milk', 2),
+        order('order-east-butter', 'east', chilled, 'butter', 2),
         order('order-north-ice', 'north', frozen, 'ice-cream', 2),
       ],
       events: [{ type: 'vehicle-ready', vehicleId: 'dry-2', afterLoadedPallets: 3, orAtSecond: 40 }],
@@ -261,14 +264,14 @@
         order('order-north', 'north', dry, 'water', 2),
         order('order-east-milk', 'east', chilled, 'milk', 2),
         order('order-northwest-milk', 'northwest', chilled, 'milk', 2),
-        order('order-north-butter', 'north', chilled, 'butter', 2),
+        order('order-east-butter', 'east', chilled, 'butter', 2),
         order('order-central-ice', 'central', frozen, 'ice-cream', 2),
       ],
       events: [],
       // Уехавшему фургону порядок остановок уже не поменять.
-      departures: { 'chilled-1': 95 },
-      goal: 'Восемь заявок, до четырёх остановок в рейсе. Фургон охлаждёнки уходит через 1:35 — после этого его маршрут не поправить.',
-      storyBefore: 'Много мелких заявок по всему городу. Фургон едет по адресам в том порядке, в каком вы грузили, и это почти никогда не лучший порядок. Охлаждёнка уходит через полторы минуты: к этому времени её надо и загрузить, и выстроить ей маршрут.',
+      departures: { 'chilled-1': 85 },
+      goal: 'Восемь заявок, до четырёх остановок в рейсе. Фургон охлаждёнки уходит через 1:25 — после этого его маршрут не поправить.',
+      storyBefore: 'Много мелких заявок по всему городу. Фургон едет по адресам в том порядке, в каком вы грузили, и это почти никогда не лучший порядок. Охлаждёнка уходит через минуту двадцать пять: к этому времени её надо и загрузить, и выстроить ей маршрут.',
       storyAfter: 'Рейсы сокращены. Осталось сложить всё вместе.',
     },
     {
@@ -308,20 +311,23 @@
       unlockedZones: [dry, frozen, chilled],
       vehicles: [vehicle('dry-1', dry), vehicle('dry-2', dry), vehicle('frozen-1', frozen), vehicle('chilled-1', chilled)],
       stores: [store('north', dry), store('northeast', dry), store('northwest', dry), store('west', frozen), store('east', chilled)],
+      /* Масло едет в Ховрино, а не в Беломорскую вместе с молоком: молоко
+         отменят, и общая паллета оказалась бы наполовину лишней. */
       initialOrders: [
         order('order-north', 'north', dry, 'water', 10),
         order('order-northeast', 'northeast', dry, 'bread', 2),
         order('order-northwest', 'northwest', dry, 'bread', 3),
+        order('order-northwest-water', 'northwest', dry, 'water', 2),
         order('order-west', 'west', frozen, 'ice-cream', 2),
         order('order-east', 'east', chilled, 'milk', 2),
-        order('order-east-butter', 'east', chilled, 'butter', 3),
+        order('order-northwest-butter', 'northwest', chilled, 'butter', 3),
       ],
       inbound: [arrival('in-butter', chilled, 'butter', 3, 'Маслозавод')],
       stock: { chilled: { butter: 0 }, frozen: { 'ice-cream': 0 } },
       events: [
         late(2, 45, arrival('in-ice', frozen, 'ice-cream', 2, 'Хладокомбинат')),
         more(3, 'order-northeast', 2),
-        cancel(7, 'order-east'),
+        cancel(8, 'order-east'),
       ],
       departures: { 'frozen-1': 85 },
       goal: 'Всё сразу — и фургон заморозки уходит через 1:25. Три отложения на всю смену.',

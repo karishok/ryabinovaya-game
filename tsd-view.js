@@ -46,11 +46,17 @@
     const describe = (task) => {
       if (task.kind === 'pick') {
         const order = orderOf(task);
+        // В задании — все строки заявки даркстора: они едут одной паллетой.
+        const lines = (task.orderIds || [task.orderId]).map((id) => (state.orders || []).find((entry) => entry.id === id)).filter(Boolean);
         return {
           labels: ['Куда', 'Что собрать', 'Зона хранения'],
-          values: [STORE_NAMES[order.storeId] || order.storeId, `${itemName(order.sku)} · ${order.quantity - loadedQuantityFor(state, order)} шт.`, ZONE_NAMES[order.zone] || order.zone],
-          compact: `${STORE_NAMES[order.storeId] || order.storeId} · ${itemName(order.sku)}`,
-          message: 'Соберите паллету и погрузите её в фургон.',
+          values: [
+            STORE_NAMES[order.storeId] || order.storeId,
+            lines.map((line) => `${itemName(line.sku)} · ${line.quantity - loadedQuantityFor(state, line)} шт.`).join(', '),
+            ZONE_NAMES[order.zone] || order.zone,
+          ],
+          compact: `${STORE_NAMES[order.storeId] || order.storeId} · ${lines.map((line) => itemName(line.sku)).join(', ')}`,
+          message: lines.length > 1 ? 'Соберите всё на одну паллету и погрузите её в фургон.' : 'Соберите паллету и погрузите её в фургон.',
         };
       }
       if (task.kind === 'unload') {

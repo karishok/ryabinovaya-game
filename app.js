@@ -410,11 +410,16 @@ function render(nextState, document) {
   /* Задание — та заявка, под которую адресована паллета: на смене без
      поводыря игрок сам выбирает, какую брать, и первая открытая по списку
      уже не обязательно она. */
-  const activeOrder = nextState.orders.find((order) => !order.cancelled && remainingFor(nextState, order) > 0
-    && order.storeId === nextState.pallet.storeId && order.zone === nextState.pallet.zone)
-    || activeOrderFor(nextState);
+  const groupLines = nextState.orders.filter((order) => !order.cancelled && remainingFor(nextState, order) > 0
+    && order.storeId === nextState.pallet.storeId && order.zone === nextState.pallet.zone
+    // Строку, чей товар ещё едет, шапка не называет — как и задание на ТСД.
+    && engine.availableStock(nextState.stock, order.zone, order.sku) > 0);
+  const activeOrder = groupLines[0] || activeOrderFor(nextState);
+  // Все строки заявки даркстора — в одной шапке: они собираются на одну паллету.
+  const taskLines = (groupLines.length ? groupLines : activeOrder ? [activeOrder] : [])
+    .map((order) => orderLabel({ ...order, quantity: remainingFor(nextState, order) })).join(', ');
   byId(document, 'builderTask').textContent = activeOrder
-    ? `Задание: ${stores[activeOrder.storeId]} · ${orderLabel({ ...activeOrder, quantity: remainingFor(nextState, activeOrder) })} · ${zones[activeOrder.zone]}`
+    ? `Задание: ${stores[activeOrder.storeId]} · ${taskLines} · ${zones[activeOrder.zone]}`
     : 'Все заявки закрыты — можно завершать смену.';
   byId(document, 'vehicleTask').textContent = selectedVehicle
     ? `${labelFor(nextState, selectedVehicle)} · ${selectedVehicle.pallets.length} палл.`
