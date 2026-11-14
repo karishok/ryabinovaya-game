@@ -37,7 +37,7 @@ let audioUnlocked = false;
 /* Где сейчас кладовщик. Это состояние экрана, а не игры: правила про кадры
    не знают. passingFrame — кадр, мимо которого он проезжает (фура перед
    проездом); его снимает таймер. */
-let location = 'hub';
+let workerLocation = 'hub';
 let passingFrame = null;
 const PASS_MS = 900;
 const info = (current, code, message) => ({ ...current, feedback: { kind: 'info', code, message } });
@@ -342,7 +342,7 @@ function routeSummaryHtml(routeStops, guided = true) {
 function render(nextState, document) {
   const sceneView = warehouseViewFor(nextState);
   const view = tsdViewFor(nextState);
-  sceneView.location = location;
+  sceneView.location = workerLocation;
   sceneView.passingFrame = passingFrame;
   renderScene(sceneView, document);
   renderTsd(view, document);
@@ -623,7 +623,7 @@ function dispatch(action) {
      собирать там нечего. Во вводной смене такого не бывает: там кнопка
      карточки сама везёт к полке зоны паллеты. */
   const wrongShelf = 'Товара этой заявки здесь нет — это другая зона. Вернитесь на проезд.';
-  const atWrongShelf = queueShift && location.startsWith('shelf:') && location !== `shelf:${state.pallet.zone}`;
+  const atWrongShelf = queueShift && workerLocation.startsWith('shelf:') && workerLocation !== `shelf:${state.pallet.zone}`;
   if (action.type === 'OPEN_BUILDER' && atWrongShelf) {
     state = info(state, 'wrong-shelf', wrongShelf);
   } else if (action.type === 'OPEN_BUILDER') {
@@ -705,8 +705,8 @@ function dispatch(action) {
     if (action.type === 'SET_ROUTE') state = { ...state, vehicleDrawerOpen: false, tsd: { ...state.tsd, open: false, screen: 'current' } };
   }
   state = offerNextTask(state);
-  const moved = locationAfter(location, before, state, move);
-  location = moved.location;
+  const moved = locationAfter(workerLocation, before, state, move);
+  workerLocation = moved.location;
   passingFrame = moved.via;
   if (moved.via && typeof window.setTimeout === 'function') {
     const passed = moved.via;
@@ -773,7 +773,7 @@ window.dispatch = dispatch;
 window.render = render;
 window.renderScene = renderScene;
 window.renderTsd = renderTsd;
-window.fpLocation = () => location;
+window.fpLocation = () => workerLocation;
 
 render(state, document);
 setInterval(() => {
