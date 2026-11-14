@@ -293,6 +293,17 @@
     });
   }
 
+  /* Входящая паллета, с которой сейчас работают. Во вводных сменах это та,
+     что стоит у ворот; на смене с очередью ТСД — только паллета принятого
+     задания: пока его не взяли, фура у ворот ещё не работа. */
+  function sceneInboundFor(state) {
+    if (guidedFor(state)) return pendingInboundFor(state);
+    const activeTask = taskQueueFor(state).find((task) => task.active) || null;
+    return activeTask?.kind === 'receive'
+      ? (state.inbound || []).find((pallet) => pallet.id === activeTask.inboundId) || null
+      : null;
+  }
+
   function warehouseViewFor(state) {
     const order = activeOrderFor(state);
     const guidedShift = guidedFor(state);
@@ -300,9 +311,7 @@
        задание не принято: схема показывает приёмку, только когда игрок уже
        взял паллету. */
     const activeTask = guidedShift ? null : taskQueueFor(state).find((task) => task.active) || null;
-    const inbound = guidedShift
-      ? pendingInboundFor(state)
-      : activeTask?.kind === 'receive' ? (state.inbound || []).find((pallet) => pallet.id === activeTask.inboundId) || null : null;
+    const inbound = sceneInboundFor(state);
     const awaitingPlacement = Boolean(inbound && inbound.status === 'received');
     const selectedVehicle = (state.vehicles || []).find((vehicle) => vehicle.id === state.selectedVehicleId) || state.vehicles?.[0] || null;
     const route = state.routesByVehicle?.[selectedVehicle?.id] || null;
@@ -375,5 +384,5 @@
     };
   }
 
-  return { warehouseViewFor, nextStepFor, orderBoardFor, departuresFor };
+  return { warehouseViewFor, nextStepFor, orderBoardFor, departuresFor, sceneInboundFor };
 });
