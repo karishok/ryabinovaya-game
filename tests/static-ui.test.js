@@ -17,12 +17,6 @@ test('living warehouse shell keeps product vocabulary and scene layers', () => {
   assert.match(html, /assets\/fp\/hub-zones\.webp/);
 });
 
-test('warehouse backdrop is an optimized mobile asset', () => {
-  const asset = 'assets/warehouse-center.webp';
-  assert.equal(fs.existsSync(asset), true);
-  assert.ok(fs.statSync(asset).size < 900_000, 'warehouse backdrop must stay below 900 KB');
-});
-
 test('the handheld terminal art stays an optimized asset', () => {
   const path = 'assets/tsd-handheld.webp';
   assert.equal(fs.existsSync(path), true, `${path} must exist`);
@@ -57,14 +51,12 @@ test('scene hotspots sit on photo coordinates and keep their warehouse actions',
 test('the scene keeps the backdrop aspect ratio so percentages stay on the photo', () => {
   const css = fs.readFileSync('styles.css', 'utf8');
   const scene = css.slice(css.indexOf('.warehouse-scene {'));
-  // 780x1386 — натуральный размер assets/warehouse-center.webp. Как только
-  // пропорции контейнера расходятся с фоном, object-fit: cover обрезает кадр
-  // и все координаты хотспотов уезжают вместе с полом.
+  // Кадры 1024x1536 выше сцены и обрезаются по высоте. Как только пропорции
+  // контейнера или видимая полоса кадра меняются, области нажатия уезжают
+  // с предметов на картинке.
   assert.match(scene, /aspect-ratio:\s*780\s*\/\s*998/);
   assert.doesNotMatch(scene.slice(0, scene.indexOf('}')), /height:\s*clamp/);
-  // Полоса кадра задаётся object-position; сдвинуть её, не пересчитав
-  // координаты хотспотов, значит снова развесить их в воздухе.
-  assert.match(css, /\.scene-backdrop\s*\{[^}]*object-position:\s*50%\s*21\.4%/s);
+  assert.match(css, /\.scene-backdrop\s*\{[^}]*object-position:\s*50%\s*62%/s);
 });
 
 test('zone names are rack-mounted scene controls and not a floating mission banner', () => {

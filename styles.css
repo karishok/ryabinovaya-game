@@ -63,10 +63,10 @@ button:disabled { cursor: default; opacity: 0.42; }
 .warehouse-scene {
   position: relative;
   /* Цель — экран iPhone: при ширине 390pt сцена занимает 499px, оставляя
-     место полосе ТСД и нижней навигации. Кадрирование поэтому осознанное:
-     фиксированные пропорции 780/998 плюс object-position ниже дают строго
-     полосу 6%..78% фотографии, и проценты в координатах хотспотов
-     пересчитаны под эту полосу. Менять одно без другого нельзя. */
+     место ряду кнопок и ТСД. Кадр 2:3 выше сцены, поэтому он обрезается по
+     высоте; какая его полоса видна, задаёт object-position ниже, и проценты
+     в координатах областей нажатия пересчитаны под эту полосу. Менять одно
+     без другого нельзя. */
   aspect-ratio: 780 / 998;
   width: 100%;
   overflow: hidden;
@@ -83,8 +83,9 @@ button:disabled { cursor: default; opacity: 0.42; }
   width: 100%;
   height: 100%;
   object-fit: cover;
-  /* 21.4% по вертикали ставит верх видимой полосы ровно на 6% кадра. */
-  object-position: 50% 21.4%;
+  /* 62% по вертикали прячет 9% кадра сверху — лампы уходят под шапку — и
+     6% снизу: рукоять тележки остаётся в кадре. */
+  object-position: 50% 62%;
 }
 
 .scene-shade {
@@ -366,9 +367,10 @@ button:disabled { cursor: default; opacity: 0.42; }
 .scene-zone--chilled b, .zone-select[data-zone="chilled"] b { color: var(--chilled); }
 .scene-zone--frozen b, .zone-select[data-zone="frozen"] b { color: var(--frozen); }
 .scene-zone--dry b, .zone-select[data-zone="dry"] b { color: var(--amber); }
-.scene-zone--dry { top: 33%; left: 13%; }
-.scene-zone--chilled { top: 35%; left: 35%; }
-.scene-zone--frozen { top: 37%; left: 63%; }
+/* Вывески стоят над проёмами зон в кадре проезда. */
+.scene-zone--dry { top: 34%; left: 15%; }
+.scene-zone--chilled { top: 34%; left: 50%; }
+.scene-zone--frozen { top: 34%; left: 85%; }
 /* Все три зоны оформлены одинаково: различает их только состояние, не цвет. */
 .scene-zone-sign.is-selected { border-color: rgba(244, 234, 216, 0.55); background: rgba(24, 44, 34, 0.9); }
 /* Активная зона крупнее и светлее — без рамки во весь стеллаж. */
@@ -404,10 +406,10 @@ button:disabled { cursor: default; opacity: 0.42; }
   box-shadow: inset 0 0 22px rgba(244, 234, 216, 0.14);
 }
 
-/* Тележка с паллетой в ближнем проходе кадра. */
-.scene-pallet { top: 76.4%; left: 28%; width: 21%; height: 20.8%; }
-/* Ворота приёмки: появляются только когда во входящем потоке что-то есть. */
-.scene-dock { top: 74%; left: 2%; width: 22%; height: 22%; }
+/* Пустая паллета на вилах тележки внизу кадра полки. */
+.scene-pallet { top: 77%; left: 15%; width: 68%; height: 21%; }
+/* Открытый кузов фуры в кадре приёмки. */
+.scene-dock { top: 22%; left: 15%; width: 70%; height: 33%; }
 .scene-dock[data-awaiting="true"] { border-color: var(--amber); box-shadow: 0 0 0 2px rgba(240, 170, 56, 0.5), inset 0 0 24px rgba(240, 170, 56, 0.24); animation: dock-pulse 1.5s ease-in-out infinite; }
 .dock-badge { position: absolute; top: -10px; right: -6px; min-width: 22px; padding: 2px 6px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: var(--terracotta); color: #fffaf0; font-size: 10px; font-weight: 900; text-align: center; pointer-events: none; }
 @keyframes dock-pulse { 50% { box-shadow: 0 0 0 4px rgba(240, 170, 56, 0.28), inset 0 0 30px rgba(240, 170, 56, 0.32); } }
@@ -422,8 +424,8 @@ button:disabled { cursor: default; opacity: 0.42; }
   transform: translate(-50%, -50%) scale(1.1);
   animation: focus-pulse 1.4s ease-in-out infinite;
 }
-/* Фуры у погрузочных доков в глубине кадра. */
-.truck-bay { top: 56.9%; left: 73%; width: 27%; height: 15.3%; }
+/* «Машины и маршрут» — на полу перед воротами в кадре отгрузки. */
+.truck-bay { top: 58%; left: 36%; width: 28%; height: 9%; }
 
 /* Заполнение текущей паллеты — полоса по низу её хотспота. */
 .scene-pallet::after {
@@ -492,7 +494,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .order-line[data-status="lost"] { opacity: 1; }
 .order-line[data-status="lost"] .order-detail { color: #ffb4a8; }
 /* Время до ухода ближайшего фургона — на воротах отгрузки. */
-.truck-timer { position: absolute; top: calc(100% + 30px); right: 0; padding: 3px 8px; border: 1px solid rgba(240, 170, 56, 0.6); border-radius: 999px; background: rgba(10, 20, 15, 0.92); color: #ffe0a0; font-size: 11px; font-weight: 850; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.truck-timer { position: absolute; z-index: 4; top: 110px; right: 12px; padding: 3px 8px; border: 1px solid rgba(240, 170, 56, 0.6); border-radius: 999px; background: rgba(10, 20, 15, 0.92); color: #ffe0a0; font-size: 11px; font-weight: 850; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .truck-timer[data-soon="true"] { border-color: var(--danger); background: #3c2320; color: #ffd9d2; }
 .order-line.is-alert .order-detail { color: #ffd98a; }
 
@@ -860,6 +862,66 @@ button:disabled { cursor: default; opacity: 0.42; }
 }
 @keyframes tsd-slide-in { from { opacity: 0; transform: translateY(42px); } to { opacity: 1; transform: translateY(0); } }
 
+/* Вид от первого лица. В кадре видны только области того места, где сейчас
+   кладовщик: вывески зон — на проезде, кузов — на приёмке, паллета и
+   переезды — у полки, ворота и машины — на отгрузке. */
+.warehouse-scene:not([data-location="hub"]) .scene-zone-sign,
+.warehouse-scene:not([data-location="receiving"]) .scene-dock,
+.warehouse-scene:not([data-location="shelf"]) .scene-pallet,
+.warehouse-scene:not([data-location="shelf"]) .fp-nav,
+.warehouse-scene:not([data-location="shipping"]) .scene-gate,
+.warehouse-scene:not([data-location="shipping"]) .truck-bay { display: none; }
+
+/* Прежний кадр лежит под новым, пока тот проявляется. */
+.scene-backdrop--prev { z-index: -5; }
+/* Наезд: новый кадр чуть увеличен и проявляется. Два одинаковых ключевых
+   кадра под разными именами — смена имени перезапускает анимацию. */
+[data-frame-parity="0"] .scene-backdrop:not(.scene-backdrop--prev) { animation: fp-enter-a 400ms ease-out; }
+[data-frame-parity="1"] .scene-backdrop:not(.scene-backdrop--prev) { animation: fp-enter-b 400ms ease-out; }
+@keyframes fp-enter-a { from { opacity: 0; transform: scale(1.08); } }
+@keyframes fp-enter-b { from { opacity: 0; transform: scale(1.08); } }
+
+/* Нажать можно на весь проём зоны, а не только на вывеску над ним. */
+[data-location="hub"] .scene-zone-sign::before { position: absolute; top: -70px; right: -30px; bottom: -110px; left: -30px; content: ""; }
+
+/* Ворота отгрузки выглядят как вывески зон: та же температура, тот же цвет. */
+.scene-gate {
+  position: absolute;
+  z-index: 3;
+  top: 34%;
+  display: grid;
+  gap: 1px;
+  min-width: 64px;
+  min-height: 44px;
+  padding: 5px 9px;
+  border: 1px solid rgba(244, 234, 216, 0.3);
+  border-radius: 12px;
+  background: rgba(13, 24, 19, 0.88);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  color: var(--cream);
+  text-align: center;
+  cursor: pointer;
+  transform: translate(-50%, -50%);
+}
+.scene-gate b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.scene-gate small { font-size: 9px; font-weight: 750; letter-spacing: 0.04em; text-transform: uppercase; }
+.scene-gate::before { position: absolute; top: -60px; right: -24px; bottom: -40px; left: -24px; content: ""; }
+.scene-gate--dry { left: 17%; }
+.scene-gate--dry b { color: var(--amber); }
+.scene-gate--chilled { left: 50.5%; }
+.scene-gate--chilled b { color: var(--chilled); }
+.scene-gate--frozen { left: 83%; }
+.scene-gate--frozen b { color: var(--frozen); }
+/* Во вводных сменах верные ворота подсвечены. У зон размещения такой
+   подсветки нет и быть не должно. */
+.scene-gate.is-focus { border-color: var(--amber); box-shadow: 0 0 0 3px rgba(240, 170, 56, 0.45), 0 0 26px rgba(240, 170, 56, 0.45); animation: focus-pulse 1.4s ease-in-out infinite; }
+.scene-gate:focus-visible { outline: 3px solid var(--amber); outline-offset: 3px; }
+
+/* Переезды от полки: на полу между стеллажом и паллетой. */
+.fp-nav { position: absolute; z-index: 3; top: 66%; right: 12px; left: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+.fp-nav-button { min-height: 44px; padding: 0 14px; border: 1px solid rgba(244, 234, 216, 0.3); border-radius: 999px; background: rgba(13, 24, 19, 0.88); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); color: var(--cream); font-size: 13px; font-weight: 800; cursor: pointer; pointer-events: auto; }
+.fp-nav-button--go { margin-left: auto; border-color: var(--amber); background: var(--amber); color: #1a1407; }
+
 @media (max-width: 390px) {
   .app { width: 100%; }
   /* Высоту здесь задавать нельзя: она перебьёт aspect-ratio сцены, полоса
@@ -874,6 +936,8 @@ button:disabled { cursor: default; opacity: 0.42; }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .scene-backdrop { animation: none !important; }
+  .scene-gate.is-focus { animation: none !important; outline: 3px solid var(--amber); outline-offset: 3px; }
   *, *::before, *::after {
     scroll-behavior: auto !important;
     animation: none !important;
