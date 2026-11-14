@@ -8,10 +8,20 @@
   /* Смена-поток отличается от кампании одним: склад работает сам. В кампании
      TICK только уменьшает таймер, а фуры приезжают по сценарию, прописанному
      в уровне руками. Здесь фуры приходят по расписанию, буфер приёмки
-     наполняется, скоропорт тухнет — и всё это идёт, пока игрок занят другой
-     станцией. Без этого переключение между станциями было бы меню. */
+     наполняется, скоропорт тухнет, фургоны дарксторов ждут и уезжают — и всё
+     это идёт, пока игрок занят другой станцией. Без этого переключение
+     между станциями было бы меню.
 
-  const STATIONS = Object.freeze({ RECEIVING: 'receiving', PUTAWAY: 'putaway' });
+     Станций четыре, и это полный путь паллеты через склад:
+       приёмка    — разгрузить фуру в буфер;
+       размещение — отвезти паллету из буфера в зону (выбрать зону самому);
+       отбор      — достать паллету из зоны под фургон даркстора;
+       погрузка   — поставить её в фургон, пока тот не ушёл.
+     Первый срез режима состоял только из первых двух: товар принимали, и на
+     этом он пропадал. Теперь то, что не принято и не размещено, нечем
+     отгрузить — половины склада держатся друг за друга. */
+
+  const STATIONS = Object.freeze({ RECEIVING: 'receiving', PUTAWAY: 'putaway', PICKING: 'picking', LOADING: 'loading' });
 
   /* Часы свежести идут, только пока паллета вне своей температуры — то есть
      в буфере приёмки и на тележке. Встала в зону — часы встали, а на гейте
@@ -23,21 +33,43 @@
      безопасно, а время он съедает то же самое. */
   const SHELF_SECONDS = Object.freeze({ dry: null, chilled: 20, frozen: 14 });
 
-  const DURATIONS = Object.freeze({ walk: 2, unload: 3, putaway: 5 });
+  /* Отобранная паллета снова вне своей температуры — в зоне отгрузки часы
+     свежести идут заново с полного срока. Поэтому дилемма батча повторяется
+     на выходе: собрать две паллеты за заход выгоднее по ходьбе, но вторая
+     заморозка погрузки может не дождаться. */
+  const DURATIONS = Object.freeze({ walk: 2, unload: 3, putaway: 5, pick: 4, load: 3 });
 
-  const SUPPLIERS = Object.freeze(['Аквалайн', 'Молочный дом', 'Фрутлайн', 'Хлебзавод №3', 'Полюс']);
+  // Куда едут фургоны. Имена дарксторов экран берёт из данных кампании.
+  const STORE_IDS = Object.freeze(['north', 'central', 'west', 'east', 'northwest', 'northeast']);
+
+  const SUPPLIERS = Object.freeze(['Аквалайн', 'Молочный дом', 'Маслозавод', 'Хлебзавод №3', 'Полюс']);
 
   const DEFAULTS = Object.freeze({
-    seconds: 180,
+    seconds: 240,
     gates: 3,
     bufferSlots: 4,
+    stagingSlots: 3,
     firstArrivalAt: 2,
-    /* Темп прибытия — это и есть сложность смены: на симуляции он решает
-       цель по бэклогу почти в одиночку, тогда как умение игрока меряется
-       скоропортом. При 7–11 с бэклог достижим и перестаёт быть глухой
-       стеной, а порча остаётся на совести игрока. */
-    minGap: 7,
-    maxGap: 11,
+    /* Темп прибытия — это и есть сложность смены. Числа подобраны перебором
+       на двухстах сменах для двух игроков, см. tests/flow-balance.test.js.
+       Мерили не бота, который жмёт мгновенно, а игрока с секундой и двумя
+       на каждое решение: умелый проходит 92% и 75% смен, небрежный — 13% и
+       4%. При ровном потоке без волн такого зазора не получалось вовсе. */
+    minGap: 48,
+    maxGap: 60,
+    // Сколько фур может прийти одной волной и с каким шагом внутри неё.
+    waveMax: 3,
+    waveSpacing: 2,
+    /* Стартовый запас: без него первые полминуты на отборе и погрузке
+       делать было бы нечего, и две станции из четырёх стояли бы пустыми. */
+    initialStock: 3,
+    /* Фургон за товаром приезжает через orderDelay после фуры, которая этот
+       товар привезла, и ждёт patience секунд. Так заявка всегда выполнима,
+       если фуру вовремя приняли и разместили. */
+    orderDelayMin: 30,
+    orderDelayMax: 42,
+    patience: 60,
+    missedLimit: 2,
     backlogLimit: 4,
   });
 
@@ -57,6 +89,12 @@
 
   const isPerishable = (zone) => shelfFor(zone) !== null;
 
+  /* Фуры приходят волнами: одна-три почти разом, потом пауза. Ровный поток
+     давал выбор только между «смена на пределе бота» и «человек не успевает
+     вовсе»: симуляция с секундой на реакцию проваливала любую смену, где
+     бот проходил вплотную. Волна оставляет запас по среднему темпу и при
+     этом ставит вопрос, ради которого режим существует: что спасать первым,
+     когда всё пришло одновременно. */
   function buildSchedule(rand, options) {
     const items = Object.values(engine.ITEMS);
     const schedule = [];
@@ -66,24 +104,61 @@
        уже не успеть, и это была бы не сложность, а обман. */
     const lastArrival = options.seconds - (DURATIONS.unload + DURATIONS.putaway + DURATIONS.walk);
     while (at <= lastArrival) {
-      const item = pick(rand, items);
-      number += 1;
-      schedule.push({
-        id: `truck-${number}`,
-        at,
-        supplier: pick(rand, SUPPLIERS),
-        sku: item.sku,
-        zone: item.zone,
-        quantity: 2 + Math.floor(rand() * 4),
-      });
+      const size = 1 + Math.floor(rand() * options.waveMax);
+      for (let index = 0; index < size && at + index * options.waveSpacing <= lastArrival; index += 1) {
+        const item = pick(rand, items);
+        number += 1;
+        schedule.push({
+          id: `truck-${number}`,
+          at: at + index * options.waveSpacing,
+          supplier: pick(rand, SUPPLIERS),
+          sku: item.sku,
+          zone: item.zone,
+          quantity: 2 + Math.floor(rand() * 4),
+        });
+      }
       at += options.minGap + Math.floor(rand() * (options.maxGap - options.minGap + 1));
     }
     return schedule;
   }
 
+  /* Стартовый запас и расписание фургонов. Каждый фургон — заявка на одну
+     паллету конкретного товара: либо из стартового запаса, либо того, что
+     привезла фура. Лишнего спроса нет — склад в равновесии, и сорванная
+     заявка всегда значит, что её товар не довели до зоны или до кузова. */
+  function buildOutbound(rand, options, schedule) {
+    const items = Object.values(engine.ITEMS);
+    const stock = [];
+    const orders = [];
+    const lastOrderAt = options.seconds - (DURATIONS.walk * 2 + DURATIONS.pick + DURATIONS.load + 6);
+    const push = (at, item) => {
+      if (at > lastOrderAt) return;
+      orders.push({
+        id: `van-${orders.length + 1}`,
+        at,
+        storeId: pick(rand, STORE_IDS),
+        sku: item.sku,
+        zone: item.zone,
+      });
+    };
+    for (let index = 0; index < options.initialStock; index += 1) {
+      const item = pick(rand, items);
+      stock.push({ id: `stock-${index + 1}`, sku: item.sku, zone: item.zone, quantity: 2 + Math.floor(rand() * 4), supplier: 'Запас' });
+      push(6 + index * 9 + Math.floor(rand() * 4), item);
+    }
+    for (const truck of schedule) {
+      const delay = options.orderDelayMin + Math.floor(rand() * (options.orderDelayMax - options.orderDelayMin + 1));
+      push(truck.at + delay, { sku: truck.sku, zone: truck.zone });
+    }
+    orders.sort((left, right) => left.at - right.at);
+    return { stock, orders };
+  }
+
   function createFlowShift(options = {}) {
     const settings = { ...DEFAULTS, ...options };
     const rand = rngFrom(settings.seed ?? 20260920);
+    const schedule = buildSchedule(rand, settings);
+    const outbound = buildOutbound(rand, settings, schedule);
     return {
       phase: 'running',
       settings,
@@ -94,7 +169,16 @@
       gates: Array.from({ length: settings.gates }, (_, index) => ({ id: `gate-${index + 1}`, truck: null })),
       queue: [],
       buffer: [],
-      schedule: buildSchedule(rand, settings),
+      schedule,
+      // Паллеты, которые стоят в своих зонах и доступны для отбора.
+      stock: outbound.stock,
+      // Зона отгрузки: отобранные паллеты, ещё не погруженные.
+      staging: [],
+      // Фургоны дарксторов у ворот отгрузки: каждый ждёт одну паллету.
+      vans: [],
+      orderSchedule: outbound.orders,
+      shipped: [],
+      missed: [],
       stored: [],
       spoiled: [],
       bonusFresh: 0,
@@ -170,6 +254,77 @@
     };
   }
 
+  const stagedOf = (state, sku) => state.staging.filter((pallet) => pallet.sku === sku).length;
+  const wantedOf = (state, sku) => state.vans.filter((van) => van.sku === sku).length;
+  const stagingHasRoom = (state) => state.staging.length < state.settings.stagingSlots;
+
+  function admitVans(state) {
+    const due = state.orderSchedule.filter((order) => order.at <= state.elapsed);
+    if (!due.length) return state;
+    return {
+      ...state,
+      vans: [...state.vans, ...due.map((order) => ({ ...order, arrivedAt: state.elapsed, dueAt: state.elapsed + state.settings.patience }))],
+      orderSchedule: state.orderSchedule.filter((order) => order.at > state.elapsed),
+    };
+  }
+
+  /* Отобранная паллета без фургона возвращается в зону сама. Иначе сухая
+     паллета, чей фургон ушёл, занимала бы слот зоны отгрузки до конца
+     смены, и исправить это было бы нечем. */
+  function returnSurplus(state) {
+    let stock = state.stock;
+    const staging = [];
+    const kept = new Map();
+    for (const pallet of state.staging) {
+      const keep = (kept.get(pallet.sku) || 0) < wantedOf(state, pallet.sku);
+      const loading = state.busy?.kind === 'load' && state.busy.palletId === pallet.id;
+      if (keep || loading) {
+        kept.set(pallet.sku, (kept.get(pallet.sku) || 0) + 1);
+        staging.push(pallet);
+      } else stock = [...stock, { id: pallet.id, sku: pallet.sku, zone: pallet.zone, quantity: pallet.quantity, supplier: pallet.supplier }];
+    }
+    return staging.length === state.staging.length ? state : { ...state, stock, staging };
+  }
+
+  /* Фургон ждёт до своего срока и уезжает пустым. Тот, в который прямо
+     сейчас грузят, не уезжает: спорная секунда — в пользу игрока. */
+  function expireVans(state) {
+    const loadingVan = state.busy?.kind === 'load' ? state.busy.vanId : null;
+    const gone = state.vans.filter((van) => van.dueAt <= state.elapsed && van.id !== loadingVan);
+    if (!gone.length) return state;
+    const goneIds = new Set(gone.map((van) => van.id));
+    return returnSurplus({
+      ...state,
+      vans: state.vans.filter((van) => !goneIds.has(van.id)),
+      missed: [...state.missed, ...gone],
+      feedback: { kind: 'error', code: 'van-left', message: `Фургон ушёл без паллеты: ${nameOf(gone[0])}.` },
+    });
+  }
+
+  // Зона отгрузки — тоже вне температуры: скоропорт в ней тухнет, как в буфере.
+  function ageStaging(state, seconds) {
+    const spoiled = [];
+    const staging = [];
+    for (const pallet of state.staging) {
+      if (pallet.shelf === null || pallet.enteredAt === state.elapsed) {
+        staging.push(pallet);
+        continue;
+      }
+      const shelf = pallet.shelf - seconds;
+      if (shelf > 0) staging.push({ ...pallet, shelf });
+      else spoiled.push({ ...pallet, shelf: 0, reason: 'staging' });
+    }
+    if (!spoiled.length) return { ...state, staging };
+    const carrying = state.busy?.kind === 'load' && spoiled.some((pallet) => pallet.id === state.busy.palletId);
+    return {
+      ...state,
+      staging,
+      busy: carrying ? null : state.busy,
+      spoiled: [...state.spoiled, ...spoiled],
+      feedback: { kind: 'error', code: 'spoiled', message: `${nameOf(spoiled[0])} испортился в зоне отгрузки.` },
+    };
+  }
+
   const nameOf = (pallet) => engine.itemBySku(pallet.sku)?.name || pallet.sku;
 
   function completeBusy(state) {
@@ -178,6 +333,8 @@
     if (busy.kind === 'walk') return { ...state, station: busy.to, busy: null };
     if (busy.kind === 'unload') return completeUnload({ ...state, busy: null }, busy);
     if (busy.kind === 'putaway') return completePutaway({ ...state, busy: null }, busy);
+    if (busy.kind === 'pick') return completePick({ ...state, busy: null }, busy);
+    if (busy.kind === 'load') return completeLoad({ ...state, busy: null }, busy);
     return { ...state, busy: null };
   }
 
@@ -222,21 +379,50 @@
       ...state,
       buffer,
       stored: [...state.stored, { ...pallet, fast }],
+      // С этой секунды паллету можно отобрать под фургон.
+      stock: [...state.stock, { id: pallet.id, sku: pallet.sku, zone: pallet.zone, quantity: pallet.quantity, supplier: pallet.supplier }],
       bonusFresh: state.bonusFresh + (fast ? 1 : 0),
       feedback: { kind: 'success', code: 'stored', message: `${nameOf(pallet)} на месте.` },
     };
   }
 
+  function completePick(state, busy) {
+    const pallet = state.stock.find((item) => item.id === busy.palletId);
+    if (!pallet) return state;
+    const shelf = shelfFor(pallet.zone);
+    const staged = { ...pallet, shelf, shelfMax: shelf, enteredAt: state.elapsed };
+    /* Фургон мог уйти, пока паллету везли. Тогда она возвращается в зону
+       тем же правилом, что и любая отобранная паллета без фургона. */
+    return returnSurplus({
+      ...state,
+      stock: state.stock.filter((item) => item.id !== busy.palletId),
+      staging: [...state.staging, staged],
+      feedback: { kind: 'info', code: 'picked', message: `${nameOf(pallet)} в зоне отгрузки.` },
+    });
+  }
+
+  function completeLoad(state, busy) {
+    const pallet = state.staging.find((item) => item.id === busy.palletId);
+    const van = state.vans.find((item) => item.id === busy.vanId);
+    if (!pallet || !van) return state;
+    return {
+      ...state,
+      staging: state.staging.filter((item) => item.id !== busy.palletId),
+      vans: state.vans.filter((item) => item.id !== busy.vanId),
+      shipped: [...state.shipped, { ...van, shippedAt: state.elapsed }],
+      feedback: { kind: 'success', code: 'shipped', message: `${nameOf(pallet)} уехал в даркстор.` },
+    };
+  }
+
   function goalsFor(state) {
-    const backlog = backlogOf(state);
     const perished = state.spoiled.filter((pallet) => isPerishable(pallet.zone));
     return [
       {
-        id: 'backlog',
-        text: `Бэклог к концу смены — не больше ${state.settings.backlogLimit} паллет`,
-        value: backlog,
-        limit: state.settings.backlogLimit,
-        ok: backlog <= state.settings.backlogLimit,
+        id: 'missed',
+        text: `Сорвано заявок — не больше ${state.settings.missedLimit}`,
+        value: state.missed.length,
+        limit: state.settings.missedLimit,
+        ok: state.missed.length <= state.settings.missedLimit,
       },
       {
         id: 'perishables',
@@ -255,6 +441,10 @@
       phase: 'report',
       busy: null,
       report: {
+        shipped: state.shipped.length,
+        missed: state.missed.length,
+        // Фургоны, которые ещё ждали в момент конца смены: не отгружены, но и не сорваны.
+        waiting: state.vans.length,
         stored: state.stored.length,
         spoiled: state.spoiled.length,
         backlog: backlogOf(state),
@@ -269,11 +459,14 @@
     if (state.phase !== 'running') return state;
     let next = { ...state, elapsed: state.elapsed + seconds, secondsRemaining: Math.max(0, state.secondsRemaining - seconds), feedback: null };
     next = admitArrivals(next);
-    /* Действие завершается раньше, чем стареет буфер: паллета, размещённая
-       на той же секунде, на которой истекал её срок, считается спасённой.
-       Спорные секунды — в пользу игрока. */
+    next = admitVans(next);
+    /* Действие завершается раньше, чем стареет буфер и уходят фургоны:
+       паллета, размещённая или погруженная на той же секунде, на которой
+       истекал срок, считается спасённой. Спорные секунды — в пользу игрока. */
     next = completeBusy(next);
     next = ageBuffer(next, seconds);
+    next = ageStaging(next, seconds);
+    next = expireVans(next);
     next = ageWaiting(next, seconds);
     if (next.secondsRemaining === 0) next = finish(next);
     return next;
@@ -309,6 +502,34 @@
     return { ...state, busy: { kind: 'putaway', palletId, zone, startedAt: state.elapsed, endsAt: state.elapsed + DURATIONS.putaway } };
   }
 
+  function pickFor(state, vanId) {
+    if (state.phase !== 'running') return state;
+    if (state.busy) return refuse(state, 'busy', 'Сначала закончите текущее действие.');
+    if (state.station !== STATIONS.PICKING) return refuse(state, 'wrong-station', 'Отбирать можно только на отборе.');
+    const van = state.vans.find((item) => item.id === vanId);
+    if (!van) return refuse(state, 'van-gone', 'Этот фургон уже ушёл.');
+    // Одна паллета на фургон: вторую под ту же заявку отбирать незачем.
+    if (stagedOf(state, van.sku) >= wantedOf(state, van.sku)) return refuse(state, 'already-picked', 'Паллета под эту заявку уже в зоне отгрузки.');
+    const pallet = state.stock.find((item) => item.sku === van.sku);
+    if (!pallet) return refuse(state, 'no-stock', `${nameOf(van)}: в зоне этого товара нет — сначала примите и разместите.`);
+    if (!stagingHasRoom(state)) return refuse(state, 'staging-full', 'Зона отгрузки забита — сначала погрузите паллеты.');
+    return { ...state, busy: { kind: 'pick', vanId, palletId: pallet.id, startedAt: state.elapsed, endsAt: state.elapsed + DURATIONS.pick } };
+  }
+
+  function load(state, vanId) {
+    if (state.phase !== 'running') return state;
+    if (state.busy) return refuse(state, 'busy', 'Сначала закончите текущее действие.');
+    if (state.station !== STATIONS.LOADING) return refuse(state, 'wrong-station', 'Грузить можно только на погрузке.');
+    const van = state.vans.find((item) => item.id === vanId);
+    if (!van) return refuse(state, 'van-gone', 'Этот фургон уже ушёл.');
+    // Самая срочная из подходящих паллет: она ближе всех к порче.
+    const pallet = state.staging
+      .filter((item) => item.sku === van.sku)
+      .sort((left, right) => (left.shelf ?? Infinity) - (right.shelf ?? Infinity))[0];
+    if (!pallet) return refuse(state, 'not-picked', `${nameOf(van)}: паллета ещё не отобрана.`);
+    return { ...state, busy: { kind: 'load', vanId, palletId: pallet.id, startedAt: state.elapsed, endsAt: state.elapsed + DURATIONS.load } };
+  }
+
   return {
     STATIONS,
     SHELF_SECONDS,
@@ -319,7 +540,12 @@
     goTo,
     unload,
     putaway,
+    pick: pickFor,
+    load,
     goalsFor,
+    stagedOf,
+    wantedOf,
+    STORE_IDS,
     backlogOf,
     isPerishable,
     shelfFor,

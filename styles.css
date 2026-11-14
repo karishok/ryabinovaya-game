@@ -262,6 +262,19 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-display > p { margin: 7px 0 0; color: var(--muted); }
 .tsd-display > p[id="tsdProgress"] { color: #ffe0a0; font-size: 12px; font-weight: 800; }
 .tsd-display > p[role="status"] { min-height: 24px; color: #d8fff3; }
+/* Очередь под кнопками задания: что придёт следом и у кого уходит фургон. */
+.tsd-queue { display: grid; gap: 4px; margin-top: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 13px; background: rgba(9, 18, 14, 0.5); }
+.tsd-queue-title { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.tsd-queue-list { display: grid; gap: 3px; margin: 0; padding: 0 0 0 18px; color: var(--cream); font-size: 12px; }
+.tsd-queue-list li { padding-left: 2px; }
+.tsd-queue-list li span { overflow: hidden; }
+.tsd-queue-list li em { margin-left: 6px; color: #ffe0a0; font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tsd-queue-list li b { color: #ffd98a; font-weight: 800; }
+.tsd-queue-list li.is-soon em { padding: 1px 6px; border-radius: 999px; background: #3c2320; color: #ffd9d2; }
+.tsd-queue-note { color: var(--muted); font-size: 11px; }
+/* Вторая кнопка задания: взять срочное поверх начатого. */
+.tsd-secondary { width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--line); border-radius: 14px; background: #293b31; color: var(--cream); font-size: 13px; font-weight: 800; }
+.tsd-secondary.is-urgent { border-color: var(--amber); background: rgba(240, 170, 56, 0.14); color: #ffd98a; }
 .tsd-primary { width: 100%; min-height: 48px; margin-top: 16px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 14px; background: linear-gradient(135deg, #d65e40, #b94732); color: #fffaf0; font-weight: 850; box-shadow: 0 8px 18px rgba(178, 65, 45, 0.36); }
 .tsd-content-slot { display: grid; gap: 10px; margin-top: 15px; }
 /* На панелях сборки, транспорта и гайда шапка прибора — чистая потеря:
@@ -301,7 +314,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 
 /* Карта доставки: депо и дарксторы стоят на тех же координатах, по которым
    движок считает минуты рейса. */
-.route-map { padding: 8px 6px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: rgba(9, 18, 14, 0.55); }
+.route-map { margin-top: 8px; padding: 8px 6px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: rgba(9, 18, 14, 0.55); }
 .route-map svg { display: block; width: 100%; height: auto; overflow: visible; }
 .map-route { fill: none; stroke: var(--amber); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 6 5; vector-effect: non-scaling-stroke; }
 .map-depot { fill: var(--cream); stroke: #0b1611; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
@@ -320,9 +333,9 @@ button:disabled { cursor: default; opacity: 0.42; }
   position: absolute;
   z-index: 3;
   display: grid;
-  min-width: 52px;
-  min-height: 44px;
-  padding: 0 10px;
+  min-width: 64px;
+  min-height: 48px;
+  padding: 4px 10px;
   place-items: center;
   border: 1px solid rgba(244, 234, 216, 0.34);
   border-radius: 12px;
@@ -330,6 +343,15 @@ button:disabled { cursor: default; opacity: 0.42; }
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
   transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
   transform: translate(-50%, -50%);
+}
+.scene-zone-sign small {
+  margin-top: -2px;
+  color: var(--cream);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  pointer-events: none;
 }
 .scene-zone-sign b {
   color: #fff6d9;
@@ -357,8 +379,12 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Хотспоты поверх объектов, которые уже нарисованы на фотографии.
    Ничего не дорисовываем: область только помечает объект и делает его
    кликабельным, поэтому висеть в воздухе тут нечему. */
+/* Ворота приёмки — такой же хотспот. Раньше их в этом правиле не было, и
+   кнопка без position: absolute вставала в левый верхний угол поверх
+   логотипа, а не у ворот. */
 .scene-pallet,
-.truck-bay {
+.truck-bay,
+.scene-dock {
   position: absolute;
   z-index: 2;
   display: flex;
@@ -371,8 +397,8 @@ button:disabled { cursor: default; opacity: 0.42; }
   cursor: pointer;
   transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
 }
-.scene-pallet:hover, .truck-bay:hover,
-.scene-pallet:focus-visible, .truck-bay:focus-visible {
+.scene-pallet:hover, .truck-bay:hover, .scene-dock:hover,
+.scene-pallet:focus-visible, .truck-bay:focus-visible, .scene-dock:focus-visible {
   border-color: var(--cream);
   background: rgba(244, 234, 216, 0.1);
   box-shadow: inset 0 0 22px rgba(244, 234, 216, 0.14);
@@ -386,9 +412,16 @@ button:disabled { cursor: default; opacity: 0.42; }
 .dock-badge { position: absolute; top: -10px; right: -6px; min-width: 22px; padding: 2px 6px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: var(--terracotta); color: #fffaf0; font-size: 10px; font-weight: 900; text-align: center; pointer-events: none; }
 @keyframes dock-pulse { 50% { box-shadow: 0 0 0 4px rgba(240, 170, 56, 0.28), inset 0 0 30px rgba(240, 170, 56, 0.32); } }
 /* Зона-цель при размещении: подсказка должна читаться без ТСД. */
-.scene-zone-sign.is-target { border-color: rgba(240, 170, 56, 0.6); }
-.scene-zone-sign.is-target.is-active { border-color: var(--amber); background: rgba(44, 27, 8, 0.95); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.55), 0 0 0 3px rgba(240, 170, 56, 0.34); }
-.scene-zone-sign.is-target.is-active b { color: #ffd98a; }
+/* Принятая паллета ждёт зону: пульсируют все вывески сразу и одинаково, на
+   любой смене. Это говорит «выбери зону», но не «выбери эту» — раньше без
+   поводыря вывески только чуть желтели, и было неясно, что их надо нажать. */
+.scene-zone-sign.is-target {
+  border-color: var(--amber);
+  background: rgba(44, 27, 8, 0.95);
+  box-shadow: 0 0 0 3px rgba(240, 170, 56, 0.45), 0 0 26px rgba(240, 170, 56, 0.45);
+  transform: translate(-50%, -50%) scale(1.1);
+  animation: focus-pulse 1.4s ease-in-out infinite;
+}
 /* Фуры у погрузочных доков в глубине кадра. */
 .truck-bay { top: 56.9%; left: 73%; width: 27%; height: 15.3%; }
 
@@ -410,17 +443,102 @@ button:disabled { cursor: default; opacity: 0.42; }
 .pallet-badge { position: absolute; top: -11px; left: 50%; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
 .truck-badge { position: absolute; top: -11px; right: 0; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; pointer-events: none; }
 .transport-summary { margin: 10px 0; color: var(--muted); font-size: 12px; }
-.loaded-row { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; padding: 8px 11px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 12px; background: #24342b; }
-.loaded-row span { display: grid; flex: 1; min-width: 0; gap: 1px; }
-.loaded-row strong { font-size: 13px; }
-.loaded-row small { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.loaded-row .btn { flex: none; min-height: 38px; margin-top: 0; padding: 6px 12px; font-size: 12px; }
 .capacity small { display: block; color: var(--muted); font-size: 11px; font-weight: 700; }
 .truck-light { position: absolute; top: -10px; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px var(--amber); opacity: 0.6; pointer-events: none; transform: translateX(-50%); }
-.scene-object-hint { position: absolute; top: calc(100% + 6px); left: 50%; padding: 3px 6px; border-radius: 999px; background: rgba(10, 22, 16, 0.78); box-shadow: 0 3px 7px rgba(0, 0, 0, 0.24); color: #fff3d1; font-size: 8px; font-weight: 850; letter-spacing: 0.04em; text-transform: uppercase; transform: translateX(-50%); white-space: nowrap; opacity: 0.92; pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
+.scene-object-hint { position: absolute; top: calc(100% + 6px); left: 50%; padding: 3px 8px; border-radius: 999px; background: rgba(10, 22, 16, 0.84); box-shadow: 0 3px 7px rgba(0, 0, 0, 0.24); color: #fff3d1; font-size: 11px; font-weight: 850; letter-spacing: 0.04em; text-transform: uppercase; transform: translateX(-50%); white-space: nowrap; opacity: 0.92; pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
 .scene-pallet:focus-visible, .truck-bay:focus-visible { outline: 3px solid #fff3d1; outline-offset: 4px; }
 .scene-pallet:hover .scene-object-hint, .scene-pallet:focus-visible .scene-object-hint, .truck-bay:hover .scene-object-hint, .truck-bay:focus-visible .scene-object-hint { opacity: 1; transform: translateX(-50%) translateY(1px); }
-@media (hover: none) { .scene-object-hint { opacity: 0.82; } }
+@media (hover: none) { .scene-object-hint { opacity: 0.92; } }
+/* Паллета стоит у нижней кромки кадра: подпись под ней обрезалась. Держим её
+   внутри хотспота, над полосой заполнения. */
+.scene-pallet .scene-object-hint, .scene-dock .scene-object-hint { top: auto; bottom: 10px; }
+
+/* Фокус шага: объект, который нужен сейчас, пульсирует, остальные хотспоты
+   приглушены. Это не отменяет режимы сцены ниже, а работает поверх них. */
+.scene-object.is-focus, .scene-zone-sign.is-focus {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(240, 170, 56, 0.45), 0 0 26px rgba(240, 170, 56, 0.45), inset 0 0 26px rgba(240, 170, 56, 0.22);
+  animation: focus-pulse 1.4s ease-in-out infinite;
+}
+.scene-zone-sign.is-focus { transform: translate(-50%, -50%) scale(1.1); }
+.scene-object.is-focus .scene-object-hint { background: var(--amber); color: #1a1407; opacity: 1; }
+[data-focus]:not([data-focus=""]) .scene-object:not(.is-focus) { border-color: rgba(244, 234, 216, 0.14); }
+[data-focus]:not([data-focus=""]) .scene-object:not(.is-focus) .scene-object-hint { opacity: 0.55; }
+@keyframes focus-pulse { 50% { box-shadow: 0 0 0 7px rgba(240, 170, 56, 0.12), 0 0 34px rgba(240, 170, 56, 0.6), inset 0 0 30px rgba(240, 170, 56, 0.3); } }
+
+/* Доска заявок на сменах без поводыря: стоит там же, где карточка «Сейчас».
+   В две колонки — шесть заявок часа пик иначе не помещаются под сценой. */
+.order-board { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(160deg, rgba(30, 48, 40, 0.96), rgba(23, 38, 31, 0.98)); }
+.order-board-kicker { padding: 0 2px; color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.order-board-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.order-line { display: grid; gap: 2px; min-width: 0; min-height: 44px; padding: 6px 9px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 12px; background: #24342b; color: var(--text); text-align: left; }
+.order-top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
+.order-top strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.order-progress { flex: none; font-size: 13px; font-variant-numeric: tabular-nums; }
+.order-detail { color: var(--muted); font-size: 11px; line-height: 1.3; }
+.order-zone { font-style: normal; font-weight: 900; font-variant-numeric: tabular-nums; }
+.order-zone[data-zone="dry"] { color: var(--amber); }
+.order-zone[data-zone="chilled"] { color: var(--chilled); }
+.order-zone[data-zone="frozen"] { color: var(--frozen); }
+.order-line[data-status="done"] { opacity: 0.6; }
+.order-line[data-status="done"] .order-progress { color: #73eba7; }
+.order-line[data-status="cancelled"] { opacity: 0.6; }
+.order-line[data-status="cancelled"] .order-top strong { text-decoration: line-through; }
+.order-line.is-alert { opacity: 1; border-color: rgba(240, 170, 56, 0.55); }
+.order-line.is-active { border-color: var(--cream); background: #2c4136; }
+.order-mark { color: var(--cream); font-style: normal; font-weight: 800; }
+.order-deadline { color: #ffe0a0; font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; }
+.order-deadline.is-soon { color: var(--terracotta); }
+.order-line[data-status="lost"] { opacity: 1; }
+.order-line[data-status="lost"] .order-detail { color: #ffb4a8; }
+/* Время до ухода ближайшего фургона — на воротах отгрузки. */
+.truck-timer { position: absolute; top: calc(100% + 30px); right: 0; padding: 3px 8px; border: 1px solid rgba(240, 170, 56, 0.6); border-radius: 999px; background: rgba(10, 20, 15, 0.92); color: #ffe0a0; font-size: 11px; font-weight: 850; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.truck-timer[data-soon="true"] { border-color: var(--danger); background: #3c2320; color: #ffd9d2; }
+.order-line.is-alert .order-detail { color: #ffd98a; }
+
+.order-board.is-dense { gap: 4px; padding: 8px; }
+.order-board.is-dense .order-board-rows { gap: 4px; }
+.order-board.is-dense .order-line { min-height: 36px; padding: 3px 8px; gap: 0; }
+.order-board.is-dense .order-top strong, .order-board.is-dense .order-progress { font-size: 12px; }
+
+/* На коротком экране шесть заявок часа пик выталкивали ряд кнопок за край. */
+@media (max-height: 780px) {
+  .order-board { padding: 8px; }
+  .order-board-kicker { display: none; }
+  .order-line { min-height: 38px; padding: 4px 9px; }
+  .order-board.is-dense .order-line { min-height: 32px; padding: 2px 8px; }
+  /* На коротком экране плотная доска держит строку в одну линию: перенос
+     одной пометки раздвигал ряд и выталкивал кнопки за край. */
+  .order-board.is-dense .order-detail { overflow: hidden; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* Карточка «Сейчас» занимает место, которое раньше пустовало под сценой. */
+.now-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px 14px 12px;
+  border: 1px solid rgba(240, 170, 56, 0.4);
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(36, 60, 50, 0.96), rgba(23, 38, 31, 0.98));
+  box-shadow: 0 10px 28px rgba(8, 18, 15, 0.4);
+}
+.now-kicker { color: var(--amber); font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.now-title { color: var(--text); font-size: 18px; font-weight: 850; line-height: 1.2; }
+.now-detail { color: var(--muted); font-size: 13px; line-height: 1.35; }
+.now-cta {
+  min-height: 52px;
+  margin-top: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #d65e40, #b94732);
+  color: #fffaf0;
+  box-shadow: 0 8px 18px rgba(178, 65, 45, 0.44);
+  font-size: 16px;
+  font-weight: 850;
+}
+.now-card[data-step="finish"] .now-cta { background: linear-gradient(135deg, #3f8c66, #2d6b4e); box-shadow: 0 8px 18px rgba(45, 107, 78, 0.44); }
+.now-card[data-step="finish"] { border-color: rgba(115, 235, 167, 0.4); }
+.now-card[data-step="finish"] .now-kicker { color: #73eba7; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .vehicle-glyph {
@@ -475,7 +593,10 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Ряд прижат к низу экрана — туда, где раньше лежала полоса ТСД и куда
    дотягивается большой палец. Иначе под фотографией осталась бы пустота
    во всю нижнюю треть. */
-.shift-board { display: grid; gap: 9px; margin-top: auto; padding: 13px 12px 0; }
+/* Карточка «Сейчас» стоит сразу под сценой, ряд кнопок — у низа страницы;
+   пустота, если она остаётся, лежит между ними, а не над следующим шагом. */
+.shift-board { display: flex; flex: 1; flex-direction: column; gap: 9px; padding: 12px 12px 0; }
+.board-actions { margin-top: auto; }
 .board-actions { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: stretch; }
 .board-actions .btn.secondary { margin-top: 0; padding: 12px 8px; font-size: 12px; white-space: nowrap; }
 .event-banner { display: none; padding: 10px 12px; border: 1px solid rgba(81, 185, 173, 0.62); border-radius: 12px; background: #183b33; color: #d8fff3; font-size: 12px; font-weight: 700; }
@@ -520,15 +641,31 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-sticky-action .btn { width: 100%; }
 .capacity { color: var(--muted); font-size: 12px; }
 .capacity b { color: var(--cream); white-space: nowrap; }
-.vehicle-row { display: flex; width: 100%; align-items: center; gap: 10px; margin-bottom: 8px; padding: 11px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: #24342b; text-align: left; }
-.vehicle-row > span:first-child { flex-shrink: 0; color: var(--amber); }
-.vehicle-row strong, .vehicle-row small { display: block; }
-.vehicle-row small { color: var(--muted); font-size: 11px; }
-.vehicle-row b { margin-left: auto; color: #ffe0a0; font-size: 10px; }
+/* Машины — плитки в две колонки: четыре строки во весь экран занимали
+   половину панели ещё до первой паллеты. */
+#vehicleRows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.vehicle-row { display: grid; gap: 1px; min-width: 0; min-height: 44px; padding: 7px 10px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 12px; background: #24342b; text-align: left; }
+.vehicle-row strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.vehicle-row b { color: #ffe0a0; font-size: 11px; font-weight: 700; }
+.vehicle-row:disabled { opacity: 0.5; }
 .vehicle-row b.warn { color: #ff9a89; }
-.route-stop { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; padding: 8px 10px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 11px; background: #23342b; }
-.route-stop button { width: 40px; min-height: 40px; margin-left: 3px; font-size: 16px; }
-.route-stop button:disabled { opacity: 0.35; }
+/* Одна строка на остановку: адрес и плечо, груз под ним, справа стрелки
+   порядка и «Снять». */
+.route-stop { margin: 5px 0; padding: 5px 6px 5px 10px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 12px; background: #23342b; }
+.stop-main, .stop-extra { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stop-extra { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(244, 234, 216, 0.1); }
+.stop-text, .stop-extra > span { display: grid; flex: 1; min-width: 0; gap: 1px; }
+.stop-text strong { font-size: 13px; }
+.route-stop small { color: var(--muted); font-size: 11px; line-height: 1.3; }
+.route-stop small .leg { margin: 0; color: #ffe0a0; font-size: 11px; font-weight: 800; }
+.route-stop small em { display: block; color: #ffd98a; font-style: normal; font-weight: 800; }
+.stop-actions { display: flex; flex: none; align-items: center; gap: 4px; }
+.route-stop button.stop-move { width: 36px; min-height: 38px; font-size: 16px; }
+.route-stop button.stop-move:disabled { opacity: 0.35; }
+.route-stop button.stop-unload { width: auto; min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: #293b31; color: var(--cream); font-size: 12px; font-weight: 800; }
+.route-stop button.stop-unload.is-orphan { border-color: transparent; background: #c9dacb; color: #122219; }
+.route-stop.is-orphan, .stop-extra.is-orphan { border-color: var(--amber); }
+.route-stop.is-orphan { background: rgba(240, 170, 56, 0.12); }
 
 .report { align-self: center; text-align: center; }
 .report .big { margin: 2px 0; color: var(--amber); font-size: 58px; text-shadow: 0 0 20px rgba(240, 170, 56, 0.4); }
@@ -650,6 +787,27 @@ button:disabled { cursor: default; opacity: 0.42; }
 .flow-zone { display: grid; gap: 4px; justify-items: center; padding: 9px 4px; border: 1px solid var(--line); border-radius: 13px; background: #1b2a22; font-size: 11px; }
 .flow-zone[disabled] { opacity: 0.4; }
 
+/* Отбор и погрузка. */
+.flow-outbound { display: grid; gap: 8px; }
+.flow-stock { margin: 0; color: var(--muted); font-size: 11px; }
+.flow-staging { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.flow-staging .flow-pallet { padding: 7px 8px; }
+.flow-staging .flow-pallet.is-free { min-height: 44px; }
+.flow-vans { display: grid; gap: 6px; }
+.flow-van { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 14px; background: #1b2a22; text-align: left; }
+.flow-van[disabled] { opacity: 0.55; }
+.flow-van.is-ready { border-color: rgba(244, 234, 216, 0.5); background: #24362c; }
+.flow-van.is-working { border-color: var(--amber); }
+.flow-van-body { display: grid; flex: 1; gap: 1px; min-width: 0; }
+.flow-van-body strong { overflow: hidden; color: var(--cream); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.flow-van-meta { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.flow-van-action { flex: none; max-width: 46%; color: var(--muted); font-size: 11px; font-weight: 800; text-align: right; }
+.flow-van.is-ready .flow-van-action { padding: 6px 10px; border-radius: 10px; background: #c9dacb; color: #122219; font-size: 12px; }
+/* Срочность фургона — в цвете срока: он уйдёт пустым, и это сорванная заявка. */
+.flow-van.is-warning .flow-van-meta { color: var(--amber); }
+.flow-van.is-critical { border-color: rgba(217, 74, 63, 0.75); }
+.flow-van.is-critical .flow-van-meta { color: var(--terracotta); font-weight: 800; }
+
 .flow-message { margin: 0; padding: 8px 11px; border-radius: 12px; background: #22332a; font-size: 12px; }
 .flow-message[data-kind="error"] { background: #3c2320; color: #ffd9d2; }
 .flow-message[data-kind="success"] { background: #1f3b2e; color: #c8f2d6; }
@@ -661,8 +819,11 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Без занятости полоса не должна съедать прижим низа к полосе станций. */
 .flow-busy[hidden] + .flow-strip { margin-top: auto; }
 
-.flow-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.flow-station-tab { display: grid; gap: 2px; padding: 10px 8px; border: 1px solid var(--line); border-radius: 15px; background: #1b2a22; text-align: left; }
+/* Четыре станции — сеткой два на два: в один ряд «Размещение» не помещалось,
+   а кнопки становились слишком узкими для пальца. Верхний ряд — вход на
+   склад, нижний — выход. */
+.flow-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.flow-station-tab { display: grid; gap: 1px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 15px; background: #1b2a22; text-align: left; }
 .flow-station-tab strong { color: var(--cream); font-size: 13px; }
 .flow-station-tab span { color: var(--muted); font-size: 11px; }
 .flow-station-tab.is-here { border-color: rgba(244, 234, 216, 0.55); background: #24362c; }
@@ -723,6 +884,7 @@ button:disabled { cursor: default; opacity: 0.42; }
     outline: 3px solid var(--danger) !important;
     outline-offset: 4px;
   }
+  .scene-object.is-focus, .scene-zone-sign.is-focus, .scene-zone-sign.is-target { animation: none !important; outline: 3px solid var(--amber); outline-offset: 3px; }
   .tsd-device,
   .tsd-device[data-open="false"] {
     transform: translateX(-50%);

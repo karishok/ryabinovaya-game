@@ -254,7 +254,7 @@ test('no TSD screen prints the same line twice', () => {
   const html = fs.readFileSync('index.html', 'utf8');
   // id → панель ТСД, внутри которой он лежит: скрытая панель ничего не
   // печатает, даже если её строки остались в памяти рендера.
-  const inboundLevelId = levels.LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
+  const inboundLevelId = levels.LEVELS.find((level) => level.teaches.includes('inbound-receive')).id;
   const panelOf = new Map();
   for (const [, panel, body] of html.matchAll(/data-tsd-panel="(\w+)"[^>]*>([\s\S]*?)(?=<section[^>]*data-tsd-panel=|<\/div>\s*<\/div>\s*<\/div>)/g)) {
     for (const [, id] of body.matchAll(/id="(\w+)"/g)) if (!panelOf.has(id)) panelOf.set(id, panel);

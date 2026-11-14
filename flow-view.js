@@ -7,18 +7,22 @@
   if (isNode) module.exports = api;
   else root.RyabinovayaFlowView = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function (engine, levelData, flow) {
-  const { ZONE_NAMES, ZONE_MARKS } = levelData;
+  const { ZONE_NAMES, ZONE_MARKS, STORE_NAMES } = levelData;
   const { STATIONS } = flow;
 
   const STATION_NAMES = Object.freeze({
     [STATIONS.RECEIVING]: 'Приёмка',
     [STATIONS.PUTAWAY]: 'Размещение',
+    [STATIONS.PICKING]: 'Отбор',
+    [STATIONS.LOADING]: 'Погрузка',
   });
 
   const BUSY_LABELS = Object.freeze({
     walk: 'Иду',
     unload: 'Разгружаю',
     putaway: 'Везу в зону',
+    pick: 'Везу к воротам отгрузки',
+    load: 'Гружу в фургон',
   });
 
   const clockText = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
@@ -63,9 +67,8 @@
         occupied: true,
         title: gate.truck.supplier,
         goods: goodsText(gate.truck),
-        zone: gate.truck.zone,
-        zoneMark: ZONE_MARKS[gate.truck.zone] || '',
-        zoneName: ZONE_NAMES[gate.truck.zone] || gate.truck.zone,
+        /* Зону фуры и паллеты экран не называет: какому товару какая
+           температура, игрок решает сам на размещении — как и в кампании. */
         perishable: flow.isPerishable(gate.truck.zone),
         waitedText: `ждёт ${gate.truck.waitedSeconds} с`,
         unloading: busyHere,
@@ -89,9 +92,6 @@
         id: pallet.id,
         goods: goodsText(pallet),
         supplier: pallet.supplier,
-        zone: pallet.zone,
-        zoneMark: ZONE_MARKS[pallet.zone] || '',
-        zoneName: ZONE_NAMES[pallet.zone] || pallet.zone,
         perishable: pallet.shelf !== null,
         shelfText: pallet.shelf === null ? 'не портится' : `${pallet.shelf} с`,
         shelfPercent: pallet.shelf === null ? 100 : Math.round((pallet.shelf / pallet.shelfMax) * 100),
@@ -103,12 +103,100 @@
     };
   }
 
+  /* Фургон срочен, когда до его ухода остаётся меньше, чем нужно на полный
+     проход «отобрать — дойти — погрузить» с запасом на решение. */
+  const vanUrgencyOf = (state, van) => {
+    const left = van.dueAt - state.elapsed;
+    if (left <= 10) return 'critical';
+    if (left <= 20) return 'warning';
+    return 'calm';
+  };
+
+  const itemName = (sku) => engine.itemBySku(sku)?.name || sku;
+
+  /* Один список фургонов на две станции: на отборе его строка достаёт
+     паллету из зоны, на погрузке — ставит её в кузов. Строка сама говорит,
+     почему действие недоступно: «нет в зоне», «ещё не собрана», «вы не
+     здесь» — мёртвая кнопка без причины оставляла игрока гадать. */
+  function vansFor(state) {
+    const atPicking = state.station === STATIONS.PICKING;
+    const atLoading = state.station === STATIONS.LOADING;
+    const stagingFull = state.staging.length >= state.settings.stagingSlots;
+    // Паллеты зоны отгрузки раздаём фургонам по порядку ухода: первому — первая.
+    const stagedLeft = new Map();
+    for (const pallet of state.staging) stagedLeft.set(pallet.sku, (stagedLeft.get(pallet.sku) || 0) + 1);
+    const stockLeft = new Map();
+    for (const pallet of state.stock) stockLeft.set(pallet.sku, (stockLeft.get(pallet.sku) || 0) + 1);
+
+    return [...state.vans].sort((left, right) => left.dueAt - right.dueAt).map((van) => {
+      const staged = (stagedLeft.get(van.sku) || 0) > 0;
+      if (staged) stagedLeft.set(van.sku, stagedLeft.get(van.sku) - 1);
+      const inStock = !staged && (stockLeft.get(van.sku) || 0) > 0;
+      if (inStock) stockLeft.set(van.sku, stockLeft.get(van.sku) - 1);
+      const picking = state.busy?.kind === 'pick' && state.busy.vanId === van.id;
+      const loading = state.busy?.kind === 'load' && state.busy.vanId === van.id;
+      const pickBlockedBy = staged ? 'staged'
+        : !inStock ? 'no-stock'
+          : !atPicking ? 'station'
+            : state.busy ? 'busy'
+              : stagingFull ? 'staging-full' : null;
+      const loadBlockedBy = !staged ? 'not-picked'
+        : !atLoading ? 'station'
+          : state.busy ? 'busy' : null;
+      const secondsLeft = Math.max(0, van.dueAt - state.elapsed);
+      return {
+        id: van.id,
+        storeName: STORE_NAMES[van.storeId] || van.storeId,
+        goods: itemName(van.sku),
+        secondsLeft,
+        leftText: `уйдёт через ${secondsLeft} с`,
+        urgency: vanUrgencyOf(state, van),
+        status: staged ? 'staged' : inStock ? 'in-stock' : 'no-stock',
+        picking,
+        loading,
+        canPick: !pickBlockedBy,
+        pickBlockedBy,
+        canLoad: !loadBlockedBy,
+        loadBlockedBy,
+      };
+    });
+  }
+
+  function stagingFor(state) {
+    return {
+      used: state.staging.length,
+      slots: state.settings.stagingSlots,
+      free: state.settings.stagingSlots - state.staging.length,
+      full: state.staging.length >= state.settings.stagingSlots,
+      pallets: state.staging.map((pallet) => ({
+        id: pallet.id,
+        goods: itemName(pallet.sku),
+        perishable: pallet.shelf !== null,
+        shelfText: pallet.shelf === null ? 'не портится' : `${pallet.shelf} с`,
+        shelfPercent: pallet.shelf === null ? 100 : Math.round((pallet.shelf / pallet.shelfMax) * 100),
+        urgency: urgencyOf(pallet),
+        loading: state.busy?.kind === 'load' && state.busy.palletId === pallet.id,
+      })),
+    };
+  }
+
+  // Что стоит в зонах: по товару, без зон — зона товара уже не решение.
+  function stockFor(state) {
+    const counts = new Map();
+    for (const pallet of state.stock) counts.set(pallet.sku, (counts.get(pallet.sku) || 0) + 1);
+    return [...counts].map(([sku, count]) => ({ sku, name: itemName(sku), count }));
+  }
+
   /* Полоса станций — это периферийное зрение игрока: она обязана показывать
      давление на станции, где он сейчас не стоит, иначе переключаться он
      будет вслепую. */
   function stationsFor(state) {
     const waitingTrucks = state.gates.filter((gate) => gate.truck).length + state.queue.length;
     const urgent = state.buffer.filter((pallet) => urgencyOf(pallet) !== 'calm').length;
+    const vans = vansFor(state);
+    const toPick = vans.filter((van) => van.status === 'in-stock');
+    const toLoad = vans.filter((van) => van.status === 'staged');
+    const stagedUrgent = state.staging.some((pallet) => urgencyOf(pallet) !== 'calm');
     return [
       {
         id: STATIONS.RECEIVING,
@@ -126,6 +214,26 @@
         here: state.station === STATIONS.PUTAWAY,
         pressure: `${state.buffer.length}/${state.settings.bufferSlots} в буфере`,
         alert: urgent > 0,
+      },
+      {
+        id: STATIONS.PICKING,
+        name: STATION_NAMES[STATIONS.PICKING],
+        here: state.station === STATIONS.PICKING,
+        pressure: toPick.length
+          ? `${toPick.length} ${plural(toPick.length, 'фургон', 'фургона', 'фургонов')} ${plural(toPick.length, 'ждёт', 'ждут', 'ждут')}`
+          : vans.length ? 'товара нет в зонах' : 'пусто',
+        // Фургон вот-вот уйдёт, а его товар стоит в зоне и не отобран.
+        alert: toPick.some((van) => van.urgency !== 'calm'),
+      },
+      {
+        id: STATIONS.LOADING,
+        name: STATION_NAMES[STATIONS.LOADING],
+        here: state.station === STATIONS.LOADING,
+        pressure: toLoad.length
+          ? `${toLoad.length} ${plural(toLoad.length, 'паллета', 'паллеты', 'паллет')} к погрузке`
+          : 'пусто',
+        // Отобранный скоропорт тухнет у ворот, или фургон с готовой паллетой уходит.
+        alert: stagedUrgent || toLoad.some((van) => van.urgency !== 'calm'),
       },
     ];
   }
@@ -158,6 +266,9 @@
         ? `За воротами ${plural(state.queue.length, 'ждёт', 'ждут', 'ждут')} ещё ${state.queue.length}`
         : '',
       buffer: bufferFor(state, selectedPalletId),
+      vans: vansFor(state),
+      staging: stagingFor(state),
+      stock: stockFor(state),
       zones: Object.keys(ZONE_NAMES).map((zone) => ({
         id: zone,
         name: ZONE_NAMES[zone],
@@ -171,5 +282,5 @@
     };
   }
 
-  return { flowViewFor, STATION_NAMES, urgencyOf, plural };
+  return { flowViewFor, STATION_NAMES, urgencyOf, vanUrgencyOf, plural };
 });

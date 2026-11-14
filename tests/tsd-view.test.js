@@ -82,7 +82,7 @@ test('an already accepted task cannot be accepted again when reopened', () => {
 
 test('the closed terminal never labels an empty queue as a new task', () => {
   const { LEVELS } = require('../levels.js');
-  const one = LEVELS.find((level) => level.newMechanic === 'one-order').id;
+  const one = LEVELS.find((level) => level.teaches.includes('one-order')).id;
   let state = reduceAction(startLevel(one), { type: 'CONTINUE_STORY' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 2 });
   state = reduceAction(state, { type: 'LOAD_PALLET' });
@@ -107,7 +107,7 @@ test('the docked terminal calls for attention only while an untouched task sits 
      единственное, что зовёт его открыть. Звать она обязана ровно тогда,
      когда нажатие что-то меняет. */
   const { LEVELS } = require('../levels.js');
-  const inboundLevel = LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
+  const inboundLevel = LEVELS.find((level) => level.teaches.includes('inbound-receive')).id;
   let state = reduceAction(startLevel(inboundLevel), { type: 'CONTINUE_STORY' });
   assert.equal(terminalViewFor(state).screen, 'inbound');
   // Открытый терминал уже перед глазами — звать его незачем.

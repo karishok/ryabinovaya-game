@@ -94,12 +94,12 @@ test('the README documents the mobile QA screenshot and the file exists', () => 
   assert.equal(fs.existsSync('docs/screenshots/living-warehouse-mobile.png'), true);
 });
 
-test('vehicle rows use a CSS glyph instead of an emoji', () => {
+test('vehicle rows are compact tiles without an emoji', () => {
   const app = fs.readFileSync('app.js', 'utf8');
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.doesNotMatch(app, /🚚/, 'app.js should not render the truck emoji over the persistent scene overlay');
-  assert.match(app, /class="vehicle-glyph"/);
-  assert.match(css, /\.vehicle-glyph/);
+  // Плитки в две колонки: четыре строки во весь экран занимали половину панели.
+  assert.match(css, /#vehicleRows\s*\{[^}]*grid-template-columns:\s*1fr 1fr/);
 });
 
 test('warehouse styles define mobile motion and accessible fallbacks', () => {
@@ -179,7 +179,7 @@ test('the game is one screen: no bottom navigation, nothing hidden under the TSD
      прижат к низу страницы. Резерв в 128px под полосу стал бы пустотой,
      поэтому его сменил отступ безопасной зоны. */
   assert.doesNotMatch(css, /padding:\s*0 0 128px/);
-  assert.match(css, /\.shift-board\s*\{[^}]*margin-top:\s*auto/s);
+  assert.match(css, /\.board-actions\s*\{[^}]*margin-top:\s*auto/s);
 });
 
 test('everything the removed tabs hosted has a new home', () => {

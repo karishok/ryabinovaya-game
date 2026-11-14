@@ -17,10 +17,10 @@ test('idle status names the zone in Russian, not its internal code', () => {
 });
 
 test('idle status names the chilled and frozen zones in Russian on later levels', () => {
-  assert.equal(warehouseViewFor(startLevel(4)).statusText, 'Зона Сухач: можно начинать сборку.');
-  const chilledFirst = { ...startLevel(4), orders: [{ id: 'x', storeId: 'east', zone: 'chilled', sku: 'milk', quantity: 1 }] };
+  assert.equal(warehouseViewFor(startLevel(3)).statusText, 'Зона Сухач: можно начинать сборку.');
+  const chilledFirst = { ...startLevel(3), orders: [{ id: 'x', storeId: 'east', zone: 'chilled', sku: 'milk', quantity: 1 }] };
   assert.equal(warehouseViewFor(chilledFirst).statusText, 'Зона Охлаждёнка: можно начинать сборку.');
-  const frozenFirst = { ...startLevel(4), orders: [{ id: 'x', storeId: 'central', zone: 'frozen', sku: 'ice-cream', quantity: 1 }] };
+  const frozenFirst = { ...startLevel(3), orders: [{ id: 'x', storeId: 'central', zone: 'frozen', sku: 'ice-cream', quantity: 1 }] };
   assert.equal(warehouseViewFor(frozenFirst).statusText, 'Зона Заморозка: можно начинать сборку.');
 });
 
@@ -52,9 +52,12 @@ test('wrong putaway stops the AGV and names the spoilage', () => {
   /* Порча осталась только на приёмке: там товар действительно простоял в
      чужой температуре. Погрузка в чужой кузов паллету не портит — её
      просто везут к своему фургону. */
-  let state = reduceAction(startLevel(5), { type: 'CONTINUE_STORY' });
+  const { LEVELS } = require('../levels.js');
+  const sorting = LEVELS.find((level) => level.teaches.includes('inbound-sorting')).id;
+  let state = reduceAction(startLevel(sorting), { type: 'CONTINUE_STORY' });
   state = reduceAction(state, { type: 'RECEIVE_PALLET' });
-  state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'dry' });
+  // Первой стоит вода: её место — сухач, заморозка её губит.
+  state = reduceAction(state, { type: 'PLACE_PALLET', zone: 'frozen' });
   const view = warehouseViewFor(state);
   assert.equal(view.mode, 'spoiled');
   assert.match(view.statusText, /испорчен/i);
@@ -101,13 +104,19 @@ test('a single unlocked zone needs no highlight because there is nothing to choo
 });
 
 test('three unlocked zones highlight the zone the current order belongs to', () => {
-  const many = warehouseViewFor({ ...startLevel(4), phase: 'shift' });
-  assert.ok(['dry', 'frozen', 'chilled'].includes(many.activeZone));
+  /* Только на смене с поводырём и только когда приёмка разобрана: пока у
+     ворот стоит паллета, подсвеченная зона читалась бы как «ставь сюда». */
+  const waiting = warehouseViewFor({ ...startLevel(2), phase: 'shift' });
+  assert.equal(waiting.activeZone, null);
+  const many = warehouseViewFor({ ...startLevel(2), phase: 'shift', inbound: [] });
+  assert.equal(many.activeZone, 'dry');
+  // Без поводыря зона не подсвечивается никогда.
+  assert.equal(warehouseViewFor({ ...startLevel(3), phase: 'shift' }).activeZone, null);
 });
 
 test('the gates blink only while the stop order can still be shortened', () => {
   const { LEVELS } = require('../levels.js');
-  const route = LEVELS.find((level) => level.newMechanic === 'route').id;
+  const route = LEVELS.find((level) => level.teaches.includes('route')).id;
   const put = (state, storeId, sku, weightPerUnit, quantity) => {
     let next = reduceAction(state, { type: 'SELECT_STORE', storeId });
     next = reduceAction(next, { type: 'SELECT_ZONE', zone: 'dry' });
@@ -116,7 +125,8 @@ test('the gates blink only while the stop order can still be shortened', () => {
     return reduceAction(next, { type: 'DISMISS_FEEDBACK' });
   };
 
-  let state = reduceAction(startLevel(route), { type: 'CONTINUE_STORY' });
+  // Приёмку считаем разобранной: тест про ворота отгрузки, а не про фуры.
+  let state = { ...reduceAction(startLevel(route), { type: 'CONTINUE_STORY' }), inbound: [], stock: null };
   state = put(state, 'north', 'water', 12, 2);
   /* Одна остановка переставлять нечем — мигать не над чем. Раньше ворота
      мигали всю смену с первой же погруженной паллеты. */
@@ -162,7 +172,7 @@ test('the pallet carries its own goal, so it is readable without opening anythin
 
 test('the pallet goal keeps quiet while the shift is about receiving', () => {
   const { LEVELS } = require('../levels.js');
-  const inbound = LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
+  const inbound = LEVELS.find((level) => level.teaches.includes('inbound-receive')).id;
   const state = reduceAction(startLevel(inbound), { type: 'CONTINUE_STORY' });
   // У ворот стоит паллета: звать собирать заявку в этот момент — звать не туда.
   assert.equal(warehouseViewFor(state).palletGoalText, '');

@@ -68,3 +68,29 @@ test('every module the flow screen needs is loaded, in dependency order', () => 
   assert.ok(order.every((at) => at > -1), 'все модули режима должны быть подключены');
   assert.deepEqual(order, [...order].sort((a, b) => a - b), 'модуль должен грузиться после своих зависимостей');
 });
+
+test('the outbound half of the warehouse is on the screen: stock, dock and vans', () => {
+  const fs = require('node:fs');
+  const html = fs.readFileSync('index.html', 'utf8');
+  const app = fs.readFileSync('flow-app.js', 'utf8');
+  const css = fs.readFileSync('styles.css', 'utf8');
+  const screen = html.slice(html.indexOf('data-screen="flow"'));
+  for (const id of ['flowOutbound', 'flowStock', 'flowStaging', 'flowVans']) assert.match(screen, new RegExp(`id="${id}"`));
+  // Отбор и погрузка — свои действия в общем потоке нажатий режима.
+  assert.match(app, /flowAction === 'PICK'/);
+  assert.match(app, /flowAction === 'LOAD'/);
+  assert.match(app, /data-flow-action="\$\{picking \? 'PICK' : 'LOAD'\}"/);
+  // Срочный фургон обязан выделяться: он уйдёт пустым.
+  assert.match(css, /\.flow-van\.is-critical/);
+  // Отчёт называет итог выхода, а не только входа.
+  assert.match(app, /'Отгружено', view\.report\.shipped/);
+  assert.match(app, /'Сорвано', view\.report\.missed/);
+});
+
+test('incoming goods carry no zone mark on the screen', () => {
+  const app = require('node:fs').readFileSync('flow-app.js', 'utf8');
+  const gate = app.slice(app.indexOf('function gateMarkup'), app.indexOf('function palletMarkup'));
+  const pallet = app.slice(app.indexOf('function palletMarkup'), app.indexOf('function vanMarkup'));
+  assert.doesNotMatch(gate, /flow-zone-mark/);
+  assert.doesNotMatch(pallet, /flow-zone-mark/);
+});

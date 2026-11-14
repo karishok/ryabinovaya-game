@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const { reduceAction, startLevel, tick, finishShift, liveMetrics, activeOrderFor } = require('../app-state.js');
 const { LEVELS } = require('../levels.js');
 
-const levelWith = (mechanic) => LEVELS.find((level) => level.newMechanic === mechanic).id;
+const levelWith = (mechanic) => LEVELS.find((level) => level.teaches.includes(mechanic)).id;
 
 const ship = (state, storeId, zone, sku, weightPerUnit, quantity, vehicleId) => {
   let next = reduceAction(state, { type: 'SELECT_STORE', storeId });
@@ -80,17 +80,17 @@ test('successfully loading a pallet marks the next task on the TSD', () => {
 
 test('a progress-triggered demand change lands once and puts the order back in the queue', () => {
   let state = { ...startLevel(levelWith('dynamic-demand')), phase: 'shift' };
-  state = ship(state, 'north', 'dry', 'water', 12, 2, 'dry-1');
-  state = ship(state, 'west', 'dry', 'bread', 6, 2, 'dry-1');
+  state = ship(state, 'north', 'dry', 'water', 12, 6, 'dry-1');
   const next = tick(state, 1);
 
-  assert.equal(next.orders.find((order) => order.id === 'order-west').quantity, 4);
+  assert.equal(next.orders.find((order) => order.id === 'order-north').quantity, 10);
   assert.deepEqual(next.events.map((event) => event.type), ['demand-increase']);
   assert.equal(next.feedback.code, 'demand-increase');
+  assert.match(next.feedback.message, /Тушино.*ещё 4 шт/);
   /* Главное: выросшая заявка снова становится текущим заданием. Раньше
      магазин считался закрытым по факту первой паллеты, и добрать остаток
      штатным путём было нельзя. */
-  assert.equal(activeOrderFor(next).id, 'order-west');
+  assert.equal(activeOrderFor(next).id, 'order-north');
   assert.deepEqual(next.events.map((event) => event.type), tick(next, 1).events.map((event) => event.type));
 });
 
@@ -200,7 +200,9 @@ test('finished shift reports which loaded vehicles never got a route built', () 
   };
 
   const report = finishShift(state).report;
-  assert.match(report.reasons[0], /Маршрут не построен.*dry-2/);
+  // Машина названа так же, как в списке фургонов, а не идентификатором.
+  assert.match(report.reasons[0], /Маршрут не построен: Сухач фургон №2/);
+  assert.doesNotMatch(report.reasons[0], /dry-2/);
 });
 
 test('shiftOutcome describes the shift in plain data for the scorer', () => {

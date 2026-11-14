@@ -31,13 +31,15 @@
         <!-- Зона помечается температурой стеллажа, а не подписью во всю
              высоту кадра: раньше хотспот был прямоугольником на полкадра с
              табличкой у нижней кромки. Значок стоит в центре своего ряда. -->
-        <button class="scene-zone-sign scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry" aria-label="Зона Сухач, +18 градусов"><b>+18°</b></button>
-        <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled" aria-label="Зона Охлаждёнка, +4 градуса"><b>+4°</b></button>
-        <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen" aria-label="Зона Заморозка, −18 градусов"><b>−18°</b></button>
+        <!-- Вывеска называет зону словом и температурой вместе: в задании
+             написано «Сухач», и игроку не нужно переводить это в «+18°». -->
+        <button class="scene-zone-sign scene-zone--dry" data-action="SELECT_ZONE" data-zone="dry" data-scene-zone="dry" aria-label="Зона Сухач, +18 градусов"><b>+18°</b><small>Сухач</small></button>
+        <button class="scene-zone-sign scene-zone--chilled" data-action="SELECT_ZONE" data-zone="chilled" data-scene-zone="chilled" aria-label="Зона Охлаждёнка, +4 градуса"><b>+4°</b><small>Охлаждёнка</small></button>
+        <button class="scene-zone-sign scene-zone--frozen" data-action="SELECT_ZONE" data-zone="frozen" data-scene-zone="frozen" aria-label="Зона Заморозка, −18 градусов"><b>−18°</b><small>Заморозка</small></button>
 
         <button class="scene-dock scene-object" id="sceneDock" data-action="OPEN_TSD" type="button" hidden aria-label="Открыть задание приёмки"><span class="dock-badge" id="dockBadge">1</span><span class="scene-object-hint" aria-hidden="true">Приёмка</span></button>
-        <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="pallet-badge" id="palletGoal" hidden></span><span class="scene-object-hint" aria-hidden="true">Собрать</span></button>
-        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="scene-object-hint" aria-hidden="true">Маршрут</span></button>
+        <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="pallet-badge" id="palletGoal" hidden></span><span class="scene-object-hint" aria-hidden="true">Паллета</span></button>
+        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="truck-timer" id="truckTimer" hidden></span><span class="scene-object-hint" aria-hidden="true">Фургон</span></button>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
 
@@ -52,6 +54,21 @@
       <section class="shift-board" id="shiftBoard" aria-label="Сводка смены">
         <!-- Строки статуса здесь нет: что делать сейчас, говорит полоса ТСД,
              а что только что случилось — тост поверх сцены. -->
+        <!-- Карточка «Сейчас» — единственный постоянный ответ на вопрос «куда
+             нажать». Объект на схеме подсвечен тем же шагом, но схему можно
+             не разглядывать: большая кнопка делает то же самое. -->
+        <div class="now-card" id="nowCard" data-step="" aria-live="polite" aria-label="Текущий шаг" hidden>
+          <small class="now-kicker">Сейчас</small>
+          <strong class="now-title" id="nowTitle"></strong>
+          <span class="now-detail" id="nowDetail"></span>
+          <button class="now-cta" id="nowAction" type="button" data-action="OPEN_BUILDER"></button>
+        </div>
+        <!-- Доска заявок — для смен без поводыря. Это состояние склада, а не
+             подсказка: какую заявку брать, решает игрок, нажав на неё. -->
+        <div class="order-board" id="orderBoard" aria-label="Заявки смены" hidden>
+          <small class="order-board-kicker">Заявки</small>
+          <div class="order-board-rows" id="orderBoardRows"></div>
+        </div>
         <div class="board-actions">
           <button class="btn secondary" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">📖 Как играть?</button>
           <!-- Сам прибор, без пересказа задания: что на нём лежит, показывает
@@ -87,6 +104,15 @@
           <div class="flow-pallets" id="flowPallets"></div>
           <p class="flow-zone-hint" id="flowZoneHint"></p>
           <div class="flow-zones" id="flowZones"></div>
+        </div>
+
+        <!-- Отбор и погрузка показывают один и тот же список фургонов: на
+             отборе его строка достаёт паллету из зоны, на погрузке — ставит
+             её в кузов. Над списком — что есть в зонах и что уже у ворот. -->
+        <div class="flow-outbound" id="flowOutbound" hidden>
+          <p class="flow-stock" id="flowStock"></p>
+          <div class="flow-staging" id="flowStaging"></div>
+          <div class="flow-vans" id="flowVans"></div>
         </div>
       </section>
 
@@ -127,6 +153,15 @@
         <button class="tsd-primary" id="tsdContinueStory" data-action="CONTINUE_STORY" type="button" hidden>Начать смену</button>
         <button class="tsd-primary" id="tsdAccept" data-action="ACCEPT_TASK" type="button">Принять</button>
         <button class="tsd-primary" id="tsdReceive" data-action="RECEIVE_PALLET" type="button" hidden>Принять паллету</button>
+        <!-- Срочное задание можно взять поверх начатого: собранное вернётся на полку. -->
+        <button class="tsd-secondary is-urgent" id="tsdUrgent" data-action="TAKE_URGENT" type="button" hidden>Взять срочное</button>
+        <!-- Что будет после этого задания и у кого уходит фургон: окно ТСД
+             закрывает и доску, и таймер на воротах. -->
+        <div class="tsd-queue" id="tsdQueue" hidden>
+          <small class="tsd-queue-title">Дальше в очереди</small>
+          <ol class="tsd-queue-list" id="tsdQueueList"></ol>
+          <small class="tsd-queue-note" id="tsdQueueNote"></small>
+        </div>
         <button class="tsd-primary" id="tsdContinue" data-action="SHOW_STORY_AFTER" type="button" hidden>Следующая смена</button>
         <div class="tsd-content-slot" id="tsdContentSlot">
           <!-- Заголовок смены и текст истории печатает шапка прибора. Карточка
@@ -136,18 +171,23 @@
             <section id="levelBriefing" aria-hidden="true">
               <section class="tsd-panel story-card" id="storyCard" role="dialog" aria-modal="true" aria-labelledby="tsdTitle">
                 <p class="story-goal" id="briefingGoal"></p><button class="btn secondary full-width" data-action="OPEN_GUIDE" aria-controls="guideDialog" aria-expanded="false">Как играть?</button>
+                <!-- «Поток» открыт с первого экрана: раньше попасть в него можно
+                     было, только пройдя всю кампанию до конца. -->
+                <button class="btn secondary full-width" data-flow-action="START_FLOW" type="button">Режим «Поток»</button>
+                <!-- Игра помнит смену, на которой остановились; вернуться к
+                     первой без этой кнопки можно было, только пройдя кампанию. -->
+                <button class="btn secondary full-width" id="restartFromFirst" data-action="RESTART_CAMPAIGN" type="button" hidden>Начать с первой смены</button>
               </section>
             </section>
           </section>
           <section id="tsdInbound" data-tsd-panel="inbound" hidden>
             <div class="tsd-task-card"><span class="tsd-task-label">Поставщик</span><strong id="tsdInboundSupplier"></strong></div>
             <div class="tsd-task-card"><span class="tsd-task-label">В паллете</span><strong id="tsdInboundGoods"></strong></div>
-            <div class="tsd-task-card is-target"><span class="tsd-task-label">Разместить в зоне</span><strong id="tsdInboundZone"></strong></div>
           </section>
           <section id="tsdTask" data-tsd-panel="task" hidden>
-            <div class="tsd-task-card"><span class="tsd-task-label">Куда</span><strong id="tsdTaskStore"></strong></div>
-            <div class="tsd-task-card"><span class="tsd-task-label">Что собрать</span><strong id="tsdTaskOrder"></strong></div>
-            <div class="tsd-task-card"><span class="tsd-task-label">Зона хранения</span><strong id="tsdTaskZone"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label" id="tsdTaskStoreLabel">Куда</span><strong id="tsdTaskStore"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label" id="tsdTaskOrderLabel">Что собрать</span><strong id="tsdTaskOrder"></strong></div>
+            <div class="tsd-task-card"><span class="tsd-task-label" id="tsdTaskZoneLabel">Зона хранения</span><strong id="tsdTaskZone"></strong></div>
           </section>
           <section id="tsdCurrent" data-tsd-panel="current" hidden>
             <p class="tsd-hint">Задания приходят сюда. Сводка смены и список заявок — под фотографией склада.</p>
@@ -157,7 +197,7 @@
                заголовок «Новая смена» с кнопкой, которая ничего не делала. -->
           <section id="tsdEndless" data-tsd-panel="endless" hidden>
             <section class="tsd-panel story-card" id="endlessMode">
-              <p class="story-goal">Все девять смен пройдены. Дальше — «Поток»: склад работает сам, а вы успеваете за ним.</p>
+              <p class="story-goal">Все смены кампании пройдены. Дальше — «Поток»: склад работает сам, а вы успеваете за ним на четырёх станциях — приёмка, размещение, отбор, погрузка.</p>
               <button class="btn full-width" data-flow-action="START_FLOW">Смена «Поток»</button>
               <button class="btn secondary full-width" data-action="RESTART_CAMPAIGN">Пройти кампанию заново</button>
             </section>
@@ -178,27 +218,25 @@
                      температуры зон различимы сами, а экран прибора должен
                      помещаться целиком даже с раскрытым блоком. -->
                 <p class="tsd-hint">Смена зоны начнёт паллету заново.</p>
-                <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Тушино</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Косинская</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Саларьево</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Беломорская</button></div>
+                <div class="store-selects"><button class="store-select" data-action="SELECT_STORE" data-store="north">🔴 Тушино</button><button class="store-select" data-action="SELECT_STORE" data-store="central">🟡 Косинская</button><button class="store-select" data-action="SELECT_STORE" data-store="west">🟢 Саларьево</button><button class="store-select" data-action="SELECT_STORE" data-store="east">🔵 Беломорская</button><button class="store-select" data-action="SELECT_STORE" data-store="northwest">🟣 Ховрино</button><button class="store-select" data-action="SELECT_STORE" data-store="northeast">🟠 Медведково</button></div>
                 <!-- Три зоны в одну строку: зона обозначается температурой,
                      как на стеллаже, поэтому кнопке хватает узкой колонки. -->
                 <div class="zone-selects"><button class="zone-select" data-action="SELECT_ZONE" data-zone="dry"><b>+18°</b><small>Сухач</small></button><button class="zone-select" data-action="SELECT_ZONE" data-zone="chilled"><b>+4°</b><small>Охлаждёнка</small></button><button class="zone-select" data-action="SELECT_ZONE" data-zone="frozen"><b>−18°</b><small>Заморозка</small></button></div>
               </details>
-              <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b><small id="capacityTarget"></small></div><button class="btn" data-action="LOAD_PALLET">Поставить в отгрузку</button></div>
+              <div class="modal-foot"><div class="capacity">Паллета: <b id="capacity">0 / 100 кг</b><small id="capacityTarget"></small></div><button class="btn" data-action="LOAD_PALLET">Погрузить в фургон</button></div>
             </div>
           </section>
           <section id="vehicleModal" data-tsd-panel="vehicles" hidden aria-hidden="true">
             <div class="tsd-panel" id="tsdVehicles" role="dialog" aria-modal="true" aria-labelledby="vehicleTitle">
               <div class="modal-head"><h2 class="sr-only" id="vehicleTitle">Машины и маршрут</h2><p class="panel-task" id="vehicleTask"></p><button class="close" data-action="CLOSE_VEHICLES" aria-label="Закрыть">×</button></div>
               <div id="vehicleRows"></div>
-              <!-- Снятие паллеты: без него набитый лишним кузов было не
-                   разгрузить, и смена становилась непроходимой. -->
-              <div class="select-label" id="loadedLabel">В кузове</div>
-              <div id="loadedPallets"></div>
-              <div class="select-label">Карта доставки</div>
+              <!-- Остановки и груз — один список: строка остановки несёт и её
+                   паллеты, и стрелки порядка, и «Снять». Раньше адреса
+                   печатались дважды — в «В кузове» и в «Порядке остановок». -->
+              <div class="select-label" id="routeStopsLabel">Остановки и груз</div>
+              <div id="routeStops"></div>
               <div class="route-map" id="routeMap"></div>
               <p class="route-summary" id="routeSummary"></p>
-              <div class="select-label">Порядок остановок</div>
-              <div id="routeStops"></div>
               <div class="tsd-sticky-action"><button class="btn full-width" id="routeButton" data-action="SET_ROUTE">Маршрут пока пуст</button></div>
             </div>
           </section>
@@ -207,13 +245,14 @@
             <section id="guideModal" class="guide" aria-hidden="true">
               <section class="tsd-panel guide" id="guideDialog" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
                 <div class="modal-head"><h2 id="guideTitle">Как играть?</h2><button class="close" data-action="CLOSE_GUIDE" aria-label="Вернуться к смене">×</button></div>
-                <p class="guide-intro">Задания приходят на ТСД. Их два вида: принять поставку и собрать заявку на отгрузку.</p>
+                <p class="guide-intro">На первых двух сменах следующий шаг написан в карточке «Сейчас» под схемой, и её кнопка его выполняет. Дальше работу выдаёт ТСД — по одному заданию; первым он даёт то, чей фургон уходит раньше. Срочное задание можно взять поверх начатого, но собранное вернётся на полку. Доска под схемой показывает заявки и сколько осталось до ухода фургона.</p>
                 <ol class="guide-steps">
-                  <li><strong>Разбери приёмку.</strong> Если у ворот стоит паллета, ТСД покажет накладную. Нажми «Принять паллету», а потом — вывеску нужной зоны на схеме склада. Зона написана в накладной; ошибка портит товар.</li>
+                  <li><strong>Разбери приёмку.</strong> Если у ворот стоит паллета, ТСД покажет накладную. Нажми «Принять паллету», а потом — вывеску нужной зоны на схеме склада. Зону никто не подскажет: реши сам, какая температура нужна товару. Ошибка портит паллету.</li>
                   <li><strong>Собери паллету по заявке.</strong> Нажми паллету на схеме. Даркстор и зона уже подставлены из задания, остаётся кнопкой «+» набрать количество.</li>
-                  <li><strong>Поставь её в отгрузку.</strong> Склад сам подберёт фургон нужной зоны со свободным местом — он подписан внизу сборки. Адрес сразу попадает в маршрут.</li>
+                  <li><strong>Погрузи её в фургон.</strong> Склад сам подберёт фургон нужной зоны со свободным местом — он подписан внизу сборки. Адрес сразу попадает в маршрут.</li>
                   <li><strong>Если заявка не влезает</strong> в одну паллету или машину, отправь что набралось и собери остаток: он уедет следующим фургоном.</li>
                   <li><strong>Проверь порядок остановок.</strong> Нажми машину на схеме: стрелками можно переставить адреса. Чем короче рейс, тем выше «Вовремя».</li>
+                  <li><strong>Если заявку отменили</strong>, а её паллета уже в кузове, нажми машину на схеме и сними паллету: лишний груз режет «Точность» и удлиняет рейс.</li>
                   <li><strong>Заверши смену</strong> кнопкой под схемой. Ждать таймер не нужно.</li>
                 </ol>
                 <div class="guide-example"><h3>Заявки этой смены</h3><div id="guideOrders"></div></div>
