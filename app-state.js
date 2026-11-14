@@ -769,6 +769,13 @@
 
     if (action.type === 'LOAD_PALLET') {
       if (pallet.weight === 0) return withFeedback(state, feedback('info', 'empty-pallet', 'Сначала добавьте товар на паллету.'));
+      /* Ворота выбирает игрок: у каждых своя температура. Чужая машина
+         паллету просто не берёт — она цела, в показатели ничего не идёт,
+         потеряно только время. Без gateZone действие работает по-старому:
+         так его вызывают боты в тестах. */
+      if (action.gateZone && action.gateZone !== pallet.zone) {
+        return withFeedback(state, feedback('error', 'wrong-gate', 'Эта машина паллету не берёт: у неё другая температура.'));
+      }
       const zoneName = levelData.ZONE_NAMES[pallet.zone] || pallet.zone;
       const pick = vehicleForPallet(state, pallet, action.vehicleId || state.selectedVehicleId);
       if (!pick.vehicle) {
