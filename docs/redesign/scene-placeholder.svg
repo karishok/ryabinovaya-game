@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 760" role="img" aria-label="Схема склада">
+  <defs>
+    <pattern id="hazard" width="24" height="24" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="24" height="24" fill="#FFC21A"/><rect width="12" height="24" fill="#15181A"/>
+    </pattern>
+    <pattern id="tiles" width="65" height="65" patternUnits="userSpaceOnUse">
+      <path d="M65 0H0V65" fill="none" stroke="#DCD8CF" stroke-width="2"/>
+    </pattern>
+    <g id="rack">
+      <rect width="176" height="30" rx="5"/>
+      <g fill="#FFFFFF" fill-opacity=".55"><rect x="8" y="6" width="26" height="18" rx="2"/><rect x="40" y="6" width="26" height="18" rx="2"/><rect x="72" y="6" width="26" height="18" rx="2"/><rect x="104" y="6" width="26" height="18" rx="2"/><rect x="136" y="6" width="32" height="18" rx="2"/></g>
+    </g>
+    <g id="van">
+      <rect x="0" y="0" width="74" height="120" rx="12" fill="#FFFFFF" stroke="#15181A" stroke-width="4"/>
+      <rect x="9" y="84" width="56" height="26" rx="6" fill="#15181A" fill-opacity=".82"/>
+    </g>
+  </defs>
+
+  <!-- двор: асфальт за стеной -->
+  <rect width="780" height="760" fill="#C9C5BB"/>
+  <!-- пол склада -->
+  <rect x="20" y="20" width="740" height="590" rx="18" fill="#EDEAE3"/>
+  <rect x="20" y="20" width="740" height="590" rx="18" fill="url(#tiles)"/>
+
+  <!-- зоны хранения -->
+  <g>
+    <rect x="44" y="48" width="216" height="252" rx="16" fill="#F8E6CB" stroke="#D9862B" stroke-width="5"/>
+    <g fill="#E3A552"><use href="#rack" x="64" y="118"/><use href="#rack" x="64" y="162"/><use href="#rack" x="64" y="206"/><use href="#rack" x="64" y="250"/></g>
+    <rect x="282" y="48" width="216" height="252" rx="16" fill="#D2EEE9" stroke="#18958A" stroke-width="5"/>
+    <g fill="#5FBFB4"><use href="#rack" x="302" y="118"/><use href="#rack" x="302" y="162"/><use href="#rack" x="302" y="206"/><use href="#rack" x="302" y="250"/></g>
+    <rect x="520" y="48" width="216" height="252" rx="16" fill="#D8E4FB" stroke="#2E6BDE" stroke-width="5"/>
+    <g fill="#7FA6EE"><use href="#rack" x="540" y="118"/><use href="#rack" x="540" y="162"/><use href="#rack" x="540" y="206"/><use href="#rack" x="540" y="250"/></g>
+  </g>
+
+  <!-- разметка проездов -->
+  <g fill="none" stroke="#FFC21A" stroke-width="7" stroke-linecap="round" stroke-dasharray="2 20">
+    <path d="M150 596V345H630V596"/>
+    <path d="M390 345V398"/>
+  </g>
+
+  <!-- место сборки паллеты -->
+  <rect x="300" y="398" width="180" height="150" rx="14" fill="#FFFFFF" stroke="#15181A" stroke-width="4" stroke-dasharray="14 10"/>
+  <g transform="translate(326 422)">
+    <rect width="128" height="102" rx="6" fill="#C99755"/>
+    <g fill="none" stroke="#A97A3E" stroke-width="3"><path d="M0 26H128M0 51H128M0 76H128"/></g>
+    <g fill="#F1DDB6" stroke="#B8935A" stroke-width="3"><rect x="10" y="10" width="50" height="38" rx="4"/><rect x="68" y="10" width="50" height="38" rx="4"/><rect x="10" y="54" width="50" height="38" rx="4"/><rect x="68" y="54" width="50" height="38" rx="4"/></g>
+  </g>
+
+  <!-- стена с воротами -->
+  <g fill="#15181A">
+    <rect x="12" y="12" width="756" height="14" rx="7"/>
+    <rect x="12" y="12" width="14" height="606" rx="7"/>
+    <rect x="754" y="12" width="14" height="606" rx="7"/>
+    <rect x="12" y="604" width="46" height="14" rx="7"/>
+    <rect x="242" y="604" width="166" height="14"/>
+    <rect x="498" y="604" width="24" height="14"/>
+    <rect x="612" y="604" width="24" height="14"/>
+    <rect x="726" y="604" width="42" height="14" rx="7"/>
+  </g>
+  <!-- косяки ворот -->
+  <g fill="url(#hazard)">
+    <rect x="50" y="596" width="14" height="30" rx="3"/><rect x="236" y="596" width="14" height="30" rx="3"/>
+    <rect x="400" y="596" width="14" height="30" rx="3"/><rect x="492" y="596" width="14" height="30" rx="3"/>
+    <rect x="514" y="596" width="14" height="30" rx="3"/><rect x="606" y="596" width="14" height="30" rx="3"/>
+    <rect x="628" y="596" width="14" height="30" rx="3"/><rect x="720" y="596" width="14" height="30" rx="3"/>
+  </g>
+
+  <!-- фура на приёмке -->
+  <g>
+    <rect x="86" y="622" width="128" height="150" rx="8" fill="#FFFFFF" stroke="#15181A" stroke-width="4"/>
+    <path d="M86 660H214M86 700H214M86 740H214" stroke="#15181A" stroke-opacity=".18" stroke-width="3"/>
+  </g>
+  <!-- фургоны на отгрузке -->
+  <g>
+    <use href="#van" x="416" y="626"/><rect x="416" y="640" width="74" height="12" fill="#D9862B"/>
+    <use href="#van" x="530" y="626"/><rect x="530" y="640" width="74" height="12" fill="#18958A"/>
+    <use href="#van" x="644" y="626"/><rect x="644" y="640" width="74" height="12" fill="#2E6BDE"/>
+  </g>
+</svg>
