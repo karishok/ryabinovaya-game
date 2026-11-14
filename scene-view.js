@@ -11,7 +11,7 @@
   const clockText = (seconds) => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.max(0, seconds) % 60).padStart(2, '0')}`;
 
   /* Фургоны, которые уйдут в рейс по часам, — ближайший первым. Это время
-     видно на схеме постоянно: по нему игрок решает, какое задание отложить. */
+     видно на схеме постоянно: к этому сроку заявка фургона должна быть в кузове. */
   const departuresFor = (state) => (state.vehicles || [])
     .filter((vehicle) => typeof vehicle.departsAt === 'number' && !vehicle.departed)
     .sort((left, right) => left.departsAt - right.departsAt)

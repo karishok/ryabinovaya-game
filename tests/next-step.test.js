@@ -90,7 +90,11 @@ const { LEVELS, ZONE_NAMES, ZONE_MARKS } = require('../levels.js');
 const { tick, finishShift, activeOrderFor, remainingFor, orphanPalletsFor } = require('../app-state.js');
 
 function followTheCard(levelId) {
+  /* Этот игрок проверяет сам расчёт шага, а не сроки: он тратит секунду на
+     каждое действие и идёт по списку заявок, а не в порядке терминала.
+     Уход фургонов проверяется отдельно, в tests/task-queue.test.js. */
   let state = begin(levelId);
+  state = { ...state, vehicles: state.vehicles.map((vehicle) => ({ ...vehicle, departsAt: null })) };
   const guided = LEVELS.find((level) => level.id === levelId).guided !== false;
   const seen = [];
   for (let guard = 0; guard < 240; guard += 1) {
@@ -219,7 +223,8 @@ test('a van still on its run refuses the pallet honestly and comes back on its o
 });
 
 test('a pallet that cannot take one more unit is loaded, not topped up', () => {
-  let state = reduceAction(begin(CAPACITY), { type: 'ACCEPT_TASK' });
+  // Заявка на воду: терминал первым даёт молоко уходящего фургона, поэтому адресуем паллету сами.
+  let state = reduceAction(begin(CAPACITY), { type: 'SELECT_STORE', storeId: 'north' });
   state = add(state, 8);
   const step = nextStepFor(state);
   assert.equal(step.key, 'load');
@@ -351,10 +356,10 @@ test('the board says where missing goods are: on the road, at the dock, or lost'
 test('a truck that is on the road also arrives for a player who just waits', () => {
   const { orderBoardFor } = require('../scene-view.js');
   let state = begin(MIXED);
-  state = tick(state, 29);
+  state = tick(state, 9);
   assert.equal(state.inbound.length, 0);
   state = tick(state, 1);
-  assert.equal(state.inbound.length, 1, 'через полминуты фура приезжает сама, без единой погрузки');
+  assert.equal(state.inbound.length, 1, 'через десять секунд фура приезжает сама, без единой погрузки');
   assert.equal(orderBoardFor(state).find((row) => row.orderId === 'order-central').note, 'стоит на приёмке');
   // И не приезжает второй раз, когда наконец погружена первая паллета.
   state = reduceAction(state, { type: 'RECEIVE_PALLET' });

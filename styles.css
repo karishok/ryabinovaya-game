@@ -262,7 +262,17 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-display > p { margin: 7px 0 0; color: var(--muted); }
 .tsd-display > p[id="tsdProgress"] { color: #ffe0a0; font-size: 12px; font-weight: 800; }
 .tsd-display > p[role="status"] { min-height: 24px; color: #d8fff3; }
-/* Вторая кнопка задания: отложить или взять срочное. */
+/* Очередь под кнопками задания: что придёт следом и у кого уходит фургон. */
+.tsd-queue { display: grid; gap: 4px; margin-top: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 13px; background: rgba(9, 18, 14, 0.5); }
+.tsd-queue-title { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.tsd-queue-list { display: grid; gap: 3px; margin: 0; padding: 0 0 0 18px; color: var(--cream); font-size: 12px; }
+.tsd-queue-list li { padding-left: 2px; }
+.tsd-queue-list li span { overflow: hidden; }
+.tsd-queue-list li em { margin-left: 6px; color: #ffe0a0; font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tsd-queue-list li b { color: #ffd98a; font-weight: 800; }
+.tsd-queue-list li.is-soon em { padding: 1px 6px; border-radius: 999px; background: #3c2320; color: #ffd9d2; }
+.tsd-queue-note { color: var(--muted); font-size: 11px; }
+/* Вторая кнопка задания: взять срочное поверх начатого. */
 .tsd-secondary { width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--line); border-radius: 14px; background: #293b31; color: var(--cream); font-size: 13px; font-weight: 800; }
 .tsd-secondary.is-urgent { border-color: var(--amber); background: rgba(240, 170, 56, 0.14); color: #ffd98a; }
 .tsd-primary { width: 100%; min-height: 48px; margin-top: 16px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 14px; background: linear-gradient(135deg, #d65e40, #b94732); color: #fffaf0; font-weight: 850; box-shadow: 0 8px 18px rgba(178, 65, 45, 0.36); }

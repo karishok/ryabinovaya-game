@@ -30,14 +30,13 @@
 
   /* Смена без поводыря: терминал выдаёт задания из очереди. Экран собирается
      поверх обычного и меняет только то, что относится к заданию: что
-     предложено, что в работе, какие кнопки — «Принять», «Отложить»,
+     предложено, что в работе, какие кнопки — «Принять» и
      «Взять срочное». Брифинг, ошибка и отчёт остаются прежними. */
   function queueViewFor(state, base) {
     const queue = appState.taskQueueFor(state);
     const current = queue.find((task) => task.active) || null;
     const offered = queue.find((task) => !task.active && !task.blocked) || null;
     const blocked = queue.filter((task) => task.blocked && !task.active);
-    const defersLeft = state.defersLeft ?? appState.DEFERS_PER_SHIFT;
     const orderOf = (task) => (state.orders || []).find((order) => order.id === task.orderId);
     const inboundOf = (task) => (state.inbound || []).find((pallet) => pallet.id === task.inboundId);
     const itemName = (sku) => engine.itemBySku(sku)?.name || sku;
@@ -89,7 +88,6 @@
     const shown = current || offered;
     const details = shown ? describe(shown) : null;
     const offering = !current && Boolean(offered);
-    const others = queue.filter((task) => !task.blocked && task.id !== offered?.id).length;
     const waitingText = blocked.some((task) => task.blocked === 'no-stock')
       ? 'Ждём поставку: товара для оставшихся заданий ещё нет в зоне.'
       : 'Ждём фургон: оставшееся пока не на чем увезти.';
@@ -101,14 +99,37 @@
       : offering ? (offered.urgent ? 'Срочное задание' : 'Новое задание')
         : current ? 'Задание в работе'
           : blocked.length ? 'Ждём' : 'Заданий нет';
-    const message = state.feedback?.kind === 'info' && ['defer-nowhere', 'defer-spent', 'placing-first'].includes(state.feedback.code)
+    const message = state.feedback?.kind === 'info' && ['placing-first'].includes(state.feedback.code)
       ? state.feedback.message
       : placing ? 'Паллета принята. Выберите зону хранения на схеме склада.'
         // У принятого задания карточек на экране нет — что в работе, говорит сама строка.
-        : shown ? `${current ? `${details.compact}. ` : ''}${details.message}${deadlineNote(shown)}`
+        /* Предложенное задание называет себя в первой же строке: под кнопками
+           стоит очередь, и «что дальше» не должно читаться раньше, чем «что
+           сейчас». */
+        : offering && offered.kind !== 'unload' ? `${details.values[0]} — ${details.values[1]}${deadlineNote(shown)}`
+          : shown ? `${current ? `${details.compact}. ` : ''}${details.message}${deadlineNote(shown)}`
           : blocked.length ? waitingText
             : 'Все задания выполнены. Проверьте маршруты и завершите смену.';
     const canTakeUrgent = Boolean(current && offered?.urgent && !placing);
+    /* Что терминал выдаст после предложенного задания и у какого из них
+       уходит фургон. Окно ТСД закрывает и доску заявок, и таймер на
+       воротах — очередь под кнопкой показывает то же самое, не закрывая. */
+    const deadlineOf = (task) => {
+      const deadline = appState.taskDeadlineFor(state, task);
+      return typeof deadline === 'number' ? deadline - (state.elapsedSeconds || 0) : null;
+    };
+    const queueAhead = offering
+      ? queue.filter((task) => !task.active && !task.blocked && task.id !== offered.id).slice(0, 4).map((task) => {
+        const left = deadlineOf(task);
+        return {
+          text: describe(task).compact,
+          urgent: task.urgent,
+          deadlineText: left === null ? '' : `фургон ${clockText(left)}`,
+          soon: left !== null && left <= 30,
+        };
+      })
+      : [];
+    const waitingCount = blocked.length;
 
     return {
       ...base,
@@ -125,8 +146,8 @@
       progressText: '',
       canAccept: offering && offered.kind !== 'receive',
       canReceive: offering && offered.kind === 'receive',
-      canDefer: offering && others > 0 && defersLeft > 0,
-      deferLabel: `Отложить · осталось ${defersLeft}`,
+      queueAhead,
+      queueNote: offering && waitingCount ? `Ещё ${waitingCount} ждёт поставки или фургона` : '',
       canTakeUrgent,
       urgentLabel: canTakeUrgent ? `Взять срочное: ${describe(offered).compact}` : '',
       awaitingPlacement: placing,
@@ -136,7 +157,7 @@
       currentTaskKind: current?.kind || null,
       compactKicker: offering ? (offered.urgent ? 'Срочное задание' : 'Новое задание') : current ? 'В работе' : blocked.length ? 'Ждём' : 'Готово',
       compactTask: shown ? details.compact : blocked.length ? 'товар в пути или фургон в рейсе' : 'Все задания выполнены',
-      compactMeta: `Отложений осталось: ${defersLeft}`,
+      compactMeta: '',
     };
   }
 

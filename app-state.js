@@ -59,7 +59,7 @@
 
   /* Паллета приёмки, с которой сейчас работают. На смене с поводырём это
      первая у ворот; на смене с очередью ТСД — та, чьё задание принято:
-     отложенная паллета не должна перехватывать приёмку следующей. */
+     паллета, стоящая у ворот дольше, не должна перехватывать приёмку срочной. */
   const pendingInboundFor = (state) => {
     const pending = (state.inbound || []).filter((pallet) => pallet.status === 'arrived' || pallet.status === 'received');
     const active = String(state.activeTaskId || '');
@@ -149,11 +149,9 @@
       phase: 'briefing',
       story: { kind: 'before', text: level.storyBefore },
       tsd: initialTsdState(),
-      // Очередь ТСД: что принято, что отложено, что пришло срочным.
+      // Очередь ТСД: что принято и что пришло срочным.
       activeTaskId: null,
-      deferredTaskIds: [],
       urgentTaskIds: [],
-      defersLeft: DEFERS_PER_SHIFT,
       builderOpen: false,
       vehicleDrawerOpen: false,
       guideOpen: false,
@@ -367,18 +365,21 @@
   }
 
   /* ---- Очередь заданий ТСД ----
-     На сменах без поводыря работу выдаёт терминал: одно задание за раз, в
-     порядке поступления. Игрок его принимает или откладывает. Выбирать
-     заявку с доски нельзя — в жизни кладовщик заявки не выбирает, они
-     приходят на ТСД. Выбор при этом не исчезает, а становится редким и
-     дорогим: отложений на смену три, а срочное задание можно взять, только
-     бросив начатую паллету.
+     На сменах без поводыря работу выдаёт терминал: одно задание за раз.
+     Выбирать заявку с доски нельзя — в жизни кладовщик заявки не выбирает,
+     они приходят на ТСД. Порядок строит сам терминал: первым идёт то, чей
+     фургон уходит раньше, затем срочное, затем остальное в порядке
+     поступления. У игрока одно решение об очереди — взять ли срочное
+     задание, бросив начатую паллету.
+
+     Раньше задание можно было отложить (три раза за смену), а заявку
+     уходящего фургона терминал нарочно ставил последней. На практике было
+     неясно, когда откладывать, и кнопку убрали вместе с этой ловушкой.
 
      Задания не хранятся — они выводятся из состояния смены: открытая заявка
      — «собрать», паллета у ворот — «принять», паллета отменённой заявки в
      кузове — «снять». Хранится только то, что решил игрок: какое задание
-     принято, какие отложены, и какие пришли срочными посреди смены. */
-  const DEFERS_PER_SHIFT = 3;
+     принято, и какие пришли срочными посреди смены. */
   const guidedFor = (state) => levelFor(state.levelId)?.guided !== false;
   const queueActive = (state) => !guidedFor(state) && state.phase === 'shift';
   const isDeparted = (vehicle) => vehicle?.departed === true;
@@ -432,22 +433,22 @@
     return tasks;
   }
 
-  /* Порядок очереди: принятое задание, затем срочные в порядке прихода,
-     затем обычные в порядке поступления, затем отложенные. Задание, которое
-     сейчас выполнить нельзя (товар в пути, фургон в рейсе), уходит в хвост
-     само: терминал не предлагает работу, которую нечем сделать. */
+  /* Порядок очереди: принятое задание; затем задания со сроком — раньше то,
+     чей фургон уходит раньше; затем срочные в порядке прихода; затем
+     обычные в порядке поступления. Задание, которое сейчас выполнить нельзя
+     (товар в пути, фургон в рейсе), уходит в хвост само: терминал не
+     предлагает работу, которую нечем сделать. */
   function taskQueueFor(state) {
     const urgent = state.urgentTaskIds || [];
-    const deferred = state.deferredTaskIds || [];
     const rank = (task) => {
       if (task.id === state.activeTaskId) return [0, 0];
-      // Начатую приёмку нельзя обогнать: паллета уже на тележке.
-      if (deferred.includes(task.id)) return [3, deferred.indexOf(task.id)];
-      if (urgent.includes(task.id)) return [1, urgent.indexOf(task.id)];
-      return [2, task.base];
+      const deadline = taskDeadlineFor(state, task);
+      if (typeof deadline === 'number') return [1, deadline * 1000 + task.base];
+      if (urgent.includes(task.id)) return [2, urgent.indexOf(task.id)];
+      return [3, task.base];
     };
     return openTasksFor(state)
-      .map((task) => ({ ...task, urgent: urgent.includes(task.id) && !deferred.includes(task.id), active: task.id === state.activeTaskId }))
+      .map((task) => ({ ...task, urgent: urgent.includes(task.id), active: task.id === state.activeTaskId }))
       .sort((left, right) => {
         const blockedLeft = left.blocked && !left.active ? 1 : 0;
         const blockedRight = right.blocked && !right.active ? 1 : 0;
@@ -486,10 +487,7 @@
     let next = state;
     const keep = (list) => (list || []).filter((id) => open.has(id));
     const urgentTaskIds = keep(state.urgentTaskIds);
-    const deferredTaskIds = keep(state.deferredTaskIds);
-    if (urgentTaskIds.length !== (state.urgentTaskIds || []).length || deferredTaskIds.length !== (state.deferredTaskIds || []).length) {
-      next = { ...next, urgentTaskIds, deferredTaskIds };
-    }
+    if (urgentTaskIds.length !== (state.urgentTaskIds || []).length) next = { ...next, urgentTaskIds };
     /* Принятая заявка, остаток которой ждёт поставки: собрать больше нечего,
        и держать её в работе значило бы запереть терминал. Она возвращается
        в очередь и придёт снова, когда товар встанет в зону. */
@@ -552,20 +550,6 @@
       return task ? reduceCore(activateTask(state, task), action) : reduceCore(state, action);
     }
 
-    if (action.type === 'DEFER_TASK') {
-      if (current || !offered) return state;
-      const others = taskQueueFor(state).filter((task) => !task.blocked && task.id !== offered.id);
-      if (others.length === 0) return withFeedback(state, feedback('info', 'defer-nowhere', 'Откладывать некуда: других заданий сейчас нет.'));
-      if ((state.defersLeft ?? DEFERS_PER_SHIFT) <= 0) return withFeedback(state, feedback('info', 'defer-spent', 'Отложений на эту смену больше нет.'));
-      const defersLeft = (state.defersLeft ?? DEFERS_PER_SHIFT) - 1;
-      return withFeedback({
-        ...state,
-        defersLeft,
-        deferredTaskIds: [...(state.deferredTaskIds || []).filter((id) => id !== offered.id), offered.id],
-        tsd: { ...state.tsd, signal: 'new', dismissedTaskId: null },
-      }, feedback('info', 'task-deferred', `Задание отложено. Отложений осталось: ${defersLeft}.`));
-    }
-
     /* Срочное задание поверх начатого: начатое бросают, и собранное на
        паллету возвращается на полку. Принятую и уже снятую с фуры паллету
        бросить нельзя — она стоит на тележке посреди склада. */
@@ -599,8 +583,6 @@
     return {
       ...after,
       urgentTaskIds: [...(after.urgentTaskIds || []), ...fresh],
-      // Срочное снимает отложенность: дозаказанную заявку терминал выдаёт снова.
-      deferredTaskIds: (after.deferredTaskIds || []).filter((id) => !fresh.includes(id)),
       tsd: { ...after.tsd, signal: 'new', dismissedTaskId: null },
     };
   }
@@ -899,6 +881,6 @@
     reduceAction, startLevel, tick, finishShift, shiftOutcome, liveMetrics, fulfillmentFor,
     missingRouteVehicles, activeOrderFor, pendingInboundFor, remainingFor,
     vehicleForPallet, vehicleLabel, roomIn, orphanPalletsFor,
-    taskQueueFor, currentTaskFor, nextTaskFor, taskDeadlineFor, guidedFor, DEFERS_PER_SHIFT,
+    taskQueueFor, currentTaskFor, nextTaskFor, taskDeadlineFor, guidedFor,
   };
 });

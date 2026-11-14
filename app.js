@@ -242,12 +242,14 @@ function renderTsd(view, document) {
   byId(document, 'tsdTaskStoreLabel').textContent = storeLabel;
   byId(document, 'tsdTaskOrderLabel').textContent = orderLabelText;
   byId(document, 'tsdTaskZoneLabel').textContent = zoneLabel;
-  const defer = byId(document, 'tsdDefer');
-  defer.hidden = !view.canDefer;
-  defer.textContent = view.deferLabel || 'Отложить';
   const urgent = byId(document, 'tsdUrgent');
   urgent.hidden = !view.canTakeUrgent;
   urgent.textContent = view.urgentLabel || 'Взять срочное';
+  const queueBlock = byId(document, 'tsdQueue');
+  const ahead = view.queueAhead || [];
+  queueBlock.hidden = ahead.length === 0 && !view.queueNote;
+  byId(document, 'tsdQueueList').innerHTML = ahead.map((task) => `<li class="${task.soon ? 'is-soon' : ''}"><span>${task.urgent ? '<b>срочно</b> · ' : ''}${task.text}</span>${task.deadlineText ? `<em>${task.deadlineText}</em>` : ''}</li>`).join('');
+  byId(document, 'tsdQueueNote').textContent = view.queueNote || '';
   const message = byId(document, 'tsdMessage');
   message.textContent = view.message;
   // Пустая строка статуса всё равно держала 24 px в шапке прибора.
