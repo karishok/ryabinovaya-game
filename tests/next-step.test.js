@@ -291,7 +291,7 @@ test('every zone sign lights up alike while a received pallet waits, on any shif
   for (const levelId of [TUTORIAL, RUSH]) {
     const state = reduceAction(begin(levelId), { type: 'RECEIVE_PALLET' });
     assert.equal(warehouseViewFor(state).awaitingPlacement, true);
-    assert.match(state.feedback.message, /Выберите зону на схеме/);
+    assert.match(state.feedback.message, /Выберите зону — нажмите её вывеску/);
   }
 });
 

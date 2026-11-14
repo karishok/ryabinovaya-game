@@ -121,7 +121,7 @@
       return {
         key: 'place',
         title: `Разместите паллету: ${item?.name || inbound.sku}`,
-        detail: 'Выберите зону на схеме сами. Чужая температура испортит товар',
+        detail: 'Выберите зону сами: нажмите её вывеску. Чужая температура испортит товар',
         actionLabel: '',
         action: null,
         focus: 'zones',
@@ -176,7 +176,7 @@
           orderId: order.id,
           title: 'Паллета полная — погрузите её',
           detail: `${state.pallet.weight} кг из ${state.pallet.capacity || 100}. Остаток заявки (${left} шт.) пойдёт следующей паллетой`,
-          actionLabel: 'Погрузить в фургон',
+          actionLabel: 'К отгрузке',
           action: 'LOAD_PALLET',
           focus: 'pallet',
         };
@@ -197,7 +197,7 @@
         orderId: order.id,
         title: 'Паллета готова — погрузите её',
         detail: `${state.pallet?.weight || 0} кг → фургон зоны «${zoneName}», адрес ${storeName}`,
-        actionLabel: 'Погрузить в фургон',
+        actionLabel: 'К отгрузке',
         action: 'LOAD_PALLET',
         focus: 'pallet',
       };
@@ -207,7 +207,7 @@
         key: 'load',
         title: 'Паллета готова — погрузите её',
         detail: `${state.pallet.weight} кг → фургон зоны «${ZONE_NAMES[state.pallet.zone] || state.pallet.zone}»`,
-        actionLabel: 'Погрузить в фургон',
+        actionLabel: 'К отгрузке',
         action: 'LOAD_PALLET',
         focus: 'pallet',
       };
