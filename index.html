@@ -10,8 +10,11 @@
 <body>
   <main class="app" aria-live="polite">
     <section class="screen active" data-screen="warehouse">
-      <section class="warehouse-scene" id="warehouseScene" data-mode="idle" data-active-zone="dry" aria-label="Распределительный центр Рябиновая">
-        <img class="scene-backdrop" src="assets/warehouse-center.webp" alt="" aria-hidden="true" />
+      <section class="warehouse-scene" id="warehouseScene" data-mode="idle" data-active-zone="dry" data-location="hub" data-shelf-zone="" aria-label="Распределительный центр Рябиновая">
+        <!-- Кадр глазами кладовщика. Слоёв два: под новым кадром остаётся
+             прежний, пока новый проявляется. -->
+        <img class="scene-backdrop scene-backdrop--prev" id="sceneBackdropPrev" src="assets/fp/hub-zones.webp" alt="" aria-hidden="true" />
+        <img class="scene-backdrop" id="sceneBackdrop" src="assets/fp/hub-zones.webp" data-frame="hub" alt="" aria-hidden="true" />
         <div class="scene-shade" aria-hidden="true"></div>
 
         <div class="scene-hud">
@@ -39,7 +42,22 @@
 
         <button class="scene-dock scene-object" id="sceneDock" data-action="OPEN_TSD" type="button" hidden aria-label="Открыть задание приёмки"><span class="dock-badge" id="dockBadge">1</span><span class="scene-object-hint" aria-hidden="true">Приёмка</span></button>
         <button class="scene-pallet scene-object" id="scenePallet" data-action="OPEN_BUILDER" type="button" aria-label="Открыть сборку текущей паллеты"><span class="pallet-badge" id="palletGoal" hidden></span><span class="scene-object-hint" aria-hidden="true">Паллета</span></button>
-        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="truck-timer" id="truckTimer" hidden></span><span class="scene-object-hint" aria-hidden="true">Фургон</span></button>
+        <button class="truck-bay scene-object" id="sceneTruckBay" data-action="OPEN_VEHICLES" type="button" aria-label="Открыть машины и маршрут"><span class="truck-light" aria-hidden="true"></span><span class="truck-badge" id="mapPallets">0 паллет</span><span class="scene-object-hint" aria-hidden="true">Машины</span></button>
+        <!-- Срок ближайшей уходящей машины виден в любом кадре: ворота теперь
+             показывает только кадр отгрузки. -->
+        <span class="truck-timer" id="truckTimer" hidden></span>
+
+        <!-- Ворота отгрузки. Их выбирает игрок: у каждых своя температура. -->
+        <button class="scene-gate scene-gate--dry" data-action="GATE" data-gate-zone="dry" type="button" aria-label="Ворота сухой машины, +18 градусов"><b>+18°</b><small>Сухач</small></button>
+        <button class="scene-gate scene-gate--chilled" data-action="GATE" data-gate-zone="chilled" type="button" aria-label="Ворота охлаждённой машины, +4 градуса"><b>+4°</b><small>Охлаждёнка</small></button>
+        <button class="scene-gate scene-gate--frozen" data-action="GATE" data-gate-zone="frozen" type="button" aria-label="Ворота морозильной машины, −18 градусов"><b>−18°</b><small>Заморозка</small></button>
+
+        <!-- Переезды от полки. К отгрузке игра везёт по кнопке, ворота игрок
+             выбирает сам; «На проезд» — если приехал не в ту зону. -->
+        <div class="fp-nav">
+          <button class="fp-nav-button" id="fpToHub" data-action="GO_HUB" type="button">← На проезд</button>
+          <button class="fp-nav-button fp-nav-button--go" id="fpToShipping" data-action="GO_SHIPPING" type="button" hidden>К отгрузке →</button>
+        </div>
 
         <div class="sr-only" id="sceneOperator"><strong id="sceneOperatorName">Лера</strong><span id="sceneStatus">Выберите заявку и начните сборку.</span><span id="vehicleName">Сухой фургон</span></div>
 
@@ -283,6 +301,7 @@
   <script src="scene-view.js"></script>
   <script src="tsd-view.js"></script>
   <script src="tsd-signal.js"></script>
+  <script src="fp-view.js"></script>
   <script src="flow-engine.js"></script>
   <script src="flow-view.js"></script>
   <script src="app.js?v=guide-2"></script>

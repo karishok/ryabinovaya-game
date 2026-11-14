@@ -41,6 +41,7 @@ function loadUiWithClicks(options = {}) {
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: sceneView,
     RyabinovayaTsdView: tsdView,
+    RyabinovayaFpView: require('../fp-view.js'),
     RyabinovayaTsdSignal: tsdSignal,
     setTimeout() {},
   };
@@ -137,6 +138,8 @@ test('a successful load reports through the toast and never takes over the termi
   click({ dataset: { action: 'ACCEPT_TASK' }, disabled: false });
   click({ dataset: { action: 'ADD_ITEM', sku: 'water', zone: 'dry', weight: '12', quantity: '2' }, disabled: false });
   click({ dataset: { action: 'LOAD_PALLET' }, disabled: false });
+  // Кнопка привезла к воротам; грузят сами ворота зоны паллеты.
+  click({ dataset: { action: 'GATE', gateZone: 'dry' }, disabled: false });
 
   /* Успех не забирает экран: раньше каждая собранная паллета открывала
      полноэкранное сообщение с обязательным «Продолжить». */

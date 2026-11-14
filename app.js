@@ -9,6 +9,7 @@ const {
 const { warehouseViewFor } = window.RyabinovayaSceneView;
 const { terminalViewFor } = window.RyabinovayaTsdView;
 const { signalTsd } = window.RyabinovayaTsdSignal || { signalTsd: () => {} };
+const { locationAfter, canPick, frameFor } = window.RyabinovayaFpView;
 const itemDetails = {
   water: { emoji: '💧', name: 'Вода 1,5 л' }, milk: { emoji: '🥛', name: 'Молоко' }, butter: { emoji: '🧈', name: 'Масло' }, bread: { emoji: '🍞', name: 'Хлеб' }, 'ice-cream': { emoji: '🍨', name: 'Мороженое' },
 };
@@ -33,6 +34,13 @@ let tsdReturnFocus = null;
 let lastTsdSignal = 'idle';
 let audioContext = null;
 let audioUnlocked = false;
+/* Где сейчас кладовщик. Это состояние экрана, а не игры: правила про кадры
+   не знают. passingFrame — кадр, мимо которого он проезжает (фура перед
+   проездом); его снимает таймер. */
+let location = 'hub';
+let passingFrame = null;
+const PASS_MS = 900;
+const info = (current, code, message) => ({ ...current, feedback: { kind: 'info', code, message } });
 
 const byId = (document, id) => document.getElementById(id);
 const quantityFor = (pallet, sku) => pallet.items.filter((item) => item.sku === sku).reduce((total, item) => total + item.quantity, 0);
@@ -117,6 +125,21 @@ function playWarehouseBeep(kind) {
 
 function renderScene(view, document) {
   const scene = byId(document, 'warehouseScene');
+  // Тесты зовут renderScene с неполным видом: без места это проезд.
+  const place = view.location || 'hub';
+  const [placeKind, shelfZone = ''] = place.split(':');
+  scene.dataset.location = placeKind;
+  scene.dataset.shelfZone = shelfZone;
+  const frame = frameFor(view.passingFrame || place);
+  const backdrop = byId(document, 'sceneBackdrop');
+  if (backdrop && backdrop.dataset.frame !== frame.key) {
+    const previous = byId(document, 'sceneBackdropPrev');
+    if (previous) previous.src = backdrop.src || frame.src;
+    backdrop.src = frame.src;
+    backdrop.dataset.frame = frame.key;
+    // Чётность перезапускает анимацию наезда без принудительного reflow.
+    scene.dataset.frameParity = scene.dataset.frameParity === '1' ? '0' : '1';
+  }
   scene.dataset.mode = view.mode;
   scene.dataset.activeZone = view.activeZone;
   scene.dataset.selectedZone = view.selectedZone;
@@ -319,6 +342,8 @@ function routeSummaryHtml(routeStops, guided = true) {
 function render(nextState, document) {
   const sceneView = warehouseViewFor(nextState);
   const view = tsdViewFor(nextState);
+  sceneView.location = location;
+  sceneView.passingFrame = passingFrame;
   renderScene(sceneView, document);
   renderTsd(view, document);
   if (view.signal !== lastTsdSignal) {
@@ -378,6 +403,18 @@ function render(nextState, document) {
        читалась как «куда-то надо нажать» на уровне с одной зоной. */
     zone.hidden = !unlocked;
   });
+  /* Ворот столько, сколько в смене температур у машин: ворота без машины
+     не показываем, как и вывеску закрытой зоны. Во вводных сменах верные
+     ворота подсвечены; зону размещения не подсвечивает ничто. */
+  const palletReady = (nextState.pallet?.weight || 0) > 0;
+  document.querySelectorAll('[data-gate-zone]').forEach((gate) => {
+    const served = nextState.vehicles.some((vehicle) => vehicle.zone === gate.dataset.gateZone);
+    gate.hidden = !served;
+    gate.disabled = !served;
+    gate.classList.toggle('is-focus', sceneView.guided && palletReady && gate.dataset.gateZone === nextState.pallet.zone);
+  });
+  const toShipping = byId(document, 'fpToShipping');
+  if (toShipping) toShipping.hidden = !palletReady;
   if (nextState.levelId !== rememberedLevelId) {
     rememberedLevelId = nextState.levelId;
     rememberLevel(nextState.levelId);
@@ -569,8 +606,27 @@ function scheduleToastDismiss(message) {
 }
 
 function dispatch(action) {
+  const before = state;
   const queueShift = !guidedFor(state) && state.phase === 'shift';
-  if (action.type === 'OPEN_BUILDER') {
+  /* Ворота — два действия в одном: с товаром на паллете это погрузка в
+     машину этой температуры, с пустой — взгляд в кузов и маршрут. */
+  if (action.type === 'GATE') {
+    const vehicle = state.vehicles.find((entry) => entry.zone === action.zone);
+    if (!vehicle) return state;
+    action = (state.pallet?.weight || 0) > 0
+      ? { type: 'LOAD_PALLET', gateZone: action.zone, vehicleId: state.selectedVehicleId }
+      : { type: 'OPEN_VEHICLES', vehicleId: vehicle.id };
+  }
+  // Действие, по которому считается новое место; отказ превращает его в «никуда».
+  let move = action;
+  /* На смене с очередью зону паллеты задаёт задание. Приехал к чужой полке —
+     собирать там нечего. Во вводной смене такого не бывает: там кнопка
+     карточки сама везёт к полке зоны паллеты. */
+  const wrongShelf = 'Товара этой заявки здесь нет — это другая зона. Вернитесь на проезд.';
+  const atWrongShelf = queueShift && location.startsWith('shelf:') && location !== `shelf:${state.pallet.zone}`;
+  if (action.type === 'OPEN_BUILDER' && atWrongShelf) {
+    state = info(state, 'wrong-shelf', wrongShelf);
+  } else if (action.type === 'OPEN_BUILDER') {
     if (queueShift) {
       /* На смене с очередью паллета собирается только под принятое задание.
          Нет принятого — нажатие на паллету показывает, что предлагает ТСД. */
@@ -582,6 +638,37 @@ function dispatch(action) {
          экран задания, и «Принять» приходилось жать только чтобы вернуться. */
       if (!state.tsd?.acceptedOrderId) state = reduceAction(state, { type: 'ACCEPT_TASK' });
       state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } };
+    }
+  } else if (action.type === 'GO_HUB') {
+    state = { ...state, builderOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
+  } else if (action.type === 'GO_SHIPPING') {
+    if ((state.pallet?.weight || 0) === 0) {
+      // Пустую паллету к воротам не везут; редьюсер сам скажет почему.
+      state = reduceAction(state, { type: 'LOAD_PALLET' });
+      move = { type: 'STAY' };
+    } else {
+      state = { ...state, builderOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
+    }
+  } else if (action.type === 'GO_SHELF') {
+    if (!canPick(state)) {
+      state = info(state, 'no-pick-task', 'Сначала примите задание на ТСД.');
+      move = { type: 'STAY' };
+    } else {
+      /* Во вводной смене зону паллеты выбирает игрок, как раньше вывеской;
+         на смене с очередью её задаёт задание, и чужая полка — просто
+         потерянные секунды. */
+      if (!queueShift && state.pallet.zone !== action.zone) {
+        state = reduceAction(state, { type: 'SELECT_ZONE', zone: action.zone });
+        const compatible = state.vehicles.find((vehicle) => vehicle.zone === state.pallet.zone && vehicle.ready);
+        if (compatible) state = { ...state, selectedVehicleId: compatible.id };
+      }
+      if (state.pallet.zone === action.zone) {
+        // У верной полки сборка открывается сама: лишнее нажатие под таймером ни к чему.
+        if (!queueShift && !state.tsd?.acceptedOrderId) state = reduceAction(state, { type: 'ACCEPT_TASK' });
+        state = { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } };
+      } else {
+        state = info(state, 'wrong-shelf', wrongShelf);
+      }
     }
   } else if (action.type === 'CLOSE_BUILDER') state = { ...state, builderOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
   else if (action.type === 'OPEN_VEHICLES') {
@@ -607,15 +694,10 @@ function dispatch(action) {
        работе, сборка остаётся открытой для следующей паллеты. */
     const stillPicking = queueShift && currentTaskFor(state)?.kind === 'pick';
     if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success' && !stillPicking) state = { ...state, builderOpen: false };
-    if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success' && stillPicking) state = { ...state, tsd: { ...state.tsd, open: true, screen: 'builder' } };
-    /* Принятое задание сразу открывает свой экран: сборку — для заявки,
-       фургон — для снятия паллеты. Приёмка экрана не открывает: её
-       продолжение — вывески зон на схеме. */
-    if (queueShift && (action.type === 'ACCEPT_TASK' || action.type === 'TAKE_URGENT')) {
-      const task = currentTaskFor(state);
-      if (task?.kind === 'pick') state = { ...state, builderOpen: true, vehicleDrawerOpen: false, tsd: { ...state.tsd, open: true, screen: 'builder' } };
-      if (task?.kind === 'unload') state = { ...state, vehicleDrawerOpen: true, builderOpen: false, tsd: { ...state.tsd, open: true, screen: 'vehicles' } };
-    }
+    // Сборку закрыл переезд к воротам; за остатком заявки она открывается снова.
+    if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success' && stillPicking) state = { ...state, builderOpen: true, tsd: { ...state.tsd, open: true, screen: 'builder' } };
+    /* Принятое задание экрана не открывает: игра везёт кладовщика на проезд
+       или к воротам, а что нажать дальше, видно в кадре. */
     // Крестик на предложенном задании — «не сейчас»: терминал не всплывает снова, пока задание то же.
     if (queueShift && action.type === 'CLOSE_TSD') state = { ...state, tsd: { ...state.tsd, dismissedTaskId: nextTaskFor(state)?.id || null } };
     /* Маршрут уже построен при погрузке, поэтому кнопка просто подтверждает
@@ -623,6 +705,17 @@ function dispatch(action) {
     if (action.type === 'SET_ROUTE') state = { ...state, vehicleDrawerOpen: false, tsd: { ...state.tsd, open: false, screen: 'current' } };
   }
   state = offerNextTask(state);
+  const moved = locationAfter(location, before, state, move);
+  location = moved.location;
+  passingFrame = moved.via;
+  if (moved.via && typeof window.setTimeout === 'function') {
+    const passed = moved.via;
+    window.setTimeout(() => {
+      if (passingFrame !== passed) return;
+      passingFrame = null;
+      render(state, document);
+    }, PASS_MS);
+  }
   render(state, document);
   return state;
 }
@@ -650,16 +743,17 @@ document.addEventListener('click', (event) => {
   if (action === 'ADD_ITEM') return dispatch({ type: action, sku: button.dataset.sku, zone: button.dataset.zone, weightPerUnit: Number(button.dataset.weight), quantity: Number(button.dataset.quantity) });
   if (action === 'SELECT_STORE') return dispatch({ type: action, storeId: button.dataset.store });
   if (action === 'SELECT_ZONE') {
-    /* Вывеска зоны на схеме — это и есть размещение: пока принятая паллета
-       стоит на тележке, нажатие на зону убирает её туда, а не переключает
-       фильтр товаров в сборке. */
-    const placing = Boolean(button.dataset.sceneZone) && terminalViewFor(state).awaitingPlacement;
-    /* На смене с очередью вывеска вне размещения ничего не делает: адрес и
-       зону паллеты задаёт принятое задание, а не нажатие на схеме. */
-    if (!placing && button.dataset.sceneZone && !guidedFor(state)) return state;
-    return dispatch(placing ? { type: 'PLACE_PALLET', zone: button.dataset.zone } : { type: action, zone: button.dataset.zone });
+    /* Вывеска зоны в кадре проезда — это решение «куда ехать». Пока принятая
+       паллета стоит на тележке, нажатие ставит её в эту зону; иначе
+       кладовщик едет к полке. Кнопки зоны внутри сборки остаются фильтром. */
+    const onScene = Boolean(button.dataset.sceneZone);
+    if (onScene && terminalViewFor(state).awaitingPlacement) return dispatch({ type: 'PLACE_PALLET', zone: button.dataset.zone });
+    if (onScene) return dispatch({ type: 'GO_SHELF', zone: button.dataset.zone });
+    return dispatch({ type: action, zone: button.dataset.zone });
   }
-  if (action === 'LOAD_PALLET') return dispatch({ type: action, vehicleId: state.selectedVehicleId });
+  if (action === 'GATE') return dispatch({ type: action, zone: button.dataset.gateZone });
+  // Кнопка в сборке и в карточке «Сейчас» везёт к воротам; грузят сами ворота.
+  if (action === 'LOAD_PALLET') return dispatch({ type: 'GO_SHIPPING' });
   if (action === 'SET_ROUTE') return dispatch({ type: action, vehicleId: state.selectedVehicleId, stops: state.routeStops });
   if (action === 'SELECT_VEHICLE') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
   if (action === 'OPEN_VEHICLES') return dispatch({ type: action, vehicleId: button.dataset.vehicleId });
@@ -679,6 +773,7 @@ window.dispatch = dispatch;
 window.render = render;
 window.renderScene = renderScene;
 window.renderTsd = renderTsd;
+window.fpLocation = () => location;
 
 render(state, document);
 setInterval(() => {

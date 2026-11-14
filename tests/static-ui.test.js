@@ -13,7 +13,8 @@ test('living warehouse shell keeps product vocabulary and scene layers', () => {
   for (const zone of ['dry', 'chilled', 'frozen']) {
     assert.match(html, new RegExp(`data-scene-zone="${zone}"`));
   }
-  assert.match(html, /assets\/warehouse-center\.webp/);
+  // Фон сцены — кадр глазами кладовщика; старая панорама осталась только как файл.
+  assert.match(html, /assets\/fp\/hub-zones\.webp/);
 });
 
 test('warehouse backdrop is an optimized mobile asset', () => {

@@ -35,6 +35,7 @@ function loadUi() {
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: sceneView,
     RyabinovayaTsdView: tsdView,
+    RyabinovayaFpView: require('../fp-view.js'),
     RyabinovayaTsdSignal: tsdSignal,
     setTimeout() {},
   };

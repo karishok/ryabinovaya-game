@@ -42,6 +42,7 @@ function renderModalVisibility(state) {
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: require('../scene-view.js'),
     RyabinovayaTsdView: require('../tsd-view.js'),
+    RyabinovayaFpView: require('../fp-view.js'),
     setTimeout() {},
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
