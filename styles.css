@@ -15,6 +15,24 @@
   --text: #fffaf0;
   --muted: #b8c1b5;
   --shadow: 0 18px 48px rgba(8, 18, 15, 0.34);
+  /* Светлый экран прибора и панели под сценой. Корпус ТСД остаётся тёмным
+     графитом, как у настоящего защищённого сканера, а экран у такого прибора
+     светлый: на нём читается всё, что раньше тонуло в зелёном стекле. Сцена и
+     её HUD этих цветов не используют — они лежат на фотографии. */
+  --screen: #eef1f3;
+  --screen-text: #16202a;
+  --screen-muted: #5d6975;
+  --screen-card: #ffffff;
+  --screen-line: #d7dde3;
+  --screen-secondary: #e1e6eb;
+  --accent: #ec7a2c;
+  --accent-text: #ffffff;
+  --screen-warn: #c2410c;
+  --screen-ok: #15803d;
+  /* Температурные метки, затемнённые под светлый фон (≥4.5:1). */
+  --screen-dry: #b45309;
+  --screen-chilled: #0f766e;
+  --screen-frozen: #1d4ed8;
 }
 
 * { box-sizing: border-box; }
@@ -168,13 +186,12 @@ button:disabled { cursor: default; opacity: 0.42; }
   min-width: 64px;
   min-height: 46px;
   padding: 5px;
-  border: 1px solid rgba(244, 234, 216, 0.22);
+  border: 1px solid var(--screen-line);
   border-radius: 16px;
-  background: linear-gradient(155deg, #1d3026, #102019 72%);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.42);
+  background: var(--screen-card);
   cursor: pointer;
 }
-.tsd-handheld { display: block; flex: none; width: 34px; height: 46px; object-fit: contain; filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.5)); pointer-events: none; }
+.tsd-handheld { display: block; flex: none; width: 34px; height: 46px; object-fit: contain; pointer-events: none; }
 /* Открытая панель накрывает ряд кнопок, но кнопка под ней остаётся в потоке:
    убираем её из виду вместе с фокусом, не ломая ширину ряда. */
 .tsd-dock[aria-hidden="true"] { visibility: hidden; }
@@ -182,7 +199,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Анимация зовёт нажать прибор, поэтому живёт ровно столько, сколько на нём
    лежит невзятое задание, — и гаснет, как только его взяли. */
 .tsd-dock[data-attention="true"] {
-  border-color: rgba(217, 74, 63, 0.75);
+  border-color: var(--accent);
   animation: tsd-dock-nudge 1600ms ease-in-out infinite;
 }
 .tsd-dock[data-attention="true"] .tsd-indicator {
@@ -194,8 +211,8 @@ button:disabled { cursor: default; opacity: 0.42; }
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: var(--terracotta);
-  box-shadow: 0 0 0 0 rgba(217, 74, 63, 0.72);
+  background: var(--accent);
+  box-shadow: 0 0 0 0 rgba(236, 122, 44, 0.72);
   animation: tsd-new-pulse 1600ms ease-out infinite;
 }
 .tsd-device[data-open="true"] { pointer-events: auto; }
@@ -211,7 +228,7 @@ button:disabled { cursor: default; opacity: 0.42; }
   padding: 30px 13px 40px;
   border: 1px solid #0c0e11;
   border-radius: 30px;
-  background: linear-gradient(158deg, #3c424a 0%, #242930 44%, #15181c 100%);
+  background: #2a2e34;
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   pointer-events: none;
 }
@@ -238,7 +255,7 @@ button:disabled { cursor: default; opacity: 0.42; }
   background:
     radial-gradient(circle at 12% 50%, #4b515b 0 5px, transparent 5px),
     radial-gradient(circle at 31% 50%, #4b515b 0 5px, transparent 5px),
-    radial-gradient(circle at 50% 50%, var(--terracotta) 0 7px, transparent 7px),
+    radial-gradient(circle at 50% 50%, var(--accent) 0 7px, transparent 7px),
     radial-gradient(circle at 69% 50%, #4b515b 0 5px, transparent 5px),
     radial-gradient(circle at 88% 50%, #4b515b 0 5px, transparent 5px);
   content: "";
@@ -251,32 +268,32 @@ button:disabled { cursor: default; opacity: 0.42; }
   padding: 16px 15px;
   border: 1px solid #090b0d;
   border-radius: 13px;
-  background: linear-gradient(155deg, #1d3026, #102019 72%);
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.5), inset 0 2px 16px rgba(0, 0, 0, 0.6);
+  background: var(--screen);
+  color: var(--screen-text);
 }
 .tsd-device[data-open="true"] .tsd-screen { display: block; pointer-events: auto; }
 .tsd-device[data-open="true"] .tsd-screen { animation: tsd-slide-in 260ms cubic-bezier(.22, .8, .24, 1); }
-.tsd-close { position: absolute; z-index: 2; top: 36px; right: 22px; width: 44px; min-width: 44px; padding: 0; border-radius: 11px; background: #293a30; }
-.tsd-kicker { display: block; color: #b4e7ca; font-size: 10px; font-weight: 850; letter-spacing: 0.1em; text-transform: uppercase; }
-.tsd-display h2 { margin: 8px 48px 13px 0; color: var(--cream); font-size: 22px; letter-spacing: -0.04em; }
-.tsd-display > strong { display: block; color: #d9f0de; font-size: 15px; }
-.tsd-display > p { margin: 7px 0 0; color: var(--muted); }
-.tsd-display > p[id="tsdProgress"] { color: #ffe0a0; font-size: 12px; font-weight: 800; }
-.tsd-display > p[role="status"] { min-height: 24px; color: #d8fff3; }
+.tsd-close { position: absolute; z-index: 2; top: 36px; right: 22px; width: 44px; min-width: 44px; padding: 0; border-radius: 11px; background: var(--screen-secondary); color: var(--screen-text); }
+.tsd-kicker { display: block; color: var(--screen-muted); font-size: 10px; font-weight: 850; letter-spacing: 0.1em; text-transform: uppercase; }
+.tsd-display h2 { margin: 8px 48px 13px 0; color: var(--screen-text); font-size: 22px; letter-spacing: -0.04em; }
+.tsd-display > strong { display: block; color: var(--screen-text); font-size: 15px; }
+.tsd-display > p { margin: 7px 0 0; color: var(--screen-muted); }
+.tsd-display > p[id="tsdProgress"] { color: var(--screen-warn); font-size: 12px; font-weight: 800; }
+.tsd-display > p[role="status"] { min-height: 24px; color: var(--screen-text); }
 /* Очередь под кнопками задания: что придёт следом и у кого уходит фургон. */
-.tsd-queue { display: grid; gap: 4px; margin-top: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 13px; background: rgba(9, 18, 14, 0.5); }
-.tsd-queue-title { color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
-.tsd-queue-list { display: grid; gap: 3px; margin: 0; padding: 0 0 0 18px; color: var(--cream); font-size: 12px; }
+.tsd-queue { display: grid; gap: 4px; margin-top: 12px; padding: 9px 11px; border: 1px solid var(--screen-line); border-radius: 13px; background: var(--screen-card); }
+.tsd-queue-title { color: var(--screen-muted); font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.tsd-queue-list { display: grid; gap: 3px; margin: 0; padding: 0 0 0 18px; color: var(--screen-text); font-size: 12px; }
 .tsd-queue-list li { padding-left: 2px; }
 .tsd-queue-list li span { overflow: hidden; }
-.tsd-queue-list li em { margin-left: 6px; color: #ffe0a0; font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tsd-queue-list li b { color: #ffd98a; font-weight: 800; }
-.tsd-queue-list li.is-soon em { padding: 1px 6px; border-radius: 999px; background: #3c2320; color: #ffd9d2; }
-.tsd-queue-note { color: var(--muted); font-size: 11px; }
+.tsd-queue-list li em { margin-left: 6px; color: var(--screen-warn); font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tsd-queue-list li b { color: var(--screen-warn); font-weight: 800; }
+.tsd-queue-list li.is-soon em { padding: 1px 6px; border-radius: 999px; background: #fde8e0; color: #9a3412; }
+.tsd-queue-note { color: var(--screen-muted); font-size: 11px; }
 /* Вторая кнопка задания: взять срочное поверх начатого. */
-.tsd-secondary { width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--line); border-radius: 14px; background: #293b31; color: var(--cream); font-size: 13px; font-weight: 800; }
-.tsd-secondary.is-urgent { border-color: var(--amber); background: rgba(240, 170, 56, 0.14); color: #ffd98a; }
-.tsd-primary { width: 100%; min-height: 48px; margin-top: 16px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 14px; background: linear-gradient(135deg, #d65e40, #b94732); color: #fffaf0; font-weight: 850; box-shadow: 0 8px 18px rgba(178, 65, 45, 0.36); }
+.tsd-secondary { width: 100%; min-height: 44px; margin-top: 8px; border: 1px solid var(--screen-line); border-radius: 14px; background: var(--screen-secondary); color: var(--screen-text); font-size: 13px; font-weight: 800; }
+.tsd-secondary.is-urgent { border-color: var(--screen-warn); background: #fff1e6; color: var(--screen-warn); }
+.tsd-primary { width: 100%; min-height: 48px; margin-top: 16px; border: 0; border-radius: 14px; background: var(--accent); color: var(--accent-text); font-weight: 850; }
 .tsd-content-slot { display: grid; gap: 10px; margin-top: 15px; }
 /* На панелях сборки, транспорта и гайда шапка прибора — чистая потеря:
    бренд повторяется на каждом экране, а заголовок дублирует то, что панель
@@ -294,38 +311,38 @@ button:disabled { cursor: default; opacity: 0.42; }
 .tsd-device[data-screen="vehicles"] .tsd-panel { padding: 13px; }
 
 /* Адрес и зона подставляются из задания, поэтому по умолчанию свёрнуты. */
-.builder-target { margin-top: 12px; border: 1px solid var(--line); border-radius: 13px; background: rgba(9, 18, 14, 0.45); }
-.builder-target > summary { padding: 11px 13px; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: 750; list-style: none; }
+.builder-target { margin-top: 12px; border: 1px solid var(--screen-line); border-radius: 13px; background: var(--screen-card); }
+.builder-target > summary { padding: 11px 13px; color: var(--screen-muted); cursor: pointer; font-size: 12px; font-weight: 750; list-style: none; }
 .builder-target > summary::-webkit-details-marker { display: none; }
 .builder-target > summary::after { content: " ▾"; }
 .builder-target[open] > summary::after { content: " ▴"; }
-.builder-target > summary b { color: var(--cream); }
+.builder-target > summary b { color: var(--screen-text); }
 .builder-target > *:not(summary) { margin-right: 13px; margin-left: 13px; }
 .builder-target .zone-selects { margin-bottom: 8px; }
 .builder-target .tsd-hint { margin-top: 0; }
-.tsd-task-card { display: grid; gap: 3px; padding: 11px 13px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: rgba(9, 18, 14, 0.55); }
-.tsd-task-label { color: #b4e7ca; font-size: 9px; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
-.tsd-task-card strong { color: var(--cream); font-size: 15px; }
+.tsd-task-card { display: grid; gap: 3px; padding: 11px 13px; border: 1px solid var(--screen-line); border-radius: 14px; background: var(--screen-card); }
+.tsd-task-label { color: var(--screen-muted); font-size: 9px; font-weight: 850; letter-spacing: 0.09em; text-transform: uppercase; }
+.tsd-task-card strong { color: var(--screen-text); font-size: 15px; }
 /* Целевая зона в накладной — единственное, что игрок должен здесь запомнить. */
-.tsd-task-card.is-target { border-color: rgba(240, 170, 56, 0.6); background: rgba(240, 170, 56, 0.12); }
-.tsd-task-card.is-target strong { color: #ffd98a; }
-.tsd-hint { margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.tsd-task-card.is-target { border-color: var(--accent); background: #fff4ea; }
+.tsd-task-card.is-target strong { color: var(--screen-warn); }
+.tsd-hint { margin: 2px 0 0; color: var(--screen-muted); font-size: 12px; line-height: 1.4; }
 /* Задание в шапке панели вместо повторного заголовка. */
-.panel-task { flex: 1; margin: 0; color: #d9f0de; font-size: 12px; font-weight: 750; line-height: 1.35; }
+.panel-task { flex: 1; margin: 0; color: var(--screen-text); font-size: 12px; font-weight: 750; line-height: 1.35; }
 
 /* Карта доставки: депо и дарксторы стоят на тех же координатах, по которым
    движок считает минуты рейса. */
-.route-map { margin-top: 8px; padding: 8px 6px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 14px; background: rgba(9, 18, 14, 0.55); }
+.route-map { margin-top: 8px; padding: 8px 6px; border: 1px solid var(--screen-line); border-radius: 14px; background: var(--screen-card); }
 .route-map svg { display: block; width: 100%; height: auto; overflow: visible; }
-.map-route { fill: none; stroke: var(--amber); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 6 5; vector-effect: non-scaling-stroke; }
-.map-depot { fill: var(--cream); stroke: #0b1611; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.map-node { fill: #1d3026; stroke: rgba(244, 234, 216, 0.55); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.map-node.is-visited { fill: var(--amber); stroke: var(--cream); }
-.map-index { fill: #17251f; font-size: 0.34px; font-weight: 900; text-anchor: middle; }
-.map-label { fill: var(--muted); font-size: 0.36px; font-weight: 750; text-anchor: middle; }
-.route-summary { margin: 9px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
-.route-summary b { color: var(--cream); }
-.route-stop .leg { margin-left: 6px; color: #ffe0a0; font-size: 11px; font-weight: 800; }
+.map-route { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 6 5; vector-effect: non-scaling-stroke; }
+.map-depot { fill: var(--screen-text); stroke: var(--screen-card); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.map-node { fill: var(--screen-card); stroke: var(--screen-muted); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.map-node.is-visited { fill: var(--accent); stroke: var(--screen-text); }
+.map-index { fill: var(--screen-text); font-size: 0.34px; font-weight: 900; text-anchor: middle; }
+.map-label { fill: var(--screen-muted); font-size: 0.36px; font-weight: 750; text-anchor: middle; }
+.route-summary { margin: 9px 0 0; color: var(--screen-muted); font-size: 12px; line-height: 1.4; }
+.route-summary b { color: var(--screen-text); }
+.route-stop .leg { margin-left: 6px; color: var(--screen-warn); font-size: 11px; font-weight: 800; }
 
 /* Метка зоны — компактный шильдик на своём стеллаже, а не рамка в половину
    кадра. Координаты — центры тех же трёх подсвеченных рядов, поэтому значок
@@ -364,9 +381,13 @@ button:disabled { cursor: default; opacity: 0.42; }
   pointer-events: none;
 }
 /* Цвет температуры и есть обозначение зоны: он же повторяется в сборке. */
-.scene-zone--chilled b, .zone-select[data-zone="chilled"] b { color: var(--chilled); }
-.scene-zone--frozen b, .zone-select[data-zone="frozen"] b { color: var(--frozen); }
-.scene-zone--dry b, .zone-select[data-zone="dry"] b { color: var(--amber); }
+.scene-zone--chilled b { color: var(--chilled); }
+.scene-zone--frozen b { color: var(--frozen); }
+.scene-zone--dry b { color: var(--amber); }
+/* В сборке те же зоны лежат на светлом экране: цвета потемнены. */
+.zone-select[data-zone="chilled"] b { color: var(--screen-chilled); }
+.zone-select[data-zone="frozen"] b { color: var(--screen-frozen); }
+.zone-select[data-zone="dry"] b { color: var(--screen-dry); }
 /* Вывески стоят над проёмами зон в кадре проезда. */
 .scene-zone--dry { top: 34%; left: 15%; }
 .scene-zone--chilled { top: 34%; left: 50%; }
@@ -444,8 +465,8 @@ button:disabled { cursor: default; opacity: 0.42; }
    которому он относится, — в одном месте, и ничего нигде не повторяется. */
 .pallet-badge { position: absolute; top: -11px; left: 50%; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; transform: translateX(-50%); pointer-events: none; }
 .truck-badge { position: absolute; top: -11px; right: 0; padding: 2px 7px; border: 1px solid rgba(244, 234, 216, 0.4); border-radius: 999px; background: rgba(10, 20, 15, 0.9); color: var(--cream); font-size: 9px; font-weight: 850; white-space: nowrap; pointer-events: none; }
-.transport-summary { margin: 10px 0; color: var(--muted); font-size: 12px; }
-.capacity small { display: block; color: var(--muted); font-size: 11px; font-weight: 700; }
+.transport-summary { margin: 10px 0; color: var(--screen-muted); font-size: 12px; }
+.capacity small { display: block; color: var(--screen-muted); font-size: 11px; font-weight: 700; }
 .truck-light { position: absolute; top: -10px; left: 50%; width: 9px; height: 9px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 12px var(--amber); opacity: 0.6; pointer-events: none; transform: translateX(-50%); }
 .scene-object-hint { position: absolute; top: calc(100% + 6px); left: 50%; padding: 3px 8px; border-radius: 999px; background: rgba(10, 22, 16, 0.84); box-shadow: 0 3px 7px rgba(0, 0, 0, 0.24); color: #fff3d1; font-size: 11px; font-weight: 850; letter-spacing: 0.04em; text-transform: uppercase; transform: translateX(-50%); white-space: nowrap; opacity: 0.92; pointer-events: none; transition: opacity 180ms ease, transform 180ms ease; }
 .scene-pallet:focus-visible, .truck-bay:focus-visible { outline: 3px solid #fff3d1; outline-offset: 4px; }
@@ -470,33 +491,33 @@ button:disabled { cursor: default; opacity: 0.42; }
 
 /* Доска заявок на сменах без поводыря: стоит там же, где карточка «Сейчас».
    В две колонки — шесть заявок часа пик иначе не помещаются под сценой. */
-.order-board { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--line); border-radius: 18px; background: linear-gradient(160deg, rgba(30, 48, 40, 0.96), rgba(23, 38, 31, 0.98)); }
-.order-board-kicker { padding: 0 2px; color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.order-board { display: grid; gap: 6px; padding: 10px; border: 1px solid var(--screen-line); border-radius: 18px; background: #f3f4f5; }
+.order-board-kicker { padding: 0 2px; color: var(--screen-muted); font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
 .order-board-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.order-line { display: grid; gap: 2px; min-width: 0; min-height: 44px; padding: 6px 9px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 12px; background: #24342b; color: var(--text); text-align: left; }
+.order-line { display: grid; gap: 2px; min-width: 0; min-height: 44px; padding: 6px 9px; border: 1px solid var(--screen-line); border-radius: 12px; background: var(--screen-card); color: var(--screen-text); text-align: left; }
 .order-top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; min-width: 0; }
 .order-top strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .order-progress { flex: none; font-size: 13px; font-variant-numeric: tabular-nums; }
-.order-detail { color: var(--muted); font-size: 11px; line-height: 1.3; }
+.order-detail { color: var(--screen-muted); font-size: 11px; line-height: 1.3; }
 .order-zone { font-style: normal; font-weight: 900; font-variant-numeric: tabular-nums; }
-.order-zone[data-zone="dry"] { color: var(--amber); }
-.order-zone[data-zone="chilled"] { color: var(--chilled); }
-.order-zone[data-zone="frozen"] { color: var(--frozen); }
+.order-zone[data-zone="dry"] { color: var(--screen-dry); }
+.order-zone[data-zone="chilled"] { color: var(--screen-chilled); }
+.order-zone[data-zone="frozen"] { color: var(--screen-frozen); }
 .order-line[data-status="done"] { opacity: 0.6; }
-.order-line[data-status="done"] .order-progress { color: #73eba7; }
+.order-line[data-status="done"] .order-progress { color: var(--screen-ok); }
 .order-line[data-status="cancelled"] { opacity: 0.6; }
 .order-line[data-status="cancelled"] .order-top strong { text-decoration: line-through; }
-.order-line.is-alert { opacity: 1; border-color: rgba(240, 170, 56, 0.55); }
-.order-line.is-active { border-color: var(--cream); background: #2c4136; }
-.order-mark { color: var(--cream); font-style: normal; font-weight: 800; }
-.order-deadline { color: #ffe0a0; font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; }
-.order-deadline.is-soon { color: var(--terracotta); }
+.order-line.is-alert { opacity: 1; border-color: var(--screen-warn); }
+.order-line.is-active { border-color: var(--accent); background: #fff4ea; }
+.order-mark { color: var(--screen-text); font-style: normal; font-weight: 800; }
+.order-deadline { color: var(--screen-warn); font-style: normal; font-weight: 800; font-variant-numeric: tabular-nums; }
+.order-deadline.is-soon { color: #b91c1c; }
 .order-line[data-status="lost"] { opacity: 1; }
-.order-line[data-status="lost"] .order-detail { color: #ffb4a8; }
+.order-line[data-status="lost"] .order-detail { color: #b91c1c; }
 /* Время до ухода ближайшего фургона — на воротах отгрузки. */
 .truck-timer { position: absolute; z-index: 4; top: 116px; right: 12px; padding: 3px 8px; border: 1px solid rgba(240, 170, 56, 0.6); border-radius: 999px; background: rgba(10, 20, 15, 0.92); color: #ffe0a0; font-size: 11px; font-weight: 850; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .truck-timer[data-soon="true"] { border-color: var(--danger); background: #3c2320; color: #ffd9d2; }
-.order-line.is-alert .order-detail { color: #ffd98a; }
+.order-line.is-alert .order-detail { color: var(--screen-warn); }
 
 .order-board.is-dense { gap: 4px; padding: 8px; }
 .order-board.is-dense .order-board-rows { gap: 4px; }
@@ -519,28 +540,26 @@ button:disabled { cursor: default; opacity: 0.42; }
   display: grid;
   gap: 4px;
   padding: 14px 14px 12px;
-  border: 1px solid rgba(240, 170, 56, 0.4);
+  border: 1px solid var(--screen-line);
   border-radius: 18px;
-  background: linear-gradient(160deg, rgba(36, 60, 50, 0.96), rgba(23, 38, 31, 0.98));
-  box-shadow: 0 10px 28px rgba(8, 18, 15, 0.4);
+  background: var(--screen);
 }
-.now-kicker { color: var(--amber); font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
-.now-title { color: var(--text); font-size: 18px; font-weight: 850; line-height: 1.2; }
-.now-detail { color: var(--muted); font-size: 13px; line-height: 1.35; }
+.now-kicker { color: var(--screen-warn); font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.now-title { color: var(--screen-text); font-size: 18px; font-weight: 850; line-height: 1.2; }
+.now-detail { color: var(--screen-muted); font-size: 13px; line-height: 1.35; }
 .now-cta {
   min-height: 52px;
   margin-top: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.32);
+  border: 0;
   border-radius: 16px;
-  background: linear-gradient(135deg, #d65e40, #b94732);
-  color: #fffaf0;
-  box-shadow: 0 8px 18px rgba(178, 65, 45, 0.44);
+  background: var(--accent);
+  color: var(--accent-text);
   font-size: 16px;
   font-weight: 850;
 }
-.now-card[data-step="finish"] .now-cta { background: linear-gradient(135deg, #3f8c66, #2d6b4e); box-shadow: 0 8px 18px rgba(45, 107, 78, 0.44); }
-.now-card[data-step="finish"] { border-color: rgba(115, 235, 167, 0.4); }
-.now-card[data-step="finish"] .now-kicker { color: #73eba7; }
+.now-card[data-step="finish"] .now-cta { background: var(--screen-ok); }
+.now-card[data-step="finish"] { border-color: var(--screen-ok); }
+.now-card[data-step="finish"] .now-kicker { color: var(--screen-ok); }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .vehicle-glyph {
@@ -568,8 +587,11 @@ button:disabled { cursor: default; opacity: 0.42; }
 
 .btn { min-height: 48px; padding: 10px 13px; border-radius: 13px; background: #c9dacb; color: #122219; font-weight: 850; }
 .primary-cta, .full-width { width: 100%; }
-.primary-cta { grid-column: 1 / -1; min-height: 52px; border: 1px solid rgba(255, 255, 255, 0.32); border-radius: 16px; background: linear-gradient(135deg, #d65e40, #b94732); color: #fffaf0; box-shadow: 0 8px 18px rgba(178, 65, 45, 0.44); font-size: 15px; }
+.primary-cta { grid-column: 1 / -1; min-height: 52px; border: 0; border-radius: 16px; background: var(--accent); color: var(--accent-text); font-size: 15px; }
 .btn.secondary { margin-top: 9px; border: 1px solid var(--line); background: #293b31; color: var(--cream); }
+/* Светлые кнопки — только в ТСД и под сценой: экран «Поток» остаётся тёмным. */
+.tsd-device .btn, .board-actions .btn { background: var(--accent); color: var(--accent-text); }
+.tsd-device .btn.secondary, .board-actions .btn.secondary { border: 1px solid var(--screen-line); background: var(--screen-secondary); color: var(--screen-text); }
 
 /* Режимы смены подсвечивают нужный объект, но не перемещают его:
    хотспот обязан оставаться поверх того, что он помечает. */
@@ -601,22 +623,24 @@ button:disabled { cursor: default; opacity: 0.42; }
 .board-actions { margin-top: auto; }
 .board-actions { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: stretch; }
 .board-actions .btn.secondary { margin-top: 0; padding: 12px 8px; font-size: 12px; white-space: nowrap; }
-.event-banner { display: none; padding: 10px 12px; border: 1px solid rgba(81, 185, 173, 0.62); border-radius: 12px; background: #183b33; color: #d8fff3; font-size: 12px; font-weight: 700; }
+.event-banner { display: none; padding: 10px 12px; border: 1px solid var(--screen-line); border-radius: 12px; background: var(--screen-card); color: var(--screen-text); font-size: 12px; font-weight: 700; }
 .event-banner.show { display: block; animation: banner-in 180ms ease-out; }
 
 .card { border: 1px solid var(--line); border-radius: 20px; background: var(--panel-solid); box-shadow: var(--shadow); }
 .detail-card { padding: 16px; }
 .detail-card h2 { margin: 0; color: var(--cream); font-size: 18px; letter-spacing: -0.03em; }
-.detail-card p, .empty-route { color: var(--muted); }
+.detail-card p { color: var(--muted); }
+.empty-route { color: var(--screen-muted); }
 
 
 /* TSD panels */
-.tsd-panel { width: 100%; padding: 18px; border: 1px solid var(--line); border-radius: 24px; background: #17261f; box-shadow: 0 -20px 70px rgba(0, 0, 0, 0.44); }
+.tsd-panel { width: 100%; padding: 18px; border: 1px solid var(--screen-line); border-radius: 24px; background: var(--screen); color: var(--screen-text); }
 .modal-head, .modal-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .modal-head { margin-bottom: 14px; }
-.modal-head h2 { margin: 0; color: var(--cream); font-size: 19px; }
+.modal-head h2 { margin: 0; color: var(--screen-text); font-size: 19px; }
 .close { background: #28382f; }
-.select-label { margin-top: 13px; color: #bfc9bd; font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.tsd-panel .close { border-color: var(--screen-line); background: var(--screen-secondary); color: var(--screen-text); box-shadow: none; }
+.select-label { margin-top: 13px; color: var(--screen-muted); font-size: 10px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
 /* Сетка вместо переноса флексом: четыре даркстора раньше вставали в четыре
    строки и занимали полэкрана. */
 .store-selects { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin: 7px 0 10px; }
@@ -624,60 +648,59 @@ button:disabled { cursor: default; opacity: 0.42; }
 .zone-selects { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 7px 0 10px; }
 .zone-select { display: grid; gap: 1px; padding: 7px 4px; place-items: center; text-align: center; }
 .zone-select b { font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums; }
-.zone-select small { overflow: hidden; max-width: 100%; color: var(--muted); font-size: 9px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
-.zone-select.selected small { color: #c6ffed; }
-.store-select, .zone-select { min-height: 44px; padding: 6px 9px; border: 1px solid rgba(244, 234, 216, 0.17); border-radius: 11px; background: #25362d; font-size: 12px; text-align: left; }
+.zone-select small { overflow: hidden; max-width: 100%; color: var(--screen-muted); font-size: 9px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.zone-select.selected small { color: var(--screen-text); }
+.store-select, .zone-select { min-height: 44px; padding: 6px 9px; border: 1px solid var(--screen-line); border-radius: 11px; background: var(--screen-card); color: var(--screen-text); font-size: 12px; text-align: left; }
 .store-select { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.store-select.selected, .zone-select.selected, .vehicle-row.selected { border-color: var(--chilled); background: #1d493d; color: #c6ffed; }
-.builder-feedback { display: none; margin: 0 0 10px; padding: 9px; border: 1px solid rgba(217, 74, 63, 0.75); border-radius: 11px; background: rgba(112, 40, 34, 0.64); color: #ffe0db; font-size: 12px; }
+.store-select.selected, .zone-select.selected, .vehicle-row.selected { border-color: var(--accent); background: #fff4ea; color: var(--screen-text); }
+.builder-feedback { display: none; margin: 0 0 10px; padding: 9px; border: 1px solid #dc2626; border-radius: 11px; background: #fee2e2; color: #7f1d1d; font-size: 12px; }
 .builder-feedback.show { display: block; }
-.item-row { display: flex; align-items: center; gap: 9px; padding: 11px 0; border-top: 1px solid rgba(244, 234, 216, 0.1); }
-.item-emoji { width: 28px; font-size: 21px; }
-.item-row strong { font-size: 13px; }
-.item-row small { display: block; color: var(--muted); font-size: 11px; }
+.item-row { display: flex; align-items: center; gap: 9px; padding: 11px 0; border-top: 1px solid var(--screen-line); }
+.item-row strong { color: var(--screen-text); font-size: 13px; }
+.item-row small { display: block; color: var(--screen-muted); font-size: 11px; }
 .qty { display: flex; align-items: center; gap: 6px; margin-left: auto; }
-.qty button, .route-stop button { display: grid; width: 44px; min-height: 44px; place-items: center; border-radius: 10px; background: #2b3c32; font-size: 20px; }
-.qty b { width: 18px; text-align: center; }
-.modal-foot { position: sticky; z-index: 2; bottom: -13px; margin: 15px -13px -13px; padding: 12px 13px; border-top: 1px solid rgba(244, 234, 216, 0.12); background: #17261f; }
-.tsd-sticky-action { position: sticky; z-index: 2; bottom: -13px; margin: 15px -13px -13px; padding: 12px 13px; border-top: 1px solid rgba(244, 234, 216, 0.12); background: #17261f; }
+.qty button, .route-stop button { display: grid; width: 44px; min-height: 44px; place-items: center; border-radius: 10px; background: var(--screen-secondary); color: var(--screen-text); font-size: 20px; }
+.qty b { color: var(--screen-text); width: 18px; text-align: center; }
+.modal-foot { position: sticky; z-index: 2; bottom: -13px; margin: 15px -13px -13px; padding: 12px 13px; border-top: 1px solid var(--screen-line); background: var(--screen); }
+.tsd-sticky-action { position: sticky; z-index: 2; bottom: -13px; margin: 15px -13px -13px; padding: 12px 13px; border-top: 1px solid var(--screen-line); background: var(--screen); }
 .tsd-sticky-action .btn { width: 100%; }
-.capacity { color: var(--muted); font-size: 12px; }
-.capacity b { color: var(--cream); white-space: nowrap; }
+.capacity { color: var(--screen-muted); font-size: 12px; }
+.capacity b { color: var(--screen-text); white-space: nowrap; }
 /* Машины — плитки в две колонки: четыре строки во весь экран занимали
    половину панели ещё до первой паллеты. */
 #vehicleRows { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-.vehicle-row { display: grid; gap: 1px; min-width: 0; min-height: 44px; padding: 7px 10px; border: 1px solid rgba(244, 234, 216, 0.16); border-radius: 12px; background: #24342b; text-align: left; }
+.vehicle-row { display: grid; gap: 1px; min-width: 0; min-height: 44px; padding: 7px 10px; border: 1px solid var(--screen-line); border-radius: 12px; background: var(--screen-card); color: var(--screen-text); text-align: left; }
 .vehicle-row strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
-.vehicle-row b { color: #ffe0a0; font-size: 11px; font-weight: 700; }
+.vehicle-row b { color: var(--screen-warn); font-size: 11px; font-weight: 700; }
 .vehicle-row:disabled { opacity: 0.5; }
-.vehicle-row b.warn { color: #ff9a89; }
+.vehicle-row b.warn { color: #b91c1c; }
 /* Одна строка на остановку: адрес и плечо, груз под ним, справа стрелки
    порядка и «Снять». */
-.route-stop { margin: 5px 0; padding: 5px 6px 5px 10px; border: 1px solid rgba(244, 234, 216, 0.14); border-radius: 12px; background: #23342b; }
+.route-stop { margin: 5px 0; padding: 5px 6px 5px 10px; border: 1px solid var(--screen-line); border-radius: 12px; background: var(--screen-card); color: var(--screen-text); }
 .stop-main, .stop-extra { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.stop-extra { margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(244, 234, 216, 0.1); }
+.stop-extra { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--screen-line); }
 .stop-text, .stop-extra > span { display: grid; flex: 1; min-width: 0; gap: 1px; }
-.stop-text strong { font-size: 13px; }
-.route-stop small { color: var(--muted); font-size: 11px; line-height: 1.3; }
-.route-stop small .leg { margin: 0; color: #ffe0a0; font-size: 11px; font-weight: 800; }
-.route-stop small em { display: block; color: #ffd98a; font-style: normal; font-weight: 800; }
+.stop-text strong { color: var(--screen-text); font-size: 13px; }
+.route-stop small { color: var(--screen-muted); font-size: 11px; line-height: 1.3; }
+.route-stop small .leg { margin: 0; color: var(--screen-warn); font-size: 11px; font-weight: 800; }
+.route-stop small em { display: block; color: var(--screen-warn); font-style: normal; font-weight: 800; }
 .stop-actions { display: flex; flex: none; align-items: center; gap: 4px; }
 .route-stop button.stop-move { width: 36px; min-height: 38px; font-size: 16px; }
 .route-stop button.stop-move:disabled { opacity: 0.35; }
-.route-stop button.stop-unload { width: auto; min-height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; background: #293b31; color: var(--cream); font-size: 12px; font-weight: 800; }
-.route-stop button.stop-unload.is-orphan { border-color: transparent; background: #c9dacb; color: #122219; }
-.route-stop.is-orphan, .stop-extra.is-orphan { border-color: var(--amber); }
-.route-stop.is-orphan { background: rgba(240, 170, 56, 0.12); }
+.route-stop button.stop-unload { width: auto; min-height: 38px; padding: 0 10px; border: 1px solid var(--screen-line); border-radius: 10px; background: var(--screen-secondary); color: var(--screen-text); font-size: 12px; font-weight: 800; }
+.route-stop button.stop-unload.is-orphan { border-color: transparent; background: var(--accent); color: var(--accent-text); }
+.route-stop.is-orphan, .stop-extra.is-orphan { border-color: var(--accent); }
+.route-stop.is-orphan { background: #fff4ea; }
 
 .report { align-self: center; text-align: center; }
-.report .big { margin: 2px 0; color: var(--amber); font-size: 58px; text-shadow: 0 0 20px rgba(240, 170, 56, 0.4); }
-.report h2 { margin: 0; color: var(--cream); font-size: 22px; }
-.report p { color: var(--muted); }
+.report .big { margin: 2px 0; color: var(--accent); font-size: 58px; }
+.report h2 { margin: 0; color: var(--screen-text); font-size: 22px; }
+.report p { color: var(--screen-muted); }
 .report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0; text-align: left; }
-.report-stat { padding: 11px; border: 1px solid rgba(244, 234, 216, 0.1); border-radius: 12px; background: #24362c; }
-.report-stat small { display: block; color: var(--muted); font-size: 10px; }
-.report-stat strong { display: block; margin-top: 3px; color: var(--cream); font-size: 16px; }
-.report-reasons { margin: 0 0 16px; padding-left: 19px; color: var(--muted); text-align: left; font-size: 12px; }
+.report-stat { padding: 11px; border: 1px solid var(--screen-line); border-radius: 12px; background: var(--screen-card); }
+.report-stat small { display: block; color: var(--screen-muted); font-size: 10px; }
+.report-stat strong { display: block; margin-top: 3px; color: var(--screen-text); font-size: 16px; }
+.report-reasons { margin: 0 0 16px; padding-left: 19px; color: var(--screen-muted); text-align: left; font-size: 12px; }
 .report-reasons li + li { margin-top: 5px; }
 
 /* Уведомление — плашка внизу фотографии. В потоке сводки оно раздвигало
@@ -687,21 +710,21 @@ button:disabled { cursor: default; opacity: 0.42; }
 .toast.error { background: #ffe1dc; color: #5a231b; }
 .toast.info { background: #e9eee2; color: #29352a; }
 
-.story-card { align-self: center; text-align: center; background: #1c3027; }
-.story-card h2 { margin: 5px 0 9px; color: var(--cream); font-size: 22px; }
-.story-card p { color: var(--muted); }
-.story-kicker { color: #b4e7ca; font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
-.story-goal { padding: 10px; border-radius: 12px; background: #112119; color: var(--cream) !important; font-size: 12px; }
-.guide-intro { color: var(--muted); }
+.story-card { align-self: center; text-align: center; background: var(--screen); }
+.story-card h2 { margin: 5px 0 9px; color: var(--screen-text); font-size: 22px; }
+.story-card p { color: var(--screen-muted); }
+.story-kicker { color: var(--screen-muted); font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; }
+.story-goal { padding: 10px; border-radius: 12px; background: var(--screen-card); color: var(--screen-text) !important; font-size: 12px; }
+.guide-intro { color: var(--screen-muted); }
 .guide-steps { display: grid; gap: 10px; margin: 14px 0; padding-left: 23px; }
-.guide-steps li { padding-left: 2px; color: #e0e8de; }
-.guide-steps li strong { color: #b8efd1; }
-.guide-example { margin: 15px 0; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #13241b; }
-.guide-example h3 { margin: 0 0 8px; color: var(--cream); font-size: 13px; }
-.guide-tip { margin: 12px 0; padding: 10px; border-radius: 11px; background: #42391f; color: #ffe5a7; font-size: 12px; }
-.order-row { padding: 10px; border: 1px solid rgba(244, 234, 216, 0.12); border-radius: 12px; background: #24362c; }
+.guide-steps li { padding-left: 2px; color: var(--screen-text); }
+.guide-steps li strong { color: var(--screen-text); }
+.guide-example { margin: 15px 0; padding: 12px; border: 1px solid var(--screen-line); border-radius: 14px; background: var(--screen-card); }
+.guide-example h3 { margin: 0 0 8px; color: var(--screen-text); font-size: 13px; }
+.guide-tip { margin: 12px 0; padding: 10px; border-radius: 11px; background: #fff1e6; color: #9a3412; font-size: 12px; }
+.order-row { padding: 10px; border: 1px solid var(--screen-line); border-radius: 12px; background: var(--screen-card); color: var(--screen-text); }
 .order-row strong, .order-row span { display: block; }
-.order-row span { margin-top: 3px; color: var(--muted); font-size: 12px; }
+.order-row span { margin-top: 3px; color: var(--screen-muted); font-size: 12px; }
 
 /* ── Режим «Поток» ──────────────────────────────────────────────────────
    Одна станция на весь экран плюс полоса давления по остальным: четыре
@@ -854,7 +877,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 }
 @keyframes banner-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes sun-sweep { 0%, 18% { transform: translateX(-80%); opacity: 0; } 40%, 65% { opacity: 1; } 100% { transform: translateX(80%); opacity: 0; } }
-@keyframes tsd-new-pulse { 0% { box-shadow: 0 0 0 0 rgba(217, 74, 63, 0.72); } 70% { box-shadow: 0 0 0 12px rgba(217, 74, 63, 0); } 100% { box-shadow: 0 0 0 0 rgba(217, 74, 63, 0); } }
+@keyframes tsd-new-pulse { 0% { box-shadow: 0 0 0 0 rgba(236, 122, 44, 0.72); } 70% { box-shadow: 0 0 0 12px rgba(236, 122, 44, 0); } 100% { box-shadow: 0 0 0 0 rgba(236, 122, 44, 0); } }
 @keyframes tsd-dock-nudge {
   0%, 60%, 100% { transform: translateY(0); }
   72% { transform: translateY(-4px); }

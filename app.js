@@ -95,8 +95,10 @@ const tsdViewFor = (nextState) => {
   };
 };
 const orderLabel = (order) => {
-  const item = itemDetails[order.sku] || { emoji: '📦', name: order.sku };
-  return `${item.emoji} ${item.name} · ${order.quantity} шт.`;
+  // Без эмодзи: на светлом экране ТСД картинка-значок спорит с текстом и
+  // рисуется по-разному на разных телефонах.
+  const item = itemDetails[order.sku] || { name: order.sku };
+  return `${item.name} · ${order.quantity} шт.`;
 };
 const orderMarkup = (order) => `<div class="order-row"><strong>${stores[order.storeId] || order.storeId}</strong><span>${orderLabel(order)} · ${zones[order.zone]}</span></div>`;
 function playWarehouseBeep(kind) {
@@ -456,7 +458,7 @@ function render(nextState, document) {
   renderOrderBoard(sceneView.orderBoard, document);
 
   byId(document, 'itemRows').innerHTML = items.filter((item) => item.zone === nextState.pallet.zone).map((item) => `<div class="item-row">
-    <span class="item-emoji">${item.emoji}</span><div><strong>${item.name}</strong><small>${item.weightPerUnit} кг · ${zones[item.zone]}</small></div>
+    <div><strong>${item.name}</strong><small>${item.weightPerUnit} кг · ${zones[item.zone]}</small></div>
     <div class="qty"><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="-1" aria-label="Убрать ${item.name}">−</button><b>${quantityFor(nextState.pallet, item.sku)}</b><button data-action="ADD_ITEM" data-sku="${item.sku}" data-zone="${item.zone}" data-weight="${item.weightPerUnit}" data-quantity="1" aria-label="Добавить ${item.name}">+</button></div>
   </div>`).join('');
   byId(document, 'capacity').textContent = `${nextState.pallet.weight} / ${nextState.pallet.capacity} кг`;
