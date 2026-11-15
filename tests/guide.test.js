@@ -42,6 +42,7 @@ function renderModalVisibility(state) {
     RyabinovayaAppState: appState,
     RyabinovayaSceneView: require('../scene-view.js'),
     RyabinovayaTsdView: require('../tsd-view.js'),
+    RyabinovayaFpView: require('../fp-view.js'),
     setTimeout() {},
   };
   vm.runInNewContext(fs.readFileSync('app.js', 'utf8'), { window, document, setInterval() {} });
@@ -93,7 +94,7 @@ test('game shell provides a reachable, accessible guide with the core shift step
   /* Гайд обязан называть шаги смены её словами: приёмку, размещение,
      сборку и завершение. «Построить маршрут» ушло — маршрут строится сам
      при погрузке, игрок только переставляет остановки. */
-  for (const label of ['Как играть?', 'Принять паллету', 'вывеску нужной зоны', 'Поставить в отгрузку', 'остановок', 'Заверши смену']) {
+  for (const label of ['Как играть?', 'Принять паллету', 'вывеску нужной зоны', 'К отгрузке', 'ворота', 'остановок', 'Заверши смену']) {
     assert.ok(html.includes(label), `guide should explain: ${label}`);
   }
   assert.match(html, /data-action="OPEN_GUIDE"/);
@@ -113,7 +114,7 @@ test('briefing and guide are TSD screens rather than competing modal backdrops',
 
 test('static page requests fresh guide assets so an open game picks up the update', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  for (const asset of ['styles.css?v=guide', 'app-state.js?v=guide', 'app.js?v=guide-2']) {
+  for (const asset of ['styles.css?v=fp1', 'app-state.js?v=fp1', 'app.js?v=fp1']) {
     assert.ok(html.includes(asset), `browser should reload ${asset}`);
   }
 });

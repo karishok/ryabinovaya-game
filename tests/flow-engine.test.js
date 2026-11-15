@@ -14,7 +14,11 @@ const run = (state, seconds) => {
    истекает его длительность. Из-за этого почти каждый тест тикает. */
 const finishAction = (state) => run(state, (state.busy?.endsAt ?? state.elapsed) - state.elapsed);
 
-const shiftWith = (options) => flow.createFlowShift({ seed: 7, ...options });
+/* Тесты приёмки и размещения написаны для ровного потока фур: за сорок
+   секунд на гейтах стоит несколько машин. В смене фуры идут волнами с
+   паузой почти в минуту, поэтому здесь поток задан явно. */
+const STEADY = { minGap: 7, maxGap: 11, waveMax: 1 };
+const shiftWith = (options) => flow.createFlowShift({ seed: 7, ...STEADY, ...options });
 
 test('the warehouse produces work on its own while the player is busy elsewhere', () => {
   /* Это единственное, ради чего затевался режим: без самостоятельной работы
@@ -76,9 +80,10 @@ test('the freshness clock runs in the buffer and stops once the pallet is in its
   const pallet = state.buffer[state.buffer.length - 1];
   assert.equal(pallet.shelf, flow.SHELF_SECONDS[pallet.zone]);
 
-  const waited = run(state, 10);
+  // Пять секунд, а не десять: заморозка с дорогой до зоны иначе не доживает.
+  const waited = run(state, 5);
   const aged = waited.buffer.find((item) => item.id === pallet.id);
-  assert.equal(aged.shelf, pallet.shelf - 10, 'в буфере часы идут');
+  assert.equal(aged.shelf, pallet.shelf - 5, 'в буфере часы идут');
 
   let placed = flow.goTo(waited, STATIONS.PUTAWAY);
   placed = finishAction(placed);
@@ -189,17 +194,19 @@ test('backlog counts every pallet the shift has not put away', () => {
 test('the shift ends with a report the goals are judged from', () => {
   const state = run(shiftWith({ seconds: 20 }), 20);
   assert.equal(state.phase, 'report');
-  assert.equal(state.report.goals.length, 2);
-  assert.equal(state.report.goals.find((goal) => goal.id === 'backlog').limit, flow.DEFAULTS.backlogLimit);
+  assert.deepEqual(state.report.goals.map((goal) => goal.id), ['missed', 'perishables']);
+  assert.equal(state.report.goals.find((goal) => goal.id === 'missed').limit, flow.DEFAULTS.missedLimit);
   assert.equal(typeof state.report.success, 'boolean');
+  for (const field of ['shipped', 'missed', 'waiting', 'stored', 'spoiled', 'backlog']) assert.equal(typeof state.report[field], 'number');
   // После отчёта смена замирает: тик ничего не меняет.
   assert.deepEqual(flow.tick(state), state);
 });
 
 test('doing nothing at all fails the shift, so the goals actually bind', () => {
-  const idle = run(shiftWith({ seconds: 120 }), 120);
+  const idle = run(flow.createFlowShift({ seed: 7 }), flow.DEFAULTS.seconds);
   assert.equal(idle.report.success, false);
-  assert.ok(idle.report.backlog > flow.DEFAULTS.backlogLimit);
+  assert.equal(idle.report.shipped, 0);
+  assert.ok(idle.report.missed > flow.DEFAULTS.missedLimit, 'фургоны уходят пустыми — заявки сорваны');
 });
 
 test('the same seed replays the same shift', () => {
@@ -207,4 +214,190 @@ test('the same seed replays the same shift', () => {
   const right = flow.createFlowShift({ seed: 42 });
   assert.deepEqual(left.schedule, right.schedule);
   assert.notDeepEqual(flow.createFlowShift({ seed: 43 }).schedule, left.schedule);
+});
+
+/* ---- Вторая половина склада: отбор и погрузка ---- */
+
+// Фургон у ворот отгрузки и паллета его товара в зоне — заготовка для тестов выхода.
+const outboundShift = (overrides = {}) => {
+  const base = flow.createFlowShift({ seed: 7, initialStock: 0, ...overrides });
+  return {
+    ...base,
+    schedule: [],
+    orderSchedule: [],
+    stock: [
+      { id: 'p-milk', sku: 'milk', zone: 'chilled', quantity: 2, supplier: 'Запас' },
+      { id: 'p-water', sku: 'water', zone: 'dry', quantity: 2, supplier: 'Запас' },
+      { id: 'p-ice', sku: 'ice-cream', zone: 'frozen', quantity: 2, supplier: 'Запас' },
+    ],
+    vans: [
+      { id: 'van-milk', storeId: 'north', sku: 'milk', zone: 'chilled', arrivedAt: 0, dueAt: 60 },
+      { id: 'van-water', storeId: 'west', sku: 'water', zone: 'dry', arrivedAt: 0, dueAt: 60 },
+      { id: 'van-ice', storeId: 'east', sku: 'ice-cream', zone: 'frozen', arrivedAt: 0, dueAt: 60 },
+    ],
+  };
+};
+const at = (state, station) => finishAction(flow.goTo(state, station));
+
+test('the shift opens with stock in the zones and vans already on their way', () => {
+  const state = flow.createFlowShift({ seed: 7 });
+  assert.equal(state.stock.length, flow.DEFAULTS.initialStock, 'без запаса отбор и погрузка полминуты стояли бы пустыми');
+  assert.ok(state.orderSchedule.length >= state.stock.length);
+  assert.ok(run(state, 30).vans.length > 0, 'за полминуты хоть один фургон должен встать у ворот');
+});
+
+test('every van asks for goods the warehouse was actually given', () => {
+  // Лишнего спроса нет: сорванная заявка всегда значит недоведённый товар.
+  for (const seed of [1, 7, 42]) {
+    const state = flow.createFlowShift({ seed });
+    const supplied = new Map();
+    for (const pallet of [...state.stock, ...state.schedule]) supplied.set(pallet.sku, (supplied.get(pallet.sku) || 0) + 1);
+    const asked = new Map();
+    for (const order of state.orderSchedule) asked.set(order.sku, (asked.get(order.sku) || 0) + 1);
+    for (const [sku, count] of asked) assert.ok(count <= (supplied.get(sku) || 0), `смена ${seed}: ${sku} заказан ${count} раз, а привезён ${supplied.get(sku) || 0}`);
+  }
+});
+
+test('a van for delivered goods never arrives before its truck', () => {
+  const state = flow.createFlowShift({ seed: 7 });
+  const trucks = state.schedule.map((truck) => truck.at);
+  const fromTrucks = state.orderSchedule.slice().sort((a, b) => a.at - b.at).filter((order) => order.at >= flow.DEFAULTS.orderDelayMin);
+  for (const order of fromTrucks) assert.ok(trucks.some((time) => time + flow.DEFAULTS.orderDelayMin <= order.at));
+});
+
+test('picking moves a pallet from its zone to the dock and only at the picking station', () => {
+  let state = outboundShift();
+  assert.equal(flow.pick(state, 'van-water').feedback.code, 'wrong-station');
+
+  state = at(state, STATIONS.PICKING);
+  const started = flow.pick(state, 'van-water');
+  assert.equal(started.busy.kind, 'pick');
+  assert.equal(started.busy.endsAt - started.busy.startedAt, DURATIONS.pick);
+  assert.equal(started.stock.length, 3, 'пока паллету везут, она ещё числится в зоне');
+
+  const done = finishAction(started);
+  assert.deepEqual(done.stock.map((pallet) => pallet.id), ['p-milk', 'p-ice']);
+  assert.deepEqual(done.staging.map((pallet) => pallet.id), ['p-water']);
+  assert.equal(done.feedback.code, 'picked');
+});
+
+test('picking refuses what cannot be picked and says why', () => {
+  let state = at(outboundShift(), STATIONS.PICKING);
+  assert.equal(flow.pick(state, 'van-nobody').feedback.code, 'van-gone');
+
+  const noStock = { ...state, stock: state.stock.filter((pallet) => pallet.sku !== 'milk') };
+  assert.equal(flow.pick(noStock, 'van-milk').feedback.code, 'no-stock');
+  assert.match(flow.pick(noStock, 'van-milk').feedback.message, /примите и разместите/);
+
+  state = finishAction(flow.pick(state, 'van-water'));
+  assert.equal(flow.pick(state, 'van-water').feedback.code, 'already-picked', 'одна паллета на фургон');
+
+  const full = { ...state, settings: { ...state.settings, stagingSlots: 1 } };
+  assert.equal(flow.pick(full, 'van-milk').feedback.code, 'staging-full');
+  assert.equal(flow.pick(full, 'van-milk').busy, null, 'отказ не должен занимать игрока');
+});
+
+test('loading puts the picked pallet on its van and closes the order', () => {
+  let state = at(outboundShift(), STATIONS.PICKING);
+  state = finishAction(flow.pick(state, 'van-water'));
+  assert.equal(flow.load(state, 'van-water').feedback.code, 'wrong-station');
+
+  state = at(state, STATIONS.LOADING);
+  assert.equal(flow.load(state, 'van-milk').feedback.code, 'not-picked');
+
+  const loading = flow.load(state, 'van-water');
+  assert.equal(loading.busy.endsAt - loading.busy.startedAt, DURATIONS.load);
+  const done = finishAction(loading);
+  assert.equal(done.staging.length, 0);
+  assert.deepEqual(done.vans.map((van) => van.id), ['van-milk', 'van-ice']);
+  assert.deepEqual(done.shipped.map((van) => van.id), ['van-water']);
+  assert.equal(done.feedback.code, 'shipped');
+});
+
+test('a perishable pulled out of its zone starts rotting again at the dock', () => {
+  let state = at(outboundShift(), STATIONS.PICKING);
+  state = finishAction(flow.pick(state, 'van-ice'));
+  const staged = state.staging[0];
+  assert.equal(staged.shelf, flow.SHELF_SECONDS.frozen, 'срок идёт заново с полного');
+
+  const waited = run(state, 5);
+  assert.equal(waited.staging[0].shelf, staged.shelf - 5);
+
+  const rotten = run(state, flow.SHELF_SECONDS.frozen);
+  assert.equal(rotten.staging.length, 0);
+  assert.equal(rotten.spoiled.at(-1).reason, 'staging');
+  assert.equal(flow.goalsFor(rotten).find((goal) => goal.id === 'perishables').ok, false);
+});
+
+test('dry goods wait at the dock as long as needed', () => {
+  let state = at(outboundShift(), STATIONS.PICKING);
+  state = finishAction(flow.pick(state, 'van-water'));
+  assert.equal(run(state, 40).staging[0].shelf, null);
+});
+
+test('a pallet that rots mid-load cancels the load instead of shipping spoiled goods', () => {
+  let state = at(outboundShift(), STATIONS.PICKING);
+  state = finishAction(flow.pick(state, 'van-ice'));
+  state = at(state, STATIONS.LOADING);
+  state = { ...state, staging: state.staging.map((pallet) => ({ ...pallet, shelf: 2 })) };
+  const done = run(flow.load(state, 'van-ice'), DURATIONS.load);
+  assert.equal(done.busy, null);
+  assert.equal(done.shipped.length, 0);
+  assert.equal(done.spoiled.at(-1).id, 'p-ice');
+});
+
+test('a van that is not served in time leaves empty and counts as a missed order', () => {
+  const state = run(outboundShift(), 60);
+  assert.equal(state.vans.length, 0);
+  assert.equal(state.missed.length, 3);
+  assert.equal(state.feedback.code, 'van-left');
+  assert.equal(flow.goalsFor(state).find((goal) => goal.id === 'missed').ok, false);
+});
+
+test('a van being loaded does not drive off mid-load: the tie goes to the player', () => {
+  let state = at(outboundShift(), STATIONS.PICKING);
+  state = finishAction(flow.pick(state, 'van-water'));
+  state = at(state, STATIONS.LOADING);
+  // Погрузка начинается за секунду до ухода фургона.
+  state = { ...state, vans: state.vans.map((van) => (van.id === 'van-water' ? { ...van, dueAt: state.elapsed + 1 } : van)) };
+  const done = finishAction(flow.load(state, 'van-water'));
+  assert.deepEqual(done.shipped.map((van) => van.id), ['van-water']);
+  assert.equal(done.missed.some((van) => van.id === 'van-water'), false);
+});
+
+test('a picked pallet whose van has left goes back to its zone instead of clogging the dock', () => {
+  let state = at(outboundShift(), STATIONS.PICKING);
+  state = finishAction(flow.pick(state, 'van-water'));
+  assert.equal(state.staging.length, 1);
+  // Фургон за водой уходит; сухая паллета иначе занимала бы слот до конца смены.
+  const left = run({ ...state, vans: state.vans.map((van) => (van.id === 'van-water' ? { ...van, dueAt: state.elapsed + 1 } : van)) }, 1);
+  assert.equal(left.staging.length, 0);
+  assert.ok(left.stock.some((pallet) => pallet.id === 'p-water'), 'паллета вернулась в зону и снова доступна');
+});
+
+test('what is put away becomes pickable: the two halves of the warehouse are one chain', () => {
+  let state = run(shiftWith({ initialStock: 0 }), 12);
+  assert.equal(state.stock.length, 0);
+  const gate = state.gates.find((item) => item.truck);
+  state = finishAction(flow.unload(state, gate.id));
+  const pallet = state.buffer.at(-1);
+  state = at(state, STATIONS.PUTAWAY);
+  state = finishAction(flow.putaway(state, pallet.id, pallet.zone));
+  assert.deepEqual(state.stock.map((item) => item.id), [pallet.id]);
+
+  // А списанная паллета в зону не попадает — отбирать под её фургон будет нечего.
+  let wrong = run(shiftWith({ initialStock: 0 }), 12);
+  wrong = finishAction(flow.unload(wrong, wrong.gates.find((item) => item.truck).id));
+  const lost = wrong.buffer.at(-1);
+  wrong = at(wrong, STATIONS.PUTAWAY);
+  wrong = finishAction(flow.putaway(wrong, lost.id, lost.zone === 'dry' ? 'frozen' : 'dry'));
+  assert.equal(wrong.stock.length, 0);
+});
+
+test('fresh arrivals come in waves with a pause between them', () => {
+  const state = flow.createFlowShift({ seed: 7 });
+  const times = state.schedule.map((truck) => truck.at);
+  const gaps = times.slice(1).map((time, index) => time - times[index]);
+  assert.ok(gaps.some((gap) => gap <= flow.DEFAULTS.waveSpacing), 'в волне фуры приходят почти разом');
+  assert.ok(gaps.some((gap) => gap >= flow.DEFAULTS.minGap - flow.DEFAULTS.waveSpacing * flow.DEFAULTS.waveMax), 'между волнами — пауза');
 });

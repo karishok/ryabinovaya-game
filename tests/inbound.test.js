@@ -6,8 +6,8 @@ const { startLevel, reduceAction, finishShift, shiftOutcome, activeOrderFor, rem
 const { terminalViewFor } = require('../tsd-view.js');
 const { warehouseViewFor } = require('../scene-view.js');
 
-const receiveLevel = LEVELS.find((level) => level.newMechanic === 'inbound-receive').id;
-const sortingLevel = LEVELS.find((level) => level.newMechanic === 'inbound-sorting').id;
+const receiveLevel = LEVELS.find((level) => level.teaches.includes('inbound-receive')).id;
+const sortingLevel = LEVELS.find((level) => level.teaches.includes('inbound-sorting')).id;
 // Смена начинается так же, как у игрока: брифинг закрывается кнопкой.
 const shift = (levelId) => reduceAction(startLevel(levelId), { type: 'CONTINUE_STORY' });
 
@@ -61,24 +61,30 @@ test('the terminal shows the dock before the delivery order, because receiving b
   assert.equal(view.canReceive, true);
   assert.equal(view.awaitingPlacement, false);
   assert.match(view.storeName, /Аквалайн/);
-  assert.equal(view.zoneName, 'Сухач');
+  // Накладная называет товар, но не зону: её выбирает игрок.
+  assert.equal(view.zoneName, '');
   // Закрытый ТСД тоже обязан говорить, что стоит на приёмке.
-  assert.match(view.compactTask, /Вода 1,5 л · 4 шт\. → Сухач/);
+  assert.equal(view.compactTask, 'Вода 1,5 л · 4 шт.');
 });
 
-test('receiving hands the shift over to putaway and points at the rack', () => {
+test('receiving hands the shift over to putaway without naming the rack', () => {
   const received = reduceAction(shift(receiveLevel), { type: 'RECEIVE_PALLET' });
   const view = terminalViewFor(received);
 
   assert.equal(view.screen, 'inbound');
   assert.equal(view.title, 'Размещение');
   assert.equal(view.awaitingPlacement, true);
-  assert.equal(view.placementZone, 'dry');
   assert.equal(view.canReceive, false);
+  /* Зона размещения не раскрывается нигде: ни в терминале, ни на схеме.
+     Что воде место в сухаче — решение игрока, и в нём суть приёмки. */
+  const scene = warehouseViewFor(received);
+  for (const shown of [view, scene]) assert.equal(Object.hasOwn(shown, 'placementZone'), false);
+  assert.doesNotMatch(`${view.message} ${view.compactTask} ${scene.statusText}`, /Сухач|\+18°/);
+  assert.equal(scene.activeZone, null);
+  assert.equal(scene.awaitingPlacement, true);
   // Затемнение не должно перехватывать нажатие по вывеске зоны на схеме.
   assert.equal(view.blocking, false);
   assert.equal(warehouseViewFor(received).mode, 'placing');
-  assert.equal(warehouseViewFor(received).placementZone, 'dry');
 });
 
 test('goods reach the racks only after putaway, and then the order can be picked', () => {
@@ -114,14 +120,19 @@ test('putting a pallet on the wrong rack costs a spoiled pallet and the order be
   assert.equal(report.spoiledPallets, 1);
   assert.equal(report.deliveredPercent, 0);
   assert.notEqual(report.stars, 3);
-  assert.ok(report.reasons.some((reason) => /размещени/i.test(reason)));
+  // Причина названа словами игрока: товар, его зона и та, куда поставили.
+  const spoilage = report.reasons.find((reason) => /Испорчена паллета/.test(reason));
+  assert.ok(spoilage, 'отчёт обязан назвать порчу');
+  assert.match(spoilage, /«[А-ЯЁа-яё ,0-9]+ [+−]\d+°»/, 'зона — названием и температурой');
+  assert.doesNotMatch(spoilage, /dry|chilled|frozen/, 'идентификаторы зон игроку не показываем');
 });
 
 test('a pallet abandoned on the dock is named in the report', () => {
   const outcome = shiftOutcome(shift(receiveLevel));
-  assert.equal(outcome.inboundTotal, 1);
+  assert.equal(outcome.inboundTotal, 3);
   assert.equal(outcome.inboundPlaced, 0);
-  assert.deepEqual(outcome.inboundLeftOnDock, [{ itemName: 'Вода 1,5 л', zoneName: 'Сухач' }]);
+  assert.equal(outcome.inboundLeftOnDock.length, 3);
+  assert.deepEqual(outcome.inboundLeftOnDock[0], { itemName: 'Вода 1,5 л', zoneName: 'Сухач' });
 
   const report = finishShift(shift(receiveLevel)).report;
   assert.ok(report.reasons.some((reason) => /На приёмке осталось паллет/.test(reason)));
@@ -136,11 +147,12 @@ test('the sorting shift queues every dock pallet and keeps the delivery order wa
     const view = terminalViewFor(state);
     assert.equal(view.screen, 'inbound', 'пока приёмка не разобрана, заявки ждут');
     state = reduceAction(state, { type: 'RECEIVE_PALLET' });
-    zones.push(terminalViewFor(state).placementZone);
+    // Зону знает только состояние смены — в экран она не попадает.
+    zones.push(state.inbound.find((pallet) => pallet.status === 'received').zone);
     state = reduceAction(state, { type: 'PLACE_PALLET', zone: zones.at(-1) });
   }
 
-  assert.deepEqual(zones, ['chilled', 'frozen', 'dry'], 'паллеты разбираются в порядке прибытия');
+  assert.deepEqual(zones, ['dry', 'chilled', 'frozen'], 'паллеты разбираются в порядке прибытия');
   assert.equal(warehouseViewFor(state).inboundCount, 0);
   assert.equal(terminalViewFor(state).screen, 'current');
   // Только теперь появляется обычное задание на отгрузку.
@@ -181,7 +193,8 @@ test('changing only the address keeps the goods already on the pallet', () => {
 test('a chilled pallet rides in the chilled van even when a dry one is selected', () => {
   /* Раньше такая погрузка «портила» паллету, хотя в центре её просто не
      примут в кузов чужой зоны. Теперь склад сам ставит её к своей машине. */
-  let state = shift(LEVELS.find((level) => level.newMechanic === 'three-zones').id);
+  // Смена с тремя зонами, где молоко уже лежит на складе, а не едет на приёмку.
+  let state = shift(LEVELS.find((level) => level.teaches.includes('capacity')).id);
   state = reduceAction(state, { type: 'SELECT_VEHICLE', vehicleId: 'dry-1' });
   state = reduceAction(state, { type: 'SELECT_ZONE', zone: 'chilled' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'milk', zone: 'chilled', weightPerUnit: 10, quantity: 1 });
@@ -194,7 +207,7 @@ test('a chilled pallet rides in the chilled van even when a dry one is selected'
 });
 
 test('an order too big for one truck is split across the fleet without any truck picking', () => {
-  const capacityLevel = LEVELS.find((level) => level.newMechanic === 'capacity').id;
+  const capacityLevel = LEVELS.find((level) => level.teaches.includes('capacity')).id;
   let state = shift(capacityLevel);
   const plus = (times) => {
     for (let i = 0; i < times; i += 1) {
@@ -224,7 +237,7 @@ test('an order too big for one truck is split across the fleet without any truck
 });
 
 test('when the zone fleet is full the refusal says so instead of blaming the pallet', () => {
-  let state = shift(LEVELS.find((level) => level.newMechanic === 'one-order').id);
+  let state = shift(LEVELS.find((level) => level.teaches.includes('one-order')).id);
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 8 });
   state = reduceAction(state, { type: 'LOAD_PALLET' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'water', zone: 'dry', weightPerUnit: 12, quantity: 1 });
@@ -239,8 +252,8 @@ test('when the zone fleet is full the refusal says so instead of blaming the pal
 test('an overloaded truck can be emptied again, so a shift is never a dead end', () => {
   /* Со скриншота игрока: кузов забит лишним, заявка по второму адресу не
      влезает, и ни одно действие не освобождало место — смена становилась
-     непроходимой на третьем уровне, где ещё экспериментируют. */
-  const twoStores = LEVELS.find((level) => level.newMechanic === 'two-stores').id;
+     непроходимой на раннем уровне, где ещё экспериментируют. */
+  const twoStores = LEVELS.find((level) => level.teaches.includes('two-stores')).id;
   let state = shift(twoStores);
   const put = (storeId, sku, weightPerUnit, quantity) => {
     state = reduceAction(state, { type: 'SELECT_STORE', storeId });
@@ -248,7 +261,8 @@ test('an overloaded truck can be emptied again, so a shift is never a dead end',
     state = reduceAction(state, { type: 'LOAD_PALLET' });
   };
 
-  put('north', 'water', 12, 8);
+  // Кузов забивается хлебом: вода на этой смене ещё стоит на приёмке.
+  put('north', 'bread', 6, 16);
   const bread = state.orders.find((order) => order.storeId === 'west');
   state = reduceAction(state, { type: 'SELECT_STORE', storeId: 'west' });
   state = reduceAction(state, { type: 'ADD_ITEM', sku: 'bread', zone: 'dry', weightPerUnit: 6, quantity: 3 });
@@ -283,7 +297,8 @@ test('unloading returns the goods to the rack they were picked from', () => {
 });
 
 test('unloading a pallet keeps the other stops of the same truck', () => {
-  const route = LEVELS.find((level) => level.newMechanic === 'route').id;
+  // Смена, где сухой товар лежит на складе, а не едет на приёмку.
+  const route = LEVELS.find((level) => level.teaches.includes('capacity')).id;
   let state = shift(route);
   const put = (storeId, sku, weightPerUnit, quantity) => {
     state = reduceAction(state, { type: 'SELECT_STORE', storeId });

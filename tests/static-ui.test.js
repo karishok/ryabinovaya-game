@@ -13,13 +13,8 @@ test('living warehouse shell keeps product vocabulary and scene layers', () => {
   for (const zone of ['dry', 'chilled', 'frozen']) {
     assert.match(html, new RegExp(`data-scene-zone="${zone}"`));
   }
-  assert.match(html, /assets\/warehouse-center\.webp/);
-});
-
-test('warehouse backdrop is an optimized mobile asset', () => {
-  const asset = 'assets/warehouse-center.webp';
-  assert.equal(fs.existsSync(asset), true);
-  assert.ok(fs.statSync(asset).size < 900_000, 'warehouse backdrop must stay below 900 KB');
+  // Фон сцены — кадр глазами кладовщика; старая панорама осталась только как файл.
+  assert.match(html, /assets\/fp\/hub-zones\.webp/);
 });
 
 test('the handheld terminal art stays an optimized asset', () => {
@@ -56,14 +51,12 @@ test('scene hotspots sit on photo coordinates and keep their warehouse actions',
 test('the scene keeps the backdrop aspect ratio so percentages stay on the photo', () => {
   const css = fs.readFileSync('styles.css', 'utf8');
   const scene = css.slice(css.indexOf('.warehouse-scene {'));
-  // 780x1386 — натуральный размер assets/warehouse-center.webp. Как только
-  // пропорции контейнера расходятся с фоном, object-fit: cover обрезает кадр
-  // и все координаты хотспотов уезжают вместе с полом.
+  // Кадры 1024x1536 выше сцены и обрезаются по высоте. Как только пропорции
+  // контейнера или видимая полоса кадра меняются, области нажатия уезжают
+  // с предметов на картинке.
   assert.match(scene, /aspect-ratio:\s*780\s*\/\s*998/);
   assert.doesNotMatch(scene.slice(0, scene.indexOf('}')), /height:\s*clamp/);
-  // Полоса кадра задаётся object-position; сдвинуть её, не пересчитав
-  // координаты хотспотов, значит снова развесить их в воздухе.
-  assert.match(css, /\.scene-backdrop\s*\{[^}]*object-position:\s*50%\s*21\.4%/s);
+  assert.match(css, /\.scene-backdrop\s*\{[^}]*object-position:\s*50%\s*62%/s);
 });
 
 test('zone names are rack-mounted scene controls and not a floating mission banner', () => {
@@ -94,12 +87,12 @@ test('the README documents the mobile QA screenshot and the file exists', () => 
   assert.equal(fs.existsSync('docs/screenshots/living-warehouse-mobile.png'), true);
 });
 
-test('vehicle rows use a CSS glyph instead of an emoji', () => {
+test('vehicle rows are compact tiles without an emoji', () => {
   const app = fs.readFileSync('app.js', 'utf8');
   const css = fs.readFileSync('styles.css', 'utf8');
   assert.doesNotMatch(app, /🚚/, 'app.js should not render the truck emoji over the persistent scene overlay');
-  assert.match(app, /class="vehicle-glyph"/);
-  assert.match(css, /\.vehicle-glyph/);
+  // Плитки в две колонки: четыре строки во весь экран занимали половину панели.
+  assert.match(css, /#vehicleRows\s*\{[^}]*grid-template-columns:\s*1fr 1fr/);
 });
 
 test('warehouse styles define mobile motion and accessible fallbacks', () => {
@@ -179,7 +172,7 @@ test('the game is one screen: no bottom navigation, nothing hidden under the TSD
      прижат к низу страницы. Резерв в 128px под полосу стал бы пустотой,
      поэтому его сменил отступ безопасной зоны. */
   assert.doesNotMatch(css, /padding:\s*0 0 128px/);
-  assert.match(css, /\.shift-board\s*\{[^}]*margin-top:\s*auto/s);
+  assert.match(css, /\.board-actions\s*\{[^}]*margin-top:\s*auto/s);
 });
 
 test('everything the removed tabs hosted has a new home', () => {

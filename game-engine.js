@@ -7,7 +7,7 @@
   const ITEMS = Object.freeze({
     WATER: Object.freeze({ sku: 'water', zone: ZONES.DRY, weightPerUnit: 12, price: 1500, name: 'Вода 1,5 л' }),
     MILK: Object.freeze({ sku: 'milk', zone: ZONES.CHILLED, weightPerUnit: 10, price: 1400, name: 'Молоко' }),
-    BANANA: Object.freeze({ sku: 'banana', zone: ZONES.CHILLED, weightPerUnit: 8, price: 1200, name: 'Бананы' }),
+    BUTTER: Object.freeze({ sku: 'butter', zone: ZONES.CHILLED, weightPerUnit: 8, price: 1200, name: 'Масло' }),
     BREAD: Object.freeze({ sku: 'bread', zone: ZONES.DRY, weightPerUnit: 6, price: 900, name: 'Хлеб' }),
     ICE_CREAM: Object.freeze({ sku: 'ice-cream', zone: ZONES.FROZEN, weightPerUnit: 9, price: 2200, name: 'Мороженое' }),
   });
@@ -150,6 +150,12 @@
     central: [2, 0],
     west: [-3, 0],
     east: [4, 1],
+    /* Ещё два даркстора. С четырьмя точками сухой фургон почти в каждой
+       смене вёз в одну и ту же тройку, и порядок остановок решался один раз
+       на всю кампанию. Оба стоят в северной половине: карта рейса рисует
+       только её. */
+    northwest: [-2.5, 2.5],
+    northeast: [3, 3],
   });
 
   function hashPoint(stop) {
