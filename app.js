@@ -6,7 +6,7 @@ const {
   activeOrderFor, remainingFor, vehicleForPallet, vehicleLabel: labelFor, roomIn, orphanPalletsFor,
   currentTaskFor, nextTaskFor, guidedFor,
 } = window.RyabinovayaAppState;
-const { warehouseViewFor } = window.RyabinovayaSceneView;
+const { warehouseViewFor, sceneInboundFor } = window.RyabinovayaSceneView;
 const { terminalViewFor } = window.RyabinovayaTsdView;
 const { signalTsd } = window.RyabinovayaTsdSignal || { signalTsd: () => {} };
 const { locationAfter, canPick, frameFor } = window.RyabinovayaFpView;
@@ -39,6 +39,7 @@ let audioUnlocked = false;
    проездом); его снимает таймер. */
 let workerLocation = 'hub';
 let passingFrame = null;
+let passToken = 0;
 const PASS_MS = 900;
 const info = (current, code, message) => ({ ...current, feedback: { kind: 'info', code, message } });
 
@@ -414,7 +415,9 @@ function render(nextState, document) {
     gate.classList.toggle('is-focus', sceneView.guided && palletReady && gate.dataset.gateZone === nextState.pallet.zone);
   });
   const toShipping = byId(document, 'fpToShipping');
-  if (toShipping) toShipping.hidden = !palletReady;
+  /* К отгрузке можно и с пустой паллетой: взглянуть на машины и маршрут или
+     снять паллету с фуры. Нельзя только пока принятая паллета ждёт зоны. */
+  if (toShipping) toShipping.hidden = Boolean(view.awaitingPlacement);
   if (nextState.levelId !== rememberedLevelId) {
     rememberedLevelId = nextState.levelId;
     rememberLevel(nextState.levelId);
@@ -605,6 +608,15 @@ function scheduleToastDismiss(message) {
   }, 3200);
 }
 
+/* Почему к полке ехать нельзя: сообщение должно называть настоящую причину,
+   иначе игрок ищет задание на ТСД, когда ждёт его паллета или фура. */
+function noPickMessage(current) {
+  if (terminalViewFor(current).awaitingPlacement) return 'Сначала поставьте принятую паллету в зону.';
+  if (guidedFor(current) && sceneInboundFor(current)) return 'Сначала примите поставку у ворот.';
+  if (currentTaskFor(current)?.kind === 'unload') return 'Сейчас задание — снять паллету у отгрузки.';
+  return 'Сначала примите задание на ТСД.';
+}
+
 function dispatch(action) {
   const before = state;
   const queueShift = !guidedFor(state) && state.phase === 'shift';
@@ -623,7 +635,7 @@ function dispatch(action) {
      собирать там нечего. Во вводной смене такого не бывает: там кнопка
      карточки сама везёт к полке зоны паллеты. */
   const wrongShelf = 'Товара этой заявки здесь нет — это другая зона. Вернитесь на проезд.';
-  const atWrongShelf = queueShift && workerLocation.startsWith('shelf:') && workerLocation !== `shelf:${state.pallet.zone}`;
+  const atWrongShelf = queueShift && currentTaskFor(state)?.kind === 'pick' && workerLocation.startsWith('shelf:') && workerLocation !== `shelf:${state.pallet.zone}`;
   if (action.type === 'OPEN_BUILDER' && atWrongShelf) {
     state = info(state, 'wrong-shelf', wrongShelf);
   } else if (action.type === 'OPEN_BUILDER') {
@@ -633,6 +645,10 @@ function dispatch(action) {
       state = currentTaskFor(state)?.kind === 'pick'
         ? { ...state, builderOpen: true, feedback: null, tsd: { ...state.tsd, open: true, screen: 'builder' } }
         : { ...state, feedback: null, tsd: { ...state.tsd, open: true, dismissedTaskId: null } };
+    } else if (state.phase === 'shift' && !canPick(state)) {
+      // Приёмка или размещение ещё не закончены: собирать рано, причина — та же, что у полки.
+      state = info(state, 'no-pick-task', noPickMessage(state));
+      move = { type: 'STAY' };
     } else {
       /* Нажатие на паллету открывает сборку сразу. Раньше оно уводило на
          экран задания, и «Принять» приходилось жать только чтобы вернуться. */
@@ -642,16 +658,18 @@ function dispatch(action) {
   } else if (action.type === 'GO_HUB') {
     state = { ...state, builderOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
   } else if (action.type === 'GO_SHIPPING') {
-    if ((state.pallet?.weight || 0) === 0) {
-      // Пустую паллету к воротам не везут; редьюсер сам скажет почему.
-      state = reduceAction(state, { type: 'LOAD_PALLET' });
+    /* К отгрузке едут всегда: ворота сами решают, что делать — с товаром
+       грузят паллету, с пустой открывают машины. Отказ один: принятая паллета
+       ещё ждёт зоны, и кладовщик остаётся на проезде. */
+    if (terminalViewFor(state).awaitingPlacement) {
+      state = info(state, 'place-first', 'Сначала поставьте принятую паллету в зону.');
       move = { type: 'STAY' };
     } else {
       state = { ...state, builderOpen: false, feedback: null, tsd: { ...state.tsd, open: false, screen: 'current' } };
     }
   } else if (action.type === 'GO_SHELF') {
     if (!canPick(state)) {
-      state = info(state, 'no-pick-task', 'Сначала примите задание на ТСД.');
+      state = info(state, 'no-pick-task', noPickMessage(state));
       move = { type: 'STAY' };
     } else {
       /* Во вводной смене зону паллеты выбирает игрок, как раньше вывеской;
@@ -702,19 +720,34 @@ function dispatch(action) {
     if (queueShift && action.type === 'CLOSE_TSD') state = { ...state, tsd: { ...state.tsd, dismissedTaskId: nextTaskFor(state)?.id || null } };
     /* Маршрут уже построен при погрузке, поэтому кнопка просто подтверждает
        порядок и закрывает панель — отдельное нажатие на крестик не нужно. */
+    /* Принятое или срочное задание на смене с очередью закрывает всё, что
+       было открыто: иначе сборка с пустой паллетой висела бы над заданием
+       «снять паллету» или «принять фуру», и выйти из неё было бы некуда. */
+    if (queueShift && (action.type === 'ACCEPT_TASK' || action.type === 'TAKE_URGENT')) {
+      state = { ...state, builderOpen: false, vehicleDrawerOpen: false, tsd: { ...state.tsd, open: false, screen: 'current' } };
+    }
     if (action.type === 'SET_ROUTE') state = { ...state, vehicleDrawerOpen: false, tsd: { ...state.tsd, open: false, screen: 'current' } };
   }
   state = offerNextTask(state);
   const moved = locationAfter(workerLocation, before, state, move);
+  const previousLocation = workerLocation;
   workerLocation = moved.location;
-  passingFrame = moved.via;
-  if (moved.via && typeof window.setTimeout === 'function') {
-    const passed = moved.via;
-    window.setTimeout(() => {
-      if (passingFrame !== passed) return;
-      passingFrame = null;
-      render(state, document);
-    }, PASS_MS);
+  /* Кадр проезда меняется только новым проездом или переездом на другое
+     место. Часы тикают раз в секунду и несут via: null — раньше они гасили
+     кадр фуры в случайную долю его 900 мс. Номер отличает свой таймер от
+     чужого: прежний таймер не должен снимать кадр нового проезда. */
+  const placeChanged = moved.location !== previousLocation;
+  if (moved.via || placeChanged) {
+    passingFrame = moved.via;
+    passToken += 1;
+    if (moved.via && typeof window.setTimeout === 'function') {
+      const token = passToken;
+      window.setTimeout(() => {
+        if (passToken !== token) return;
+        passingFrame = null;
+        render(state, document);
+      }, PASS_MS);
+    }
   }
   render(state, document);
   return state;

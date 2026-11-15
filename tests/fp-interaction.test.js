@@ -17,11 +17,15 @@ function loadGame(levelId = 1) {
     return elements.get(id);
   };
   const zones = ['dry', 'chilled', 'frozen'].map((zone) => ({ ...elementFor(`zone-${zone}`), dataset: { sceneZone: zone } }));
+  const gates = ['dry', 'chilled', 'frozen'].map((gateZone) => ({ ...elementFor(`gate-${gateZone}`), dataset: { gateZone } }));
   let clickHandler;
   const document = {
     getElementById: elementFor,
     querySelector: () => elementFor('pause'),
-    querySelectorAll(selector) { return selector === '[data-scene-zone]' ? zones : []; },
+    querySelectorAll(selector) {
+      if (selector === '[data-scene-zone]') return zones;
+      return selector === '[data-gate-zone]' ? gates : [];
+    },
     addEventListener(type, handler) { if (type === 'click') clickHandler = handler; },
   };
   const timers = [];
@@ -41,7 +45,7 @@ function loadGame(levelId = 1) {
   const click = (dataset) => clickHandler({ target: { closest: () => ({ dataset, disabled: false, focus() {} }) } });
   const scene = () => elementFor('warehouseScene');
   return {
-    window, elements, click, timers,
+    window, elements, click, timers, gates,
     where: () => window.fpLocation(),
     scene,
     toast: () => elementFor('toast').textContent,
@@ -91,13 +95,16 @@ test('a gate of another zone refuses the pallet and the worker stays at shipping
   assert.equal(game.window.dispatch({ type: 'DISMISS_FEEDBACK' }).loadedPallets.length, 0);
 });
 
-test('the load button with an empty pallet stays at the shelf and says why', () => {
+test('the load button with an empty pallet now drives to shipping, and the gate never loads an empty pallet', () => {
   const game = loadGame(1);
   game.start();
   game.click({ action: 'OPEN_BUILDER' });
   game.click({ action: 'LOAD_PALLET' });
-  assert.equal(game.where(), 'shelf:dry');
-  assert.match(game.elements.get('builderFeedback').textContent + game.toast(), /Сначала добавьте товар/);
+  // К отгрузке едут всегда: взглянуть на машины можно и с пустой паллетой.
+  assert.equal(game.where(), 'shipping');
+  game.gate('dry');
+  assert.equal(game.window.dispatch({ type: 'TICK' }).loadedPallets.length, 0);
+  assert.equal(game.elements.get('vehicleModal').attributes['aria-hidden'], 'false');
 });
 
 test('guided receiving: the truck, the aisle, then the shelf of the tapped zone', () => {
@@ -190,4 +197,99 @@ test('receiving in a queue shift shows the truck for a moment on the way to the 
   assert.ok(pass, 'the pass-through frame must be timed');
   pass.callback();
   assert.equal(game.elements.get('sceneBackdrop').dataset.frame, 'hub');
+});
+
+/* Доводит смену с очередью до момента, когда следующее задание срочное нужного
+   вида, играя настоящими действиями через window.dispatch. Возвращает true,
+   когда сборка уже открыта у полки (как её видит игрок с ТСД в руках). */
+function reachUrgent(game, kind) {
+  const A = game.window.RyabinovayaAppState;
+  const E = game.window.RyabinovayaEngine;
+  const d = (action) => game.window.dispatch(action);
+  let s = d({ type: 'CONTINUE_STORY' });
+  const urgent = () => A.nextTaskFor(s)?.urgent && A.nextTaskFor(s).kind === kind;
+  for (let step = 0; step < 40; step++) {
+    if (!A.currentTaskFor(s)) s = d({ type: 'ACCEPT_TASK' });
+    const task = A.currentTaskFor(s);
+    if (!task) { s = d({ type: 'TICK' }); continue; }
+    if (task.kind === 'receive') {
+      const pallet = s.inbound.find((entry) => entry.id === task.inboundId);
+      s = d({ type: 'PLACE_PALLET', zone: pallet.zone });
+      s = d({ type: 'TICK' });
+      continue;
+    }
+    if (task.kind === 'unload') {
+      const orphan = A.orphanPalletsFor(s).find((entry) => entry.vehicleId === task.vehicleId);
+      s = d({ type: 'UNLOAD_PALLET', vehicleId: orphan.vehicleId, palletIndex: orphan.palletIndex });
+      continue;
+    }
+    const order = s.orders.find((entry) => entry.id === task.orderIds[0]);
+    const item = E.itemBySku(order.sku);
+    s = d({ type: 'ADD_ITEM', sku: order.sku, zone: order.zone, weightPerUnit: item.weightPerUnit, quantity: 1 });
+    for (let k = 0; k < 4 && !urgent(); k++) s = d({ type: 'TICK' });
+    if (urgent()) {
+      // Игрок стоит у полки с открытой сборкой: именно там ТСД предлагает срочное.
+      game.click({ action: 'OPEN_BUILDER' });
+      return true;
+    }
+    for (let g = 0; g < 4 && A.currentTaskFor(s)?.id === task.id; g++) {
+      for (const id of A.currentTaskFor(s).orderIds) {
+        const o = s.orders.find((entry) => entry.id === id);
+        const it = E.itemBySku(o.sku);
+        const q = Math.min(A.remainingFor(s, o), Math.floor((s.pallet.capacity - s.pallet.weight) / it.weightPerUnit));
+        if (q > 0) s = d({ type: 'ADD_ITEM', sku: o.sku, zone: o.zone, weightPerUnit: it.weightPerUnit, quantity: q });
+      }
+      s = d({ type: 'LOAD_PALLET' });
+    }
+  }
+  return false;
+}
+
+test('urgent unload taken from the open builder ends at shipping, and its gate opens the vehicles', () => {
+  const game = loadGame(6);
+  assert.ok(reachUrgent(game, 'unload'));
+  assert.equal(game.elements.get('builderModal').attributes['aria-hidden'], 'false');
+  game.click({ action: 'TAKE_URGENT' });
+  assert.equal(game.where(), 'shipping');
+  assert.equal(game.elements.get('builderModal').attributes['aria-hidden'], 'true');
+  const state = game.window.dispatch({ type: 'TICK' });
+  assert.equal(state.builderOpen, false);
+  const zone = game.window.RyabinovayaAppState.currentTaskFor(state).vehicleId;
+  const vehicle = state.vehicles.find((entry) => entry.id === zone);
+  game.gate(vehicle.zone);
+  assert.equal(game.elements.get('vehicleModal').attributes['aria-hidden'], 'false');
+});
+
+test('urgent pick taken from the open builder ends in the aisle with the builder closed', () => {
+  const game = loadGame(5);
+  assert.ok(reachUrgent(game, 'pick'));
+  game.click({ action: 'TAKE_URGENT' });
+  assert.equal(game.where(), 'hub');
+  assert.equal(game.elements.get('builderModal').attributes['aria-hidden'], 'true');
+  assert.equal(game.window.dispatch({ type: 'TICK' }).builderOpen, false);
+});
+
+test('urgent receive taken from the open builder passes the truck, and the clock does not cut the frame', () => {
+  const game = loadGame(9);
+  assert.ok(reachUrgent(game, 'receive'));
+  game.click({ action: 'TAKE_URGENT' });
+  assert.equal(game.where(), 'hub');
+  assert.equal(game.elements.get('builderModal').attributes['aria-hidden'], 'true');
+  assert.equal(game.elements.get('sceneBackdrop').dataset.frame, 'receiving');
+  // Часы тикают раз в секунду и не должны гасить кадр фуры раньше таймера.
+  game.window.dispatch({ type: 'TICK' });
+  assert.equal(game.elements.get('sceneBackdrop').dataset.frame, 'receiving');
+  game.timers.filter((timer) => timer.delay === 900).at(-1).callback();
+  assert.equal(game.elements.get('sceneBackdrop').dataset.frame, 'hub');
+});
+
+test('shipping is reachable from the aisle with an empty pallet and has a way back', () => {
+  const game = loadGame(3);
+  game.start();
+  game.click({ action: 'CLOSE_TSD' });
+  assert.equal(game.where(), 'hub');
+  game.window.dispatch({ type: 'GO_SHIPPING' });
+  assert.equal(game.where(), 'shipping');
+  game.window.dispatch({ type: 'GO_HUB' });
+  assert.equal(game.where(), 'hub');
 });

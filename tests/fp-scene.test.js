@@ -32,7 +32,11 @@ test('each tap target is visible only in the frame it belongs to', () => {
   assert.match(css, hidden('hub', '.scene-zone-sign'));
   assert.match(css, hidden('receiving', '.scene-dock'));
   assert.match(css, hidden('shelf', '.scene-pallet'));
-  assert.match(css, hidden('shelf', '.fp-nav'));
+  // Переезды видны на проезде, у полки и у отгрузки; на приёмке и вне смены их нет.
+  assert.match(css, /\.warehouse-scene:not\(\[data-location="hub"\]\):not\(\[data-location="shelf"\]\):not\(\[data-location="shipping"\]\) \.fp-nav[,\s{]/);
+  // На проезде нет «На проезд», у отгрузки нет «К отгрузке».
+  assert.match(css, /\[data-location="hub"\] #fpToHub/);
+  assert.match(css, /\[data-location="shipping"\] #fpToShipping/);
   assert.match(css, hidden('shipping', '.scene-gate'));
   assert.match(css, hidden('shipping', '.truck-bay'));
 });

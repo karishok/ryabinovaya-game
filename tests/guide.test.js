@@ -114,7 +114,7 @@ test('briefing and guide are TSD screens rather than competing modal backdrops',
 
 test('static page requests fresh guide assets so an open game picks up the update', () => {
   const html = fs.readFileSync('index.html', 'utf8');
-  for (const asset of ['styles.css?v=guide', 'app-state.js?v=guide', 'app.js?v=guide-2']) {
+  for (const asset of ['styles.css?v=fp1', 'app-state.js?v=fp1', 'app.js?v=fp1']) {
     assert.ok(html.includes(asset), `browser should reload ${asset}`);
   }
 });

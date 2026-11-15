@@ -494,7 +494,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .order-line[data-status="lost"] { opacity: 1; }
 .order-line[data-status="lost"] .order-detail { color: #ffb4a8; }
 /* Время до ухода ближайшего фургона — на воротах отгрузки. */
-.truck-timer { position: absolute; z-index: 4; top: 110px; right: 12px; padding: 3px 8px; border: 1px solid rgba(240, 170, 56, 0.6); border-radius: 999px; background: rgba(10, 20, 15, 0.92); color: #ffe0a0; font-size: 11px; font-weight: 850; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.truck-timer { position: absolute; z-index: 4; top: 116px; right: 12px; padding: 3px 8px; border: 1px solid rgba(240, 170, 56, 0.6); border-radius: 999px; background: rgba(10, 20, 15, 0.92); color: #ffe0a0; font-size: 11px; font-weight: 850; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
 .truck-timer[data-soon="true"] { border-color: var(--danger); background: #3c2320; color: #ffd9d2; }
 .order-line.is-alert .order-detail { color: #ffd98a; }
 
@@ -868,7 +868,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .warehouse-scene:not([data-location="hub"]) .scene-zone-sign,
 .warehouse-scene:not([data-location="receiving"]) .scene-dock,
 .warehouse-scene:not([data-location="shelf"]) .scene-pallet,
-.warehouse-scene:not([data-location="shelf"]) .fp-nav,
+.warehouse-scene:not([data-location="hub"]):not([data-location="shelf"]):not([data-location="shipping"]) .fp-nav,
 .warehouse-scene:not([data-location="shipping"]) .scene-gate,
 .warehouse-scene:not([data-location="shipping"]) .truck-bay { display: none; }
 
@@ -882,7 +882,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 @keyframes fp-enter-b { from { opacity: 0; transform: scale(1.08); } }
 
 /* Нажать можно на весь проём зоны, а не только на вывеску над ним. */
-[data-location="hub"] .scene-zone-sign::before { position: absolute; top: -70px; right: -30px; bottom: -110px; left: -30px; content: ""; }
+[data-location="hub"] .scene-zone-sign::before { position: absolute; top: -70px; right: -20px; bottom: -110px; left: -20px; content: ""; }
 
 /* Ворота отгрузки выглядят как вывески зон: та же температура, тот же цвет. */
 .scene-gate {
@@ -919,6 +919,13 @@ button:disabled { cursor: default; opacity: 0.42; }
 
 /* Переезды от полки: на полу между стеллажом и паллетой. */
 .fp-nav { position: absolute; z-index: 3; top: 66%; right: 12px; left: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+/* На проезде и у отгрузки переезды лежат ниже вывесок, ворот и «Машин» — на полу
+   над ручкой тележки; у полки они на прежнем месте. На проезде «На проезд»
+   не нужен, у отгрузки не нужен «К отгрузке». */
+.warehouse-scene[data-location="hub"] .fp-nav,
+.warehouse-scene[data-location="shipping"] .fp-nav { top: 84%; }
+.warehouse-scene[data-location="hub"] #fpToHub,
+.warehouse-scene[data-location="shipping"] #fpToShipping { display: none; }
 .fp-nav-button { min-height: 44px; padding: 0 14px; border: 1px solid rgba(244, 234, 216, 0.3); border-radius: 999px; background: rgba(13, 24, 19, 0.88); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4); color: var(--cream); font-size: 13px; font-weight: 800; cursor: pointer; pointer-events: auto; }
 .fp-nav-button--go { margin-left: auto; border-color: var(--amber); background: var(--amber); color: #1a1407; }
 

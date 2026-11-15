@@ -57,6 +57,14 @@
     if (action.type === 'GO_HUB') return at('hub');
     if (action.type === 'GO_SHELF') return at(shelf(action.zone));
     if (action.type === 'GO_SHIPPING') return at('shipping');
+    /* Принятое задание важнее открытой сборки: app.js её закрывает, а игра
+       везёт туда, где выбирать нечего (на сборку — на проезд, на снятие
+       паллеты — к отгрузке). */
+    if ((action.type === 'ACCEPT_TASK' || action.type === 'TAKE_URGENT') && !guidedFor(after)) {
+      const task = currentTaskFor(after);
+      if (task?.kind === 'pick') return at('hub');
+      if (task?.kind === 'unload') return at('shipping');
+    }
     // Открытая сборка — это и есть «стою у полки зоны паллеты».
     if (after.builderOpen) return at(shelf(after.pallet.zone));
     if (after.vehicleDrawerOpen && !before.vehicleDrawerOpen) return at('shipping');
@@ -64,11 +72,6 @@
       // Заявка тяжелее паллеты: задание ещё в работе, игра везёт за остатком.
       const stillPicking = !guidedFor(after) && currentTaskFor(after)?.kind === 'pick';
       return at(stillPicking ? shelf(after.pallet.zone) : 'shipping');
-    }
-    if ((action.type === 'ACCEPT_TASK' || action.type === 'TAKE_URGENT') && !guidedFor(after)) {
-      const task = currentTaskFor(after);
-      if (task?.kind === 'pick') return at('hub');
-      if (task?.kind === 'unload') return at('shipping');
     }
     if (action.type === 'START_LEVEL' || action.type === 'CONTINUE_STORY') return at('hub');
     // У ворот приёмки делать больше нечего.

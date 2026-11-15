@@ -64,7 +64,7 @@ test('the flow screen carries its own styles and a zone mark per temperature', (
 
 test('every module the flow screen needs is loaded, in dependency order', () => {
   const order = ['game-engine.js', 'levels.js', 'flow-engine.js', 'flow-view.js', 'flow-app.js']
-    .map((file) => html.indexOf(`src="${file}"`));
+    .map((file) => html.indexOf(`src="${file}`));
   assert.ok(order.every((at) => at > -1), 'все модули режима должны быть подключены');
   assert.deepEqual(order, [...order].sort((a, b) => a - b), 'модуль должен грузиться после своих зависимостей');
 });
