@@ -870,6 +870,7 @@ button:disabled { cursor: default; opacity: 0.42; }
 .warehouse-scene:not([data-location="shelf"]) .scene-pallet,
 .warehouse-scene:not([data-location="hub"]):not([data-location="shelf"]):not([data-location="shipping"]) .fp-nav,
 .warehouse-scene:not([data-location="shipping"]) .scene-gate,
+.warehouse-scene:not([data-location="shipping"]) .truck-load,
 .warehouse-scene:not([data-location="shipping"]) .truck-bay { display: none; }
 
 /* Прежний кадр лежит под новым, пока тот проявляется. */
@@ -884,11 +885,30 @@ button:disabled { cursor: default; opacity: 0.42; }
 /* Нажать можно на весь проём зоны, а не только на вывеску над ним. */
 [data-location="hub"] .scene-zone-sign::before { position: absolute; top: -70px; right: -20px; bottom: -110px; left: -20px; content: ""; }
 
-/* Ворота отгрузки выглядят как вывески зон: та же температура, тот же цвет. */
+/* Погруженные паллеты в кузовах. Картинка вырезана из кадра приёмки, чтобы
+   свет и манера совпадали. Координаты — точки пола в глубине кузова и ближе
+   к воротам, пересчитанные под видимую полосу кадра. */
+.truck-load { position: absolute; z-index: 1; inset: 0; pointer-events: none; }
+.truck-pallet { position: absolute; display: block; }
+.truck-load[data-pallets="0"] .truck-pallet,
+.truck-load[data-pallets="1"] .truck-pallet:nth-child(n+2),
+.truck-load[data-pallets="2"] .truck-pallet:nth-child(3) { display: none; }
+.truck-load--dry .truck-pallet:nth-child(1) { left: 20.3%; top: 25%; width: 5.5%; height: 7.6%; }
+.truck-load--dry .truck-pallet:nth-child(2) { left: 12.4%; top: 24.8%; width: 7.4%; height: 10.3%; }
+.truck-load--dry .truck-pallet:nth-child(3) { left: 20.2%; top: 24.8%; width: 7.4%; height: 10.3%; }
+.truck-load--chilled .truck-pallet:nth-child(1) { left: 47.8%; top: 25%; width: 5.5%; height: 7.6%; }
+.truck-load--chilled .truck-pallet:nth-child(2) { left: 42.7%; top: 24.8%; width: 7.4%; height: 10.3%; }
+.truck-load--chilled .truck-pallet:nth-child(3) { left: 50.5%; top: 24.8%; width: 7.4%; height: 10.3%; }
+.truck-load--frozen .truck-pallet:nth-child(1) { left: 75.7%; top: 25%; width: 5.5%; height: 7.6%; }
+.truck-load--frozen .truck-pallet:nth-child(2) { left: 73.4%; top: 24.8%; width: 7.4%; height: 10.3%; }
+.truck-load--frozen .truck-pallet:nth-child(3) { left: 81.2%; top: 24.8%; width: 7.4%; height: 10.3%; }
+
+/* Ворота отгрузки выглядят как вывески зон: та же температура, тот же цвет.
+   Вывеска стоит на заднем бампере, а не в проёме: в проёме видно груз. */
 .scene-gate {
   position: absolute;
   z-index: 3;
-  top: 34%;
+  top: 42%;
   display: grid;
   gap: 1px;
   min-width: 64px;

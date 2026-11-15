@@ -53,6 +53,13 @@
              показывает только кадр отгрузки. -->
         <span class="truck-timer" id="truckTimer" hidden></span>
 
+        <!-- Груз в кузовах на отгрузке: столько паллет, сколько погружено в
+             машины этой температуры, но не больше трёх — дальше кузов виден
+             плохо. Первая стоит в глубине, следующие ближе к воротам. -->
+        <div class="truck-load truck-load--dry" id="truckLoad-dry" data-pallets="0" aria-hidden="true"><img class="truck-pallet" src="assets/fp/pallet-load.webp" alt=""><img class="truck-pallet" src="assets/fp/pallet-load.webp" alt=""><img class="truck-pallet" src="assets/fp/pallet-load.webp" alt=""></div>
+        <div class="truck-load truck-load--chilled" id="truckLoad-chilled" data-pallets="0" aria-hidden="true"><img class="truck-pallet" src="assets/fp/pallet-load.webp" alt=""><img class="truck-pallet" src="assets/fp/pallet-load.webp" alt=""><img class="truck-pallet" src="assets/fp/pallet-load.webp" alt=""></div>
+        <div class="truck-load truck-load--frozen" id="truckLoad-frozen" data-pallets="0" aria-hidden="true"><img class="truck-pallet" src="assets/fp/pallet-load.webp" alt=""><img class="truck-pallet" src="assets/fp/pallet-load.webp" alt=""><img class="truck-pallet" src="assets/fp/pallet-load.webp" alt=""></div>
+
         <!-- Ворота отгрузки. Их выбирает игрок: у каждых своя температура. -->
         <button class="scene-gate scene-gate--dry" data-action="GATE" data-gate-zone="dry" type="button" aria-label="Ворота сухой машины, +18 градусов"><b>+18°</b><small>Сухач</small></button>
         <button class="scene-gate scene-gate--chilled" data-action="GATE" data-gate-zone="chilled" type="button" aria-label="Ворота охлаждённой машины, +4 градуса"><b>+4°</b><small>Охлаждёнка</small></button>

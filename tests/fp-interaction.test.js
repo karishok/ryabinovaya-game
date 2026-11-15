@@ -293,3 +293,47 @@ test('shipping is reachable from the aisle with an empty pallet and has a way ba
   game.window.dispatch({ type: 'GO_HUB' });
   assert.equal(game.where(), 'hub');
 });
+
+test('each shipping truck shows as many pallets as are loaded in it, up to three', () => {
+  // Третья смена: две сухие машины и охлаждёнка.
+  const game = loadGame(3);
+  game.start();
+  const load = (zone) => game.elements.get(`truckLoad-${zone}`).dataset.pallets;
+  assert.equal(load('dry'), '0');
+  assert.equal(load('chilled'), '0');
+
+  game.click({ action: 'ACCEPT_TASK' });
+  game.zone('chilled');
+  game.add('milk', 'chilled', 10, 2);
+  game.click({ action: 'LOAD_PALLET' });
+  // Привёз, но ещё не погрузил: кузов пуст.
+  assert.equal(load('chilled'), '0');
+  game.gate('chilled');
+  assert.equal(load('chilled'), '1');
+  assert.equal(load('dry'), '0');
+
+  // Заявка на 120 кг воды едет двумя паллетами в две сухие машины — у ворот одна фура,
+  // и в ней видны обе.
+  game.click({ action: 'ACCEPT_TASK' });
+  game.zone('dry');
+  game.add('water', 'dry', 12, 8);
+  game.click({ action: 'LOAD_PALLET' });
+  game.gate('dry');
+  game.add('water', 'dry', 12, 2);
+  game.click({ action: 'LOAD_PALLET' });
+  game.gate('dry');
+  assert.equal(load('dry'), '2');
+});
+
+test('a pallet taken off a truck disappears from it', () => {
+  const game = loadGame(3);
+  game.start();
+  game.click({ action: 'ACCEPT_TASK' });
+  game.zone('chilled');
+  game.add('milk', 'chilled', 10, 2);
+  game.click({ action: 'LOAD_PALLET' });
+  game.gate('chilled');
+  assert.equal(game.elements.get('truckLoad-chilled').dataset.pallets, '1');
+  game.click({ action: 'UNLOAD_PALLET', vehicleId: 'chilled-1', palletIndex: '0' });
+  assert.equal(game.elements.get('truckLoad-chilled').dataset.pallets, '0');
+});

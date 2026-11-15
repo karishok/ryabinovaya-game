@@ -71,3 +71,17 @@ test('nothing in the frame scene hints at the placement zone', () => {
   assert.doesNotMatch(css, /\.scene-zone-sign\.is-right/);
   assert.doesNotMatch(fs.readFileSync('app.js', 'utf8'), /pending\.zone|inbound\.zone/);
 });
+
+test('loaded pallets are drawn only in the shipping frame, with up to three per truck', () => {
+  assert.match(css, /\.warehouse-scene:not\(\[data-location="shipping"\]\) \.truck-load[,\s{]/);
+  for (const zone of ['dry', 'chilled', 'frozen']) {
+    const box = html.match(new RegExp(`<div class="truck-load truck-load--${zone}" id="truckLoad-${zone}"[^>]*>([\\s\\S]*?)</div>`));
+    assert.ok(box, `truck-load for ${zone} must exist`);
+    assert.equal((box[1].match(/class="truck-pallet"/g) || []).length, 3);
+  }
+  assert.ok(fs.statSync('assets/fp/pallet-load.webp').size < 60_000);
+  // Сколько паллет видно, решает data-pallets, а не отдельные классы.
+  assert.match(css, /\.truck-load\[data-pallets="0"\] \.truck-pallet/);
+  assert.match(css, /\.truck-load\[data-pallets="1"\] \.truck-pallet:nth-child\(n\+2\)/);
+  assert.match(css, /\.truck-load\[data-pallets="2"\] \.truck-pallet:nth-child\(3\)/);
+});

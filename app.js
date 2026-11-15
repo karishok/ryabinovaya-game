@@ -414,6 +414,17 @@ function render(nextState, document) {
     gate.disabled = !served;
     gate.classList.toggle('is-focus', sceneView.guided && palletReady && gate.dataset.gateZone === nextState.pallet.zone);
   });
+  /* В кузове видно, что уже погружено: игрок должен видеть, что паллета
+     уехала в машину, а не пропала. Машины одной температуры стоят у одних
+     ворот, поэтому паллеты складываются; ушедшая в рейс машина не в счёт. */
+  ['dry', 'chilled', 'frozen'].forEach((zone) => {
+    const load = byId(document, `truckLoad-${zone}`);
+    if (!load) return;
+    const pallets = nextState.vehicles
+      .filter((vehicle) => vehicle.zone === zone && !vehicle.departed)
+      .reduce((total, vehicle) => total + (vehicle.pallets || []).length, 0);
+    load.dataset.pallets = String(Math.min(3, pallets));
+  });
   const toShipping = byId(document, 'fpToShipping');
   /* К отгрузке можно и с пустой паллетой: взглянуть на машины и маршрут или
      снять паллету с фуры. Нельзя только пока принятая паллета ждёт зоны. */
