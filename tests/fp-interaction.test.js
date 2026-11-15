@@ -157,7 +157,7 @@ test('queue shift: zone signs do nothing until a pick task is accepted', () => {
   assert.match(game.toast(), /Сначала примите задание/);
 });
 
-test('queue shift: an order heavier than a pallet returns to the shelf with the builder open', () => {
+test('queue shift: an order heavier than a pallet sends the worker back to the aisle, not straight into the builder', () => {
   const game = loadGame(3);
   game.start();
   game.click({ action: 'ACCEPT_TASK' });
@@ -172,6 +172,11 @@ test('queue shift: an order heavier than a pallet returns to the shelf with the 
   game.add('water', 'dry', 12, 8);
   game.click({ action: 'LOAD_PALLET' });
   game.gate('dry');
+  /* Каждая паллета начинается с проезда: игрок сам едет к полке. Раньше игра
+     переносила прямо в сборку, и было непонятно, как он там оказался. */
+  assert.equal(game.where(), 'hub');
+  assert.equal(game.elements.get('builderModal').attributes['aria-hidden'], 'true');
+  game.zone('dry');
   assert.equal(game.where(), 'shelf:dry');
   assert.equal(game.elements.get('builderModal').attributes['aria-hidden'], 'false');
 });
@@ -336,4 +341,35 @@ test('a pallet taken off a truck disappears from it', () => {
   assert.equal(game.elements.get('truckLoad-chilled').dataset.pallets, '1');
   game.click({ action: 'UNLOAD_PALLET', vehicleId: 'chilled-1', palletIndex: '0' });
   assert.equal(game.elements.get('truckLoad-chilled').dataset.pallets, '0');
+});
+
+test('guided shift: the card names the shelf it drives to instead of jumping into the builder', () => {
+  const game = loadGame(2);
+  game.start();
+  // Приёмка: три фуры, каждая паллета — в свою зону.
+  for (const zone of ['dry', 'chilled', 'frozen']) {
+    game.click({ action: 'RECEIVE_PALLET' });
+    game.zone(zone);
+    game.window.dispatch({ type: 'DISMISS_FEEDBACK' });
+  }
+  // Кладовщик стоит у полки последней зоны, а заявка — в другой: карточка
+  // говорит, к какой полке ехать, а не «Собрать паллету».
+  const button = game.elements.get('nowAction');
+  assert.equal(button.dataset.action, 'GO_SHELF');
+  assert.match(button.textContent, /Ехать к полке: /);
+  const zone = button.dataset.zone;
+  assert.equal(button.dataset.sceneZone, undefined);
+  game.click({ action: 'GO_SHELF', zone });
+  assert.equal(game.where(), `shelf:${zone}`);
+  assert.equal(game.elements.get('builderModal').attributes['aria-hidden'], 'false');
+});
+
+test('guided shift: at the right shelf the card simply opens the builder', () => {
+  const game = loadGame(1);
+  game.start();
+  game.click({ action: 'GO_SHELF', zone: 'dry' });
+  game.click({ action: 'CLOSE_BUILDER' });
+  const button = game.elements.get('nowAction');
+  assert.equal(button.dataset.action, 'OPEN_BUILDER');
+  assert.doesNotMatch(button.textContent, /Ехать/);
 });

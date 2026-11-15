@@ -105,7 +105,7 @@ test('queue picking: the aisle, a wrong shelf, back, the right shelf, shipping',
   assert.equal(appState.currentTaskFor(state), null);
 });
 
-test('an order heavier than a pallet brings the worker back to the shelf after loading', () => {
+test('an order heavier than a pallet brings the worker back to the aisle after loading', () => {
   let state = shiftOf(3);
   state = walk(state, 'hub', [{ type: 'ACCEPT_TASK' }, add('milk', 2), { type: 'LOAD_PALLET', gateZone: 'chilled' }]).state;
   const { trail, state: after } = walk(state, 'shipping', [
@@ -115,9 +115,10 @@ test('an order heavier than a pallet brings the worker back to the shelf after l
     goShipping,
     { type: 'LOAD_PALLET', gateZone: 'dry' },
   ]);
-  // 120 кг воды при паллете на 100: задание ещё в работе, игра везёт обратно.
+  // 120 кг воды при паллете на 100: задание ещё в работе, но следующая
+  // паллета, как и любая, начинается с проезда.
   assert.equal(appState.currentTaskFor(after).id, 'pick:order-north');
-  assert.deepEqual(trail, ['hub', 'shelf:dry', 'shelf:dry', 'shipping', 'shelf:dry']);
+  assert.deepEqual(trail, ['hub', 'shelf:dry', 'shelf:dry', 'shipping', 'hub']);
 });
 
 test('taking a pallet off a truck starts at shipping', () => {

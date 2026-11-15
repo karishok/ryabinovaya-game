@@ -69,9 +69,11 @@
     if (after.builderOpen) return at(shelf(after.pallet.zone));
     if (after.vehicleDrawerOpen && !before.vehicleDrawerOpen) return at('shipping');
     if (action.type === 'LOAD_PALLET' && after.feedback?.code === 'pallet-loaded') {
-      // Заявка тяжелее паллеты: задание ещё в работе, игра везёт за остатком.
+      /* Заявка тяжелее паллеты: задание ещё в работе, и за остатком кладовщик
+         едет на проезд, а не сразу в сборку. Каждая паллета начинается с
+         проезда — иначе непонятно, как он вдруг оказался у полки. */
       const stillPicking = !guidedFor(after) && currentTaskFor(after)?.kind === 'pick';
-      return at(stillPicking ? shelf(after.pallet.zone) : 'shipping');
+      return at(stillPicking ? 'hub' : 'shipping');
     }
     if (action.type === 'START_LEVEL' || action.type === 'CONTINUE_STORY') return at('hub');
     // У ворот приёмки делать больше нечего.

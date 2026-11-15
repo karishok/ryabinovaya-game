@@ -203,6 +203,10 @@ function renderNowCard(step, document) {
   if (step.zone) {
     button.dataset.zone = step.zone;
     button.dataset.sceneZone = step.zone;
+  } else if (step.shelfZone) {
+    // Зона полки, а не вывеска: data-scene-zone превратил бы кнопку в вывеску.
+    button.dataset.zone = step.shelfZone;
+    delete button.dataset.sceneZone;
   } else {
     delete button.dataset.zone;
     delete button.dataset.sceneZone;
@@ -436,6 +440,18 @@ function render(nextState, document) {
   // На первой смене кнопка «с начала» не нужна — игрок и так там.
   const restart = byId(document, 'restartFromFirst');
   if (restart) restart.hidden = nextState.levelId === 1;
+  /* Во вводных сменах кнопка карточки везёт к полке за игрока. Раньше она
+     называлась «Собрать паллету» и переносила прямо в сборку — от фур игрок
+     вдруг оказывался у полки и не понимал, как её выбрал. Теперь, пока он
+     не у нужной полки, кнопка говорит, куда едет. */
+  const step = sceneView.nextStep;
+  if (step?.action === 'OPEN_BUILDER') {
+    const order = nextState.orders.find((entry) => entry.id === step.orderId);
+    const shelfZone = order?.zone || nextState.pallet.zone;
+    if (workerLocation !== `shelf:${shelfZone}`) {
+      sceneView.nextStep = { ...step, action: 'GO_SHELF', shelfZone, actionLabel: `Ехать к полке: ${zones[shelfZone] || shelfZone}` };
+    }
+  }
   renderNowCard(sceneView.nextStep, document);
   renderOrderBoard(sceneView.orderBoard, document);
 
@@ -719,12 +735,10 @@ function dispatch(action) {
       const compatibleVehicle = state.vehicles.find((vehicle) => vehicle.zone === state.pallet.zone && vehicle.ready);
       if (compatibleVehicle) state = { ...state, selectedVehicleId: compatibleVehicle.id };
     }
-    /* Заявка тяжелее паллеты собирается в несколько заходов: пока задание в
-       работе, сборка остаётся открытой для следующей паллеты. */
-    const stillPicking = queueShift && currentTaskFor(state)?.kind === 'pick';
-    if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success' && !stillPicking) state = { ...state, builderOpen: false };
-    // Сборку закрыл переезд к воротам; за остатком заявки она открывается снова.
-    if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success' && stillPicking) state = { ...state, builderOpen: true, tsd: { ...state.tsd, open: true, screen: 'builder' } };
+    /* После погрузки сборка закрыта всегда. Даже если заявка тяжелее паллеты,
+       за остатком игрок сам едет с проезда к полке: раньше сборка тут же
+       открывалась снова, и игрок не понимал, как оказался у полки. */
+    if (action.type === 'LOAD_PALLET' && state.feedback?.kind === 'success') state = { ...state, builderOpen: false, tsd: { ...state.tsd, open: false, screen: 'current' } };
     /* Принятое задание экрана не открывает: игра везёт кладовщика на проезд
        или к воротам, а что нажать дальше, видно в кадре. */
     // Крестик на предложенном задании — «не сейчас»: терминал не всплывает снова, пока задание то же.
@@ -796,6 +810,7 @@ document.addEventListener('click', (event) => {
     return dispatch({ type: action, zone: button.dataset.zone });
   }
   if (action === 'GATE') return dispatch({ type: action, zone: button.dataset.gateZone });
+  if (action === 'GO_SHELF') return dispatch({ type: action, zone: button.dataset.zone });
   // Кнопка в сборке и в карточке «Сейчас» везёт к воротам; грузят сами ворота.
   if (action === 'LOAD_PALLET') return dispatch({ type: 'GO_SHIPPING' });
   if (action === 'SET_ROUTE') return dispatch({ type: action, vehicleId: state.selectedVehicleId, stops: state.routeStops });
